@@ -6,7 +6,7 @@
 ---
 
 ## 1. Objective
-Build the modular Field Configuration Registry for $m \in \{163, 233, 239, 283, 409, 571\}$ (plus small verification fields $2 \le m \le 8$), the lossless **Binary / Hexadecimal / Algebraic** converters, and the **Addition, Subtraction, and Modulo Reduction** engine with step-by-step educational traces.
+Build the modular Field Configuration Registry for $m \in \{163, 233, 239, 283, 409, 571\}$ (plus small verification fields 2 ≤ m ≤ 8), the lossless **Binary / Hexadecimal / Algebraic** converters, and the **Addition, Subtraction, and Modulo Reduction** engine with step-by-step educational traces.
 
 ---
 
@@ -33,9 +33,9 @@ To make the platform modular and extensible across all required degrees, define 
 
 * **Bitmask Construction Rule:** From any tap list $T$, construct the integer representation of $m(x)$ via:
 
-  $$
+  ```math
   m_{\text{int}} = \sum_{k \in T} 2^k
-  $$
+  ```
 
 ---
 
@@ -57,11 +57,11 @@ To make the platform modular and extensible across all required degrees, define 
 ## 4. Addition, Subtraction & Modulo Reduction Algorithms
 
 ### 4.1 Addition and Subtraction in $GF(2^m)$
-* **Mathematical Rule:** In $\mathbb{Z}_2$, coefficient addition and subtraction are both bitwise $\text{XOR}$ ($\oplus$):
+* **Mathematical Rule:** In $\mathbb{Z}_2$, coefficient addition and subtraction are both bitwise XOR ($\oplus$):
 
-  $$
+  ```math
   f(x) + g(x) = f(x) - g(x) = f(x) \oplus g(x)
-  $$
+  ```
 * **Algorithmic Pseudocode (with Educational Trace):**
   ```text
   Algorithm: GF2M_ADD_SUB(f_int, g_int, m_poly_int, m_degree)
@@ -76,7 +76,7 @@ To make the platform modular and extensible across all required degrees, define 
   ```
 
 ### 4.2 Standalone Modulo Reduction: $f(x) \bmod m(x)$
-* **Mathematical Rule:** Whenever $\deg(r) = d \ge m$, eliminate the $x^d$ term by $\text{XOR}$ing $r(x)$ with $x^{d-m} \cdot m(x)$.
+* **Mathematical Rule:** Whenever $\deg(r) = d \ge m$, eliminate the $x^d$ term by XORing $r(x)$ with $x^{d-m} \cdot m(x)$.
 * **Algorithmic Pseudocode (with Educational Trace):**
   ```text
   Algorithm: MOD_REDUCE(f_int, m_poly_int, m_degree)
@@ -98,6 +98,6 @@ To make the platform modular and extensible across all required degrees, define 
 ---
 
 ## 5. Deliverables & Verification Criteria
-* [ ] Field Registry module returning `m_poly_int` and formatted metadata for $m \in \{163, 233, 239, 283, 409, 571\}$ and $2 \le m \le 8$.
+* [ ] Field Registry module returning `m_poly_int` and formatted metadata for $m \in \{163, 233, 239, 283, 409, 571\}$ and 2 ≤ m ≤ 8.
 * [ ] Lossless Binary, Hexadecimal, and Algebraic string converters verified on $8$-bit and $163$-bit polynomials.
 * [ ] `GF2M_ADD_SUB` and `MOD_REDUCE` verified against Chapter 4 examples (e.g., `01010111` $\oplus$ `10000011` $=$ `11010100`).

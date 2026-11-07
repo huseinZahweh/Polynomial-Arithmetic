@@ -27,8 +27,10 @@ In accordance with the **Project-3** specification:
    * **Multiplicative Inverse:** $b(x)^{-1} \bmod m(x)$
    * **Division:** $a(x) / b(x) \bmod m(x)$
 3. **Modular Extensibility:** Easily switch between standard cryptographic powers:
-   $$m \in \{163, 233, 239, 283, 409, 571\}$$
-   *(Also supports small textbook degrees $2 \le m \le 8$ from Project-2 for classroom verification).*
+   ```math
+   m \in \{163, 233, 239, 283, 409, 571\}
+   ```
+   *(Also supports small textbook degrees 2 ≤ m ≤ 8 from Project-2 for classroom verification).*
 4. **Dual Data Representation:** Accept user inputs and display outputs in either **Binary** or **Hexadecimal**, alongside human-readable algebraic polynomial notation ($x^{162} + \dots + x + 1$).
 5. **Educational Visualization:** Present step-by-step intermediate traces—including Shift-and-XOR multiplication breakdowns and Extended Euclidean Algorithm iteration tables—rather than acting as a black-box calculator.
 
@@ -40,13 +42,13 @@ All arithmetic strictly follows **Chapter 4 (Finite Fields)** and **Chapter 5 (A
 
 * **Polynomial Basis Representation:** Every element in $GF(2^m)$ is a polynomial of degree at most $m - 1$ with coefficients in $\mathbb{Z}_2 = \{0, 1\}$:
 
-  $$
+  ```math
   f(x) = b_{m-1}x^{m-1} + b_{m-2}x^{m-2} + \dots + b_1x + b_0
-  $$
+  ```
 
   Each polynomial is compactly represented as an $m$-bit string $(b_{m-1}b_{m-2}\dots b_1b_0)_2$.
-* **Addition & Subtraction (Bitwise XOR):** Coefficient arithmetic is performed modulo $2$, where $1 + 1 \equiv 1 - 1 \equiv 0 \pmod 2$. Addition and subtraction are identical bitwise $\text{XOR}$ ($\oplus$) operations.
-* **Modulo Reduction & Multiplication (Shift-and-XOR):** Using an irreducible polynomial $m(x)$ of degree $m$, any overflow term $x^m$ is reduced via the equivalence $x^m \equiv m(x) - x^m \pmod{m(x)}$. Multiplication $f(x) \times g(x) \bmod m(x)$ is computed by iteratively shifting $f(x)$ left by $1$ bit, conditionally $\text{XOR}$ing with the lower terms of $m(x)$ whenever the most significant bit $b_{m-1} = 1$, and $\text{XOR}$ing the partial products corresponding to the set bits of $g(x)$.
+* **Addition & Subtraction (Bitwise XOR):** Coefficient arithmetic is performed modulo $2$, where $1 + 1 \equiv 1 - 1 \equiv 0 \pmod 2$. Addition and subtraction are identical bitwise XOR ($\oplus$) operations.
+* **Modulo Reduction & Multiplication (Shift-and-XOR):** Using an irreducible polynomial $m(x)$ of degree $m$, any overflow term $x^m$ is reduced via the equivalence $x^m \equiv m(x) - x^m \pmod{m(x)}$. Multiplication $f(x) \times g(x) \bmod m(x)$ is computed by iteratively shifting $f(x)$ left by $1$ bit, conditionally XORing with the lower terms of $m(x)$ whenever the most significant bit $b_{m-1} = 1$, and XORing the partial products corresponding to the set bits of $g(x)$.
 * **Multiplicative Inverse & Division (Extended Euclidean Algorithm):** For any non-zero $b(x) \in GF(2^m)$, its inverse $b(x)^{-1} \bmod m(x)$ is computed via `EXTENDED EUCLID(m(x), b(x))` by tracking polynomial tuples $(A_1, A_2, A_3)$ and $(B_1, B_2, B_3)$ until $B_3(x) = 1$. Division is then computed as $a(x) / b(x) = a(x) \times b(x)^{-1} \bmod m(x)$.
 
 ---

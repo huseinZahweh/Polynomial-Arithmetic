@@ -15,17 +15,17 @@ Implement modular polynomial multiplication $f(x) \times g(x) \bmod m(x)$ using 
 ### 2.1 Mathematical Rule (Chapter 4 Alignment)
 * Multiplying a reduced polynomial $a(x) \in GF(2^m)$ by $x$ modulo $m(x)$ is performed by inspecting its most significant bit $b_{m-1}$ (the coefficient of $x^{m-1}$):
   * Shift $a(x)$ left by $1$ bit and mask to the lower $m$ bits.
-  * If $b_{m-1} = 1$, the shift produced an overflow term $x^m$, which is reduced modulo $m(x)$ by $\text{XOR}$ing with the lower $m$ bits of $m(x)$:
+  * If $b_{m-1} = 1$, the shift produced an overflow term $x^m$, which is reduced modulo $m(x)$ by XORing with the lower $m$ bits of $m(x)$:
 
-    $$
+    ```math
     x \cdot a(x) \bmod m(x) = \begin{cases} (a(x) \ll 1) & \text{if } b_{m-1} = 0 \\ ((a(x) \ll 1) \text{ AND } (2^m - 1)) \oplus (m(x) - x^m) & \text{if } b_{m-1} = 1 \end{cases}
-    $$
+    ```
 
-* The full product $f(x) \times g(x) \bmod m(x)$ is the $\text{XOR}$ sum of $x^i \cdot f(x) \bmod m(x)$ for every bit position $i$ where bit $i$ of $g(x)$ is $1$:
+* The full product $f(x) \times g(x) \bmod m(x)$ is the XOR sum of $x^i \cdot f(x) \bmod m(x)$ for every bit position $i$ where bit $i$ of $g(x)$ is $1$:
 
-  $$
+  ```math
   f(x) \times g(x) \bmod m(x) = \bigoplus_{i=0}^{m-1} g_i \cdot \left(x^i \cdot f(x) \bmod m(x)\right)
-  $$
+  ```
 
 ### 2.2 Algorithmic Pseudocode (with Educational Trace)
 ```text
@@ -65,7 +65,7 @@ This module also encompasses the web API controller layer that routes GUI reques
 
 ### 3.1 Endpoints
 1. `GET /api/fields`
-   * Returns the list of all supported degrees $m \in \{163, 233, 239, 283, 409, 571\}$ (and $2 \le m \le 8$) along with their irreducible polynomials in Algebraic, Hexadecimal, and Binary formats.
+   * Returns the list of all supported degrees $m \in \{163, 233, 239, 283, 409, 571\}$ (and 2 ≤ m ≤ 8) along with their irreducible polynomials in Algebraic, Hexadecimal, and Binary formats.
 2. `POST /api/calculate`
    * Accepts `{ "m", "operation", "input_base", "poly_a", "poly_b" }`.
    * Validates inputs, dispatches to the requested operation (`add`, `sub`, `mod`, `mul`, `inv`, `div`), formats all outputs and trace steps in Binary, Hexadecimal, and Algebraic notation, and returns the standardized JSON response.

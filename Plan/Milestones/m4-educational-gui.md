@@ -6,7 +6,7 @@
 ---
 
 ## 1. Objective
-Design and build a user-friendly, responsive Graphical User Interface (GUI) tailored for classroom instruction in **EECE 455/632**, enabling users to select standard field degrees ($m = 163, 233, 239, 283, 409, 571$ and $2 \le m \le 8$), input and view polynomials in **Binary** or **Hexadecimal**, and inspect interactive step-by-step mathematical breakdowns.
+Design and build a user-friendly, responsive Graphical User Interface (GUI) tailored for classroom instruction in **EECE 455/632**, enabling users to select standard field degrees ($m = 163, 233, 239, 283, 409, 571$ and 2 ≤ m ≤ 8), input and view polynomials in **Binary** or **Hexadecimal**, and inspect interactive step-by-step mathematical breakdowns.
 
 ---
 
@@ -47,11 +47,11 @@ The interface is structured into four intuitive sections:
 
 ### 2.4 Bottom Panel: Interactive "Step-by-Step Educational Breakdown"
 Renders the `educational_trace` array returned by the backend depending on the active operation:
-* **Addition / Subtraction View:** Displays bit-aligned bitwise $\text{XOR}$ rows showing how matching powers of $x$ cancel modulo $2$.
-* **Modulo Reduction View:** Displays each iterative shift $x^{d-m} \cdot m(x)$ and $\text{XOR}$ reduction until $\deg(r) < m$.
+* **Addition / Subtraction View:** Displays bit-aligned bitwise XOR rows showing how matching powers of $x$ cancel modulo $2$.
+* **Modulo Reduction View:** Displays each iterative shift $x^{d-m} \cdot m(x)$ and XOR reduction until $\deg(r) < m$.
 * **Multiplication (Shift-and-XOR) View:**
-  * Table 1: Shows each shifted power $x^i \cdot f(x) \bmod m(x)$, highlighting rows where $b_{m-1} = 1$ triggered a modular $\text{XOR}$ with $m(x) - x^m$.
-  * Table 2: Shows the partial products selected by the non-zero bits of $g(x)$ and their cumulative $\text{XOR}$ sum.
+  * Table 1: Shows each shifted power $x^i \cdot f(x) \bmod m(x)$, highlighting rows where $b_{m-1} = 1$ triggered a modular XOR with $m(x) - x^m$.
+  * Table 2: Shows the partial products selected by the non-zero bits of $g(x)$ and their cumulative XOR sum.
 * **Multiplicative Inverse & Division (Extended Euclid Table 4.7) View:**
   * Renders the exact 8-column textbook table: `Step`, `Q(x)`, `A1(x)`, `A2(x)`, `A3(x)`, `B1(x)`, `B2(x)`, `B3(x)` with a mini-toggle allowing users to view table cells in Algebraic, Hex, or Binary notation.
 
