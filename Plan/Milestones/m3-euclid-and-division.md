@@ -32,7 +32,10 @@ Output: Unreduced product P_int = Q(x) * B(x) over GF(2)
 
 ### 2.2 Helper 2: Polynomial Euclidean Long Division over $GF(2)$
 * **Mathematical Rule:** Given dividend $A(x)$ and non-zero divisor $B(x)$, find unique quotient $Q(x)$ and remainder $R(x)$ such that:
-  $$A(x) = Q(x) \cdot B(x) \oplus R(x), \quad \deg(R) < \deg(B)$$
+
+  $$
+  A(x) = Q(x) \cdot B(x) \oplus R(x), \quad \deg(R) < \deg(B)
+  $$
 * **Algorithmic Pseudocode:**
   ```text
   Algorithm: POLY_DIVMOD(A_int, B_int)
@@ -53,10 +56,21 @@ Output: Unreduced product P_int = Q(x) * B(x) over GF(2)
 ### 2.3 Multiplicative Inverse via `EXTENDED EUCLID(m(x), b(x))`
 * **Mathematical Rule (Chapter 4 & Table 4.7):**
   Initialize:
-  $$(A_1(x), A_2(x), A_3(x)) \leftarrow (1, 0, m(x))$$
-  $$(B_1(x), B_2(x), B_3(x)) \leftarrow (0, 1, b(x) \bmod m(x))$$
+
+  $$
+  (A_1(x), A_2(x), A_3(x)) \leftarrow (1, 0, m(x))
+  $$
+
+  $$
+  (B_1(x), B_2(x), B_3(x)) \leftarrow (0, 1, b(x) \bmod m(x))
+  $$
+
   In each step, compute $(Q(x), R(x)) = \text{POLY\_DIVMOD}(A_3(x), B_3(x))$ and update:
-  $$T_1(x) = A_1(x) \oplus (Q(x) \times B_1(x)), \quad T_2(x) = A_2(x) \oplus (Q(x) \times B_2(x)), \quad T_3(x) = R(x)$$
+
+  $$
+  T_1(x) = A_1(x) \oplus (Q(x) \times B_1(x)), \quad T_2(x) = A_2(x) \oplus (Q(x) \times B_2(x)), \quad T_3(x) = R(x)
+  $$
+
   Shift $(A_1, A_2, A_3) \leftarrow (B_1, B_2, B_3)$ and $(B_1, B_2, B_3) \leftarrow (T_1, T_2, T_3)$ until $B_3(x) = 1$, at which point $B_2(x)$ is $b(x)^{-1} \bmod m(x)$.
 
 * **Algorithmic Pseudocode (with Table 4.7 Trace):**
@@ -84,7 +98,10 @@ Output: Unreduced product P_int = Q(x) * B(x) over GF(2)
 
 ### 2.4 Field Division: $a(x) / b(x) \bmod m(x)$
 * **Mathematical Rule:**
-  $$\frac{a(x)}{b(x)} \bmod m(x) = a(x) \times \left(b(x)^{-1} \bmod m(x)\right) \bmod m(x)$$
+
+  $$
+  \frac{a(x)}{b(x)} \bmod m(x) = a(x) \times \left(b(x)^{-1} \bmod m(x)\right) \bmod m(x)
+  $$
 * First invokes `EXTENDED_EUCLID_GF2M(m_poly_int, b_int)` to obtain `b_inv` and its Table 4.7 trace, then multiplies `a_int` by `b_inv` modulo `m_poly_int` and returns both the division result and the combined two-stage educational trace.
 
 ---

@@ -32,7 +32,10 @@ To make the platform modular and extensible across all required degrees, define 
 * $m = 8$: $x^8 + x^4 + x^3 + x + 1 \rightarrow [8, 4, 3, 1, 0]$
 
 * **Bitmask Construction Rule:** From any tap list $T$, construct the integer representation of $m(x)$ via:
-  $$m_{\text{int}} = \sum_{k \in T} 2^k$$
+
+  $$
+  m_{\text{int}} = \sum_{k \in T} 2^k
+  $$
 
 ---
 
@@ -55,7 +58,10 @@ To make the platform modular and extensible across all required degrees, define 
 
 ### 4.1 Addition and Subtraction in $GF(2^m)$
 * **Mathematical Rule:** In $\mathbb{Z}_2$, coefficient addition and subtraction are both bitwise $\text{XOR}$ ($\oplus$):
-  $$f(x) + g(x) = f(x) - g(x) = f(x) \oplus g(x)$$
+
+  $$
+  f(x) + g(x) = f(x) - g(x) = f(x) \oplus g(x)
+  $$
 * **Algorithmic Pseudocode (with Educational Trace):**
   ```text
   Algorithm: GF2M_ADD_SUB(f_int, g_int, m_poly_int, m_degree)

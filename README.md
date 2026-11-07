@@ -39,7 +39,11 @@ In accordance with the **Project-3** specification:
 All arithmetic strictly follows **Chapter 4 (Finite Fields)** and **Chapter 5 (AES)** of the course textbook (*Cryptography and Network Security* by William Stallings):
 
 * **Polynomial Basis Representation:** Every element in $GF(2^m)$ is a polynomial of degree at most $m - 1$ with coefficients in $\mathbb{Z}_2 = \{0, 1\}$:
-  $$f(x) = b_{m-1}x^{m-1} + b_{m-2}x^{m-2} + \dots + b_1x + b_0$$
+
+  $$
+  f(x) = b_{m-1}x^{m-1} + b_{m-2}x^{m-2} + \dots + b_1x + b_0
+  $$
+
   Each polynomial is compactly represented as an $m$-bit string $(b_{m-1}b_{m-2}\dots b_1b_0)_2$.
 * **Addition & Subtraction (Bitwise XOR):** Coefficient arithmetic is performed modulo $2$, where $1 + 1 \equiv 1 - 1 \equiv 0 \pmod 2$. Addition and subtraction are identical bitwise $\text{XOR}$ ($\oplus$) operations.
 * **Modulo Reduction & Multiplication (Shift-and-XOR):** Using an irreducible polynomial $m(x)$ of degree $m$, any overflow term $x^m$ is reduced via the equivalence $x^m \equiv m(x) - x^m \pmod{m(x)}$. Multiplication $f(x) \times g(x) \bmod m(x)$ is computed by iteratively shifting $f(x)$ left by $1$ bit, conditionally $\text{XOR}$ing with the lower terms of $m(x)$ whenever the most significant bit $b_{m-1} = 1$, and $\text{XOR}$ing the partial products corresponding to the set bits of $g(x)$.

@@ -16,9 +16,16 @@ Implement modular polynomial multiplication $f(x) \times g(x) \bmod m(x)$ using 
 * Multiplying a reduced polynomial $a(x) \in GF(2^m)$ by $x$ modulo $m(x)$ is performed by inspecting its most significant bit $b_{m-1}$ (the coefficient of $x^{m-1}$):
   * Shift $a(x)$ left by $1$ bit and mask to the lower $m$ bits.
   * If $b_{m-1} = 1$, the shift produced an overflow term $x^m$, which is reduced modulo $m(x)$ by $\text{XOR}$ing with the lower $m$ bits of $m(x)$:
-    $$x \cdot a(x) \bmod m(x) = \begin{cases} (a(x) \ll 1) & \text{if } b_{m-1} = 0 \\ ((a(x) \ll 1) \text{ AND } (2^m - 1)) \oplus (m(x) - x^m) & \text{if } b_{m-1} = 1 \end{cases}$$
+
+    $$
+    x \cdot a(x) \bmod m(x) = \begin{cases} (a(x) \ll 1) & \text{if } b_{m-1} = 0 \\ ((a(x) \ll 1) \text{ AND } (2^m - 1)) \oplus (m(x) - x^m) & \text{if } b_{m-1} = 1 \end{cases}
+    $$
+
 * The full product $f(x) \times g(x) \bmod m(x)$ is the $\text{XOR}$ sum of $x^i \cdot f(x) \bmod m(x)$ for every bit position $i$ where bit $i$ of $g(x)$ is $1$:
-  $$f(x) \times g(x) \bmod m(x) = \bigoplus_{i=0}^{m-1} g_i \cdot \left(x^i \cdot f(x) \bmod m(x)\right)$$
+
+  $$
+  f(x) \times g(x) \bmod m(x) = \bigoplus_{i=0}^{m-1} g_i \cdot \left(x^i \cdot f(x) \bmod m(x)\right)
+  $$
 
 ### 2.2 Algorithmic Pseudocode (with Educational Trace)
 ```text
