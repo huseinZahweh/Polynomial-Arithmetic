@@ -1,6 +1,6 @@
 # Milestone 1: Field Configuration, Multi-Base I/O & Additive/Modulo Engine
 
-**Assigned Owner:** Husein Zahweh  
+**Assigned Owner:** Student 1  
 **Execution Mode:** Parallel & Independent (operates on integer bit-strings and string converters)
 
 ---
@@ -33,9 +33,9 @@ To make the platform modular and extensible across all required degrees, define 
 
 * **Bitmask Construction Rule:** From any tap list $T$, construct the integer representation of $m(x)$ via:
 
-  ```math
+  $$
   m_{\text{int}} = \sum_{k \in T} 2^k
-  ```
+  $$
 
 ---
 
@@ -59,9 +59,9 @@ To make the platform modular and extensible across all required degrees, define 
 ### 4.1 Addition and Subtraction in $GF(2^m)$
 * **Mathematical Rule:** In $\mathbb{Z}_2$, coefficient addition and subtraction are both bitwise XOR ($\oplus$):
 
-  ```math
+  $$
   f(x) + g(x) = f(x) - g(x) = f(x) \oplus g(x)
-  ```
+  $$
 * **Algorithmic Pseudocode (with Educational Trace):**
   ```text
   Algorithm: GF2M_ADD_SUB(f_int, g_int, m_poly_int, m_degree)
