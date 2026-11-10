@@ -62,7 +62,7 @@ The project is organized into four parallel milestones (one per team member) fol
 | Milestone | Assigned Owner | Primary Deliverable |
 | :--- | :--- | :--- |
 | **[Milestone 1](./Plan/Milestones/m1-field-config-io.md)** | **Student 1** | Modular Field Registry ($m \in \{163\dots 571\}$), Binary/Hex/Algebraic I/O Converters, Addition, Subtraction, and Modulo Reduction Engine |
-| **[Milestone 2](./Plan/Milestones/m2-multiplication-api.md)** | **Student 2** | Shift-and-XOR Multiplication Engine, Multiplication Step-by-Step Trace Logger, and FastAPI Backend Controller |
+| **[Milestone 2](./Plan/Milestones/m2-multiplication-api.md)** | **Hassan Tarhini** | Shift-and-XOR Multiplication Engine, Multiplication Step-by-Step Trace Logger, and FastAPI Backend Controller |
 | **[Milestone 3](./Plan/Milestones/m3-euclid-and-division.md)** | **Husein Zahweh** | Polynomial Long Division, Extended Euclidean Algorithm Inverse (`EXTENDED EUCLID`), Field Division Engine, and Table 4.7 Trace Logger |
 | **[Milestone 4](./Plan/Milestones/m4-educational-gui.md)** | **Student 4** | Interactive Educational GUI, Field/Base Controls, Live Polynomial Previewer, and Step-by-Step Breakdown Visualizers |
 | **[Milestone 5](./Plan/Milestones/m5-integration-testing.md)** | **Team** | End-to-End System Integration, API-to-GUI Synchronization, and Comprehensive Multi-Field Verification |
