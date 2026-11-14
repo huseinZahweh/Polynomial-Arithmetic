@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "title": "Polynomial Arithmetic in GF(2^m)",
+  "slides": [
+    {
+      "id": 1,
+      "title": "What is GF(2^m)?",
+      "body": "A binary Galois field GF(2^m) has 2^m elements. Each element is a polynomial of degree at most m-1 whose coefficients are bits (0 or 1). It is a field: addition, subtraction, multiplication, and division (by non-zero elements) are all defined, and every non-zero element has a multiplicative inverse. Larger fields such as GF(2^163) underpin binary elliptic-curve cryptography.",
+      "key_points": [
+        "2^m elements, each a degree < m polynomial over Z_2",
+        "Closed under +, -, *, and / by non-zero elements",
+        "Arithmetic is taken modulo an irreducible polynomial m(x) of degree m"
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Three ways to write one element",
+      "body": "An element is stored compactly as an m-bit string (b_{m-1} ... b_1 b_0), shown in binary or hexadecimal, and read algebraically as a polynomial. Bit i is the coefficient of x^i. For example, in GF(2^8) the byte 0x53 = 0101 0011 = x^6 + x^4 + x + 1.",
+      "key_points": [
+        "Binary 0101 0011  <->  Hex 0x53  <->  x^6 + x^4 + x + 1",
+        "Bit i is the coefficient of x^i",
+        "The same value can always be displayed in any of the three forms"
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Addition = XOR",
+      "body": "Because coefficients live in Z_2, 1 + 1 = 0. Adding two field elements is therefore a column-by-column XOR of their bits, and subtraction is identical to addition. No carries, no reduction needed: the result already has degree < m.",
+      "key_points": [
+        "a(x) + b(x) is a bitwise XOR",
+        "Subtraction equals addition in characteristic 2",
+        "Result stays in the field with no reduction step"
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Multiplication = shift-and-XOR, then reduce",
+      "body": "To multiply, walk the bits of b(x) from LSB to MSB. Keep a running copy of a(x) * x^i: each step shifts it left by one bit, and whenever the x^m term appears you reduce by XOR-ing with m(x). For every set bit of b(x) you XOR the current shifted value into an accumulator. The accumulator after the last bit is the product. Division reuses this: a/b = a * b^{-1}, where the inverse comes from the Extended Euclidean Algorithm.",
+      "key_points": [
+        "Table 1: shift a(x)*x^i left, reduce by m(x) when degree hits m",
+        "Table 2: XOR the shifted value in wherever b has a 1 bit",
+        "Division = multiply by the inverse from Extended Euclid"
+      ]
+    }
+  ]
+}
