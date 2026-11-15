@@ -9,9 +9,12 @@ from .exceptions import (
     NotInvertibleError,
     ZeroElementHasNoInverseError,
 )
+from .poly_ops import POLY_DIVMOD, POLY_MUL_NO_MOD
 
 __all__ = [
     "GF2mInverseError",
     "NotInvertibleError",
+    "POLY_DIVMOD",
+    "POLY_MUL_NO_MOD",
     "ZeroElementHasNoInverseError",
 ]
