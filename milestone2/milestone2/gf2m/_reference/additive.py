@@ -14,12 +14,13 @@ from .. import polyrepr
 
 
 def add(a: int, b: int, mod_poly: int, m: int) -> int:
-    return (a ^ b)
+    """Return ``(a(x) + b(x)) mod m(x)`` in GF(2^m) (bitwise XOR after reduction)."""
+    return reduce_mod(a, mod_poly, m) ^ reduce_mod(b, mod_poly, m)
 
 
 def subtract(a: int, b: int, mod_poly: int, m: int) -> int:
-    # Identical to addition in characteristic 2.
-    return (a ^ b)
+    """Return ``(a(x) - b(x)) mod m(x)`` in GF(2^m) (identical to addition in Z_2)."""
+    return reduce_mod(a, mod_poly, m) ^ reduce_mod(b, mod_poly, m)
 
 
 def modulo(a: int, mod_poly: int, m: int) -> int:

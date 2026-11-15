@@ -17,8 +17,9 @@ only validates input, maps errors to HTTP status codes, and shapes responses.
 from __future__ import annotations
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 
 from gf2m import polyrepr
 
@@ -28,7 +29,6 @@ from .schemas import (
     CalculateResponse,
     ExportRequest,
     ExportResponse,
-    FieldInfo,
     FieldsResponse,
     OperandPair,
     ParseRequest,
@@ -37,7 +37,7 @@ from .schemas import (
     RandomResponse,
     TutorialResponse,
 )
-from .services import CalculationError, calculate, field_info
+from .services import CalculationError, build_field_info, calculate, field_info
 
 app = FastAPI(
     title="GF(2^m) Polynomial Arithmetic API",
@@ -70,18 +70,10 @@ def health() -> dict:
 # --------------------------------------------------------------------------- #
 @app.get("/api/fields", response_model=FieldsResponse, tags=["fields"])
 def get_fields(include_textbook: bool = Query(True)) -> FieldsResponse:
-    fields = []
-    for f in providers.fields.list_fields(include_textbook=include_textbook):
-        fields.append(
-            FieldInfo(
-                m=f.m,
-                category=f.category,
-                name=f.name,
-                reduction_poly_hex=polyrepr.to_hex(f.mod_poly, f.m + 1),
-                reduction_poly=polyrepr.to_poly(f.mod_poly),
-                element_bits=f.m,
-            )
-        )
+    fields = [
+        build_field_info(f)
+        for f in providers.fields.list_fields(include_textbook=include_textbook)
+    ]
     return FieldsResponse(count=len(fields), fields=fields)
 
 
@@ -89,11 +81,16 @@ def get_fields(include_textbook: bool = Query(True)) -> FieldsResponse:
 # 2. /api/calculate                                                            #
 # --------------------------------------------------------------------------- #
 @app.post("/api/calculate", response_model=CalculateResponse, tags=["calculate"])
-def post_calculate(req: CalculateRequest) -> CalculateResponse:
+def post_calculate(req: CalculateRequest):
     try:
         return calculate(req)
     except CalculationError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        payload: dict = {"detail": str(exc)}
+        if exc.gcd is not None:
+            payload["gcd"] = exc.gcd
+        if exc.trace is not None:
+            payload["trace"] = exc.trace
+        return JSONResponse(status_code=400, content=jsonable_encoder(payload))
 
 
 # --------------------------------------------------------------------------- #
@@ -124,7 +121,7 @@ def post_parse(req: ParseRequest) -> ParseResponse:
         pairs = providers.parser.parse_operand_file(
             req.content, req.filename, req.default_base.value
         )
-    except ValueError as exc:
+    except (ValueError, KeyError, TypeError) as exc:
         raise HTTPException(status_code=400, detail=f"parse error: {exc}")
     return ParseResponse(
         count=len(pairs),

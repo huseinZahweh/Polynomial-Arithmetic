@@ -3,8 +3,8 @@
 OWNER: Milestone 2.
 
 Computes ``c(x) = a(x) * b(x) mod m(x)`` using the classic shift-and-XOR
-("shift and add") algorithm taught in EECE 455/632 (Stallings, Ch. 4), and
-emits a structured, step-by-step trace that the GUI renders as:
+("shift and add") algorithm taught in EECE 455/632, and emits a structured,
+step-by-step trace that the GUI renders as:
 
 * **Table 1 — shift / reduce:** for each position *i*, the running value
   ``t_i = a(x) * x^i mod m(x)`` and whether producing it required a reduction
@@ -13,11 +13,22 @@ emits a structured, step-by-step trace that the GUI renders as:
   partial product ``t_i`` is XORed into the accumulator; the running sum after
   the final step is the product.
 
+Course References
+-----------------
+* **Stallings Chapter 4 (Finite Fields):** Modular polynomial arithmetic over
+  GF(2^m) and the iterative Shift-and-XOR multiplication method.
+* **Stallings Chapter 5 (AES):** Byte multiplication in GF(2^8) modulo
+  ``x^8 + x^4 + x^3 + x + 1`` (``0x11b``) used in AES MixColumns.
+* **Stallings Chapter 6 (Block Cipher Operation):** XTS-AES tweakable block
+  encryption arithmetic over GF(2^128).
+* **Stallings Chapter 10 (Elliptic Curve Cryptography):** Point and field
+  operations over binary curves GF(2^163) through GF(2^571).
+
 Conventions
 -----------
 Elements are Python ``int``s: bit *i* is the coefficient of x^i. The reduction
 polynomial ``mod_poly`` is a full integer *including* its x^m term — e.g.
-GF(2^3) with m(x) = x^3 + x + 1 is ``0b1011`` (= 11). ``m`` is the field degree.
+GF(2^3) with m(x) = x^3 + x^2 + 1 is ``0b1101`` (= 13). ``m`` is the field degree.
 """
 from __future__ import annotations
 
@@ -31,8 +42,15 @@ from . import polyrepr
 # Low-level field primitives (kept here so the engine is self-contained)       #
 # --------------------------------------------------------------------------- #
 def reduce_mod(value: int, mod_poly: int, m: int) -> int:
-    """Reduce ``value`` modulo ``m(x)`` so the result has degree < m."""
+    """Reduce ``value`` modulo ``m(x)`` so the result has degree < m.
+
+    Time complexity: O((deg(value) - m + 1) * m) bit operations.
+    Space complexity: O(1) auxiliary space.
+    Ref: Stallings Ch. 4 (polynomial modulo reduction), Ch. 5, Ch. 6, Ch. 10.
+    """
     while value.bit_length() - 1 >= m:
+        if mod_poly <= 0:
+            raise ValueError("reduction polynomial mod_poly must be positive")
         shift = (value.bit_length() - 1) - m
         value ^= mod_poly << shift
     return value
@@ -43,6 +61,10 @@ def carryless_mul(a: int, b: int) -> int:
 
     Used only as an independent cross-check reference inside tests and for the
     fast path's correctness guarantees.
+
+    Time complexity: O(deg(b) * (deg(a) + deg(b))) bit operations.
+    Space complexity: O(1) auxiliary space.
+    Ref: Stallings Ch. 4 (unreduced polynomial multiplication over GF(2)).
     """
     result = 0
     while b:
@@ -57,7 +79,14 @@ def carryless_mul(a: int, b: int) -> int:
 # Fast path (no trace) — used for division, benchmarking, large fields         #
 # --------------------------------------------------------------------------- #
 def multiply(a: int, b: int, mod_poly: int, m: int) -> int:
-    """Return ``a * b mod m(x)`` via shift-and-XOR, without building a trace."""
+    """Return ``a * b mod m(x)`` via shift-and-XOR, without building a trace.
+
+    Time complexity: O(m^2) bit operations (at most m shift-and-XOR steps after
+    initial reduction of ``a`` and ``b``).
+    Space complexity: O(1) auxiliary space (O(m)-bit integers).
+    Ref: Stallings Ch. 4 (Shift-and-XOR), Ch. 5 (AES GF(2^8)), Ch. 6 (XTS-AES),
+    and Ch. 10 (binary ECC over GF(2^163)..GF(2^571)).
+    """
     a = reduce_mod(a, mod_poly, m)
     b = reduce_mod(b, mod_poly, m)
     result = 0
@@ -137,6 +166,11 @@ def multiply_traced(
     bounds the number of recorded rows (not correctness): if the field is large
     and ``b`` is dense, recording is stopped early and ``trace.truncated`` is
     set, while the *result* is always computed in full.
+
+    Time complexity: O(m^2) bit operations for the multiplication loop.
+    Space complexity: O(min(m, max_steps) * m) for stored hex/algebraic steps.
+    Ref: Stallings Ch. 4 (Shift-and-XOR trace), Ch. 5 (AES), Ch. 6 (XTS-AES),
+    and Ch. 10 (binary ECC).
     """
     a = reduce_mod(a, mod_poly, m)
     b_reduced = reduce_mod(b, mod_poly, m)

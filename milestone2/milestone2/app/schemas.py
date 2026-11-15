@@ -49,6 +49,7 @@ class FieldInfo(BaseModel):
     category: str
     name: str
     reduction_poly_hex: str
+    reduction_poly_bin: str
     reduction_poly: str
     element_bits: int
 

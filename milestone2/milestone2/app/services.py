@@ -8,7 +8,7 @@ and attaches a self-verification badge where one is meaningful.
 from __future__ import annotations
 
 import time
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 from gf2m import polyrepr
 
@@ -28,23 +28,49 @@ from .schemas import (
 class CalculationError(ValueError):
     """Domain error (bad field, missing operand, no inverse). -> HTTP 400."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        gcd: Optional[int] = None,
+        trace: Optional[Any] = None,
+    ) -> None:
+        super().__init__(message)
+        self.gcd = gcd
+        self.trace = trace
+
 
 # Operations that require operand B.
 _BINARY_OPS = {Operation.add, Operation.subtract, Operation.multiply, Operation.divide}
 
 
-def field_info(m: int) -> FieldInfo:
-    if not providers.fields.is_supported(m):
-        raise CalculationError(f"unsupported field degree m={m}")
-    f = providers.fields.get_field(m)
+def build_field_info(f: Any) -> FieldInfo:
+    """Convert a registry ``Field`` entry into the public ``FieldInfo`` schema."""
     return FieldInfo(
         m=f.m,
         category=f.category,
         name=f.name,
         reduction_poly_hex=polyrepr.to_hex(f.mod_poly, f.m + 1),
+        reduction_poly_bin=polyrepr.to_bin(f.mod_poly, f.m + 1),
         reduction_poly=polyrepr.to_poly(f.mod_poly),
         element_bits=f.m,
     )
+
+
+def field_info(m: int) -> FieldInfo:
+    if not providers.fields.is_supported(m):
+        raise CalculationError(f"unsupported field degree m={m}")
+    return build_field_info(providers.fields.get_field(m))
+
+
+def _non_invertible_error_types() -> Tuple[type, ...]:
+    invdiv = providers.invdiv
+    classes = []
+    for name in ("NoInverseError", "ZeroElementHasNoInverseError", "NotInvertibleError"):
+        cls = getattr(invdiv, name, None)
+        if isinstance(cls, type) and issubclass(cls, Exception):
+            classes.append(cls)
+    return tuple(classes)
 
 
 def _repr(value: int, m: int) -> ElementReprModel:
@@ -117,18 +143,23 @@ def calculate(req: CalculateRequest) -> CalculateResponse:
         except ValueError as exc:
             raise CalculationError(f"operand B: {exc}")
 
-    # Reduce displayed operands into the field for a faithful echo.
+    # Reduce displayed operands into the field so echoed operands, trace bits,
+    # and dispatched arithmetic operate on the exact same reduced elements.
     a_in = providers.additive.modulo(a, f.mod_poly, f.m)
     b_in = providers.additive.modulo(b, f.mod_poly, f.m) if b is not None else None
 
     try:
         t0 = time.perf_counter()
         result, trace, verification = _dispatch(
-            req.operation, a, b, f.mod_poly, f.m, req.trace
+            req.operation, a_in, b_in, f.mod_poly, f.m, req.trace
         )
         elapsed_ms = round((time.perf_counter() - t0) * 1000, 4)
-    except providers.invdiv.NoInverseError as exc:
-        raise CalculationError(str(exc))
+    except _non_invertible_error_types() as exc:
+        raise CalculationError(
+            str(exc),
+            gcd=getattr(exc, "gcd", None),
+            trace=getattr(exc, "trace", None),
+        )
     except ZeroDivisionError:
         raise CalculationError("division by zero polynomial")
 

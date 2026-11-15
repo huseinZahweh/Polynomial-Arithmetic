@@ -57,8 +57,8 @@ _NIST: Dict[int, int] = {
 # Common irreducible polynomials for the small textbook fields (Project-2).
 _TEXTBOOK: Dict[int, int] = {
     2: _poly(2, 1, 0),                # x^2 + x + 1
-    3: _poly(3, 1, 0),                # x^3 + x + 1
-    4: _poly(4, 1, 0),                # x^4 + x + 1
+    3: _poly(3, 2, 0),                # x^3 + x^2 + 1
+    4: _poly(4, 3, 0),                # x^4 + x^3 + 1
     5: _poly(5, 2, 0),                # x^5 + x^2 + 1
     6: _poly(6, 1, 0),                # x^6 + x + 1
     7: _poly(7, 1, 0),                # x^7 + x + 1

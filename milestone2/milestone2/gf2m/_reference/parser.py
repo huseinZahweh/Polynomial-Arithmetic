@@ -23,22 +23,43 @@ import json
 from typing import Dict, List
 
 
+def _extract_pair(item, fallback_base: str) -> Dict[str, str]:
+    if not isinstance(item, dict):
+        raise ValueError("each operand pair must be a JSON object with string fields 'a' and optional 'b'")
+    if "a" not in item or not isinstance(item["a"], str) or not item["a"].strip():
+        raise ValueError("operand pair must include a non-empty string field 'a'")
+    b_val = item.get("b", "")
+    if not isinstance(b_val, str):
+        raise ValueError("operand field 'b' must be a string when provided")
+    base_val = item.get("base", fallback_base)
+    if not isinstance(base_val, str) or base_val.strip().lower() not in ("hex", "bin"):
+        raise ValueError(f"unsupported operand base {base_val!r}; expected 'hex' or 'bin'")
+    return {"a": item["a"].strip(), "b": b_val.strip(), "base": base_val.strip().lower()}
+
+
 def _coerce_pairs(obj, default_base: str) -> List[Dict[str, str]]:
     pairs: List[Dict[str, str]] = []
     if isinstance(obj, dict) and "pairs" in obj:
         base = obj.get("base", default_base)
-        for p in obj["pairs"]:
-            pairs.append({"a": str(p["a"]), "b": str(p.get("b", "")), "base": p.get("base", base)})
+        if not isinstance(base, str):
+            raise ValueError("'base' must be a string ('hex' or 'bin')")
+        raw_pairs = obj["pairs"]
+        if not isinstance(raw_pairs, list):
+            raise ValueError("'pairs' must be a JSON array of operand objects")
+        for p in raw_pairs:
+            pairs.append(_extract_pair(p, base))
     elif isinstance(obj, dict):
         base = obj.get("base", default_base)
-        pairs.append({"a": str(obj["a"]), "b": str(obj.get("b", "")), "base": base})
+        if not isinstance(base, str):
+            raise ValueError("'base' must be a string ('hex' or 'bin')")
+        pairs.append(_extract_pair(obj, base))
     elif isinstance(obj, list):
         for p in obj:
-            pairs.append(
-                {"a": str(p["a"]), "b": str(p.get("b", "")), "base": p.get("base", default_base)}
-            )
+            pairs.append(_extract_pair(p, default_base))
     else:
         raise ValueError("unrecognized JSON operand structure")
+    if not pairs:
+        raise ValueError("no operand pairs found in JSON payload")
     return pairs
 
 
