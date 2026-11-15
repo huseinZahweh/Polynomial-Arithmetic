@@ -45,7 +45,7 @@ Design and build a polished, single-view Educational Web Graphical User Interfac
    * **Addition / Subtraction View:** Bit-aligned bitwise $\text{XOR}$ rows showing modulo-$2$ cancellation.
    * **Modulo Reduction View:** Each iterative shift $x^{d-m} \cdot m(x)$ and $\text{XOR}$ step until $\deg(r) < m$.
    * **Multiplication (Shift-and-XOR) View:** Table 1 showing shifted powers $x^i \cdot f(x) \bmod m(x)$ (highlighting $b_{m-1} = 1$ overflow reductions); Table 2 showing selected partial products and cumulative $\text{XOR}$.
-   * **Multiplicative Inverse & Division (Extended Euclid Table 4.7) View:** Renders the exact 8-column textbook table (`Step`, `Q(x)`, `A1(x)`, `A2(x)`, `A3(x)`, `B1(x)`, `B2(x)`, `B3(x)`) with a cell-notation toggle (**Algebraic / Hex / Binary**).
+   * **Multiplicative Inverse & Division (Extended Euclid Table 4.7) View:** Renders the exact 8-column textbook table (`Step`, `Q(x)`, `A1(x)`, `A2(x)`, `A3(x)`, `B1(x)`, `B2(x)`, `B3(x)`) with a cell-notation toggle (**Algebraic / Hex / Binary**), highlighting $B_2(x)$ when $B_3(x) = 1$ or reporting no inverse with $A_3(x) = \gcd(m(x), b(x))$ when $B_3(x) = 0$.
 
 ---
 
@@ -53,7 +53,7 @@ Design and build a polished, single-view Educational Web Graphical User Interfac
 A concise, 4-slide interactive mini-guide UI rendered dynamically from `GET /api/tutorial`:
 1. **Slide 1 — What is $GF(2^m)$?** Bit-strings as polynomials and why coefficients obey $b_i + b_i = 0 \pmod{2}$.
 2. **Slide 2 — Why Irreducible Polynomials $m(x)$ Matter:** Visualizing overflow reduction and standard NIST/ECC powers from $m = 163$ to $m = 571$.
-3. **Slide 3 — How Shift-and-XOR & Extended Euclid Work:** Interactive annotated walkthroughs matching Stallings Chapter 4.
+3. **Slide 3 — How Shift-and-XOR & Extended Euclid Work:** Interactive annotated walkthroughs matching Stallings Chapter 4, explaining both Extended Euclid termination cases: $B_3(x) = 1$ yields the inverse in $B_2(x)$, while $B_3(x) = 0$ means no inverse exists and $A_3(x) = \gcd(m(x), b(x))$.
 4. **Slide 4 — Try It Yourself:** Quick-launch preset buttons that load Chapter 4 and Chapter 5 examples directly into the workbench.
 
 ---

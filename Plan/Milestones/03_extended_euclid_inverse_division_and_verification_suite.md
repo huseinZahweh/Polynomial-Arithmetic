@@ -72,7 +72,9 @@ $$
 T_1(x) = A_1(x) \oplus (Q(x) \times B_1(x)), \quad T_2(x) = A_2(x) \oplus (Q(x) \times B_2(x)), \quad T_3(x) = R(x)
 $$
 
-  Shift $(A_1, A_2, A_3) \leftarrow (B_1, B_2, B_3)$ and $(B_1, B_2, B_3) \leftarrow (T_1, T_2, T_3)$ until $B_3(x) = 1$, at which point $B_2(x)$ is $b(x)^{-1} \bmod m(x)$.
+  Shift $(A_1, A_2, A_3) \leftarrow (B_1, B_2, B_3)$ and $(B_1, B_2, B_3) \leftarrow (T_1, T_2, T_3)$ until one of Stallings' two termination states holds:
+  * **If $B_3(x) = 1$:** $\gcd(m(x), b(x)) = 1$, and $B_2(x)$ is the multiplicative inverse $b(x)^{-1} \bmod m(x)$.
+  * **If $B_3(x) = 0$:** No multiplicative inverse exists, and $A_3(x) = \gcd(m(x), b(x))$ — for $b_{\text{red}}(x) = 0$, $A_3(x) = m(x)$; mid-loop $B_3(x) = 0$ occurs only if a non-irreducible $m(x)$ shares a non-trivial factor $A_3(x)$ with $b(x)$.
 
 * **Algorithmic Pseudocode (with Table 4.7 Trace):**
 ```text
@@ -81,21 +83,21 @@ Input: Irreducible polynomial m_poly_int of degree m_degree, polynomial b_int (a
 Output: Tuple (inv_int, table_4_7_rows)
 
 1. (b_red, _) <- MOD_REDUCE(b_int, m_poly_int, m_degree)
-2. If b_red == 0 then raise ZeroElementHasNoInverseError
-3. (A1, A2, A3) <- (1, 0, m_poly_int)
-4. (B1, B2, B3) <- (0, 1, b_red)
-5. table_4_7_rows <- [ { "step": 0, "Q": None, "A1": A1, "A2": A2, "A3": A3, "B1": B1, "B2": B2, "B3": B3 } ]
+2. (A1, A2, A3) <- (1, 0, m_poly_int)
+3. (B1, B2, B3) <- (0, 1, b_red)
+4. table_4_7_rows <- [ { "step": 0, "Q": None, "A1": A1, "A2": A2, "A3": A3, "B1": B1, "B2": B2, "B3": B3 } ]
+5. If B3 == 0 then raise ZeroElementHasNoInverseError(gcd=A3, trace=table_4_7_rows)  // No inverse; A3 = gcd(m, b) = m(x)
 6. step_num <- 1
 7. While B3 != 1 do:
-8.     If B3 == 0 then raise NotInvertibleError
-9.     (Q, T3) <- POLY_DIVMOD(A3, B3)
-10.    T1 <- A1 XOR POLY_MUL_NO_MOD(Q, B1)
-11.    T2 <- A2 XOR POLY_MUL_NO_MOD(Q, B2)
-12.    (A1, A2, A3) <- (B1, B2, B3)
-13.    (B1, B2, B3) <- (T1, T2, T3)
-14.    Append { "step": step_num, "Q": Q, "A1": A1, "A2": A2, "A3": A3, "B1": B1, "B2": B2, "B3": B3 } to table_4_7_rows
-15.    step_num <- step_num + 1
-16. Return (B2, table_4_7_rows)
+8.     (Q, T3) <- POLY_DIVMOD(A3, B3)
+9.     T1 <- A1 XOR POLY_MUL_NO_MOD(Q, B1)
+10.    T2 <- A2 XOR POLY_MUL_NO_MOD(Q, B2)
+11.    (A1, A2, A3) <- (B1, B2, B3)
+12.    (B1, B2, B3) <- (T1, T2, T3)
+13.    Append { "step": step_num, "Q": Q, "A1": A1, "A2": A2, "A3": A3, "B1": B1, "B2": B2, "B3": B3 } to table_4_7_rows
+14.    step_num <- step_num + 1
+15.    If B3 == 0 then raise NotInvertibleError(gcd=A3, trace=table_4_7_rows)        // No inverse; A3 = gcd(m, b) != 1
+16. Return (B2, table_4_7_rows)                                                      // B3 == 1: gcd(m, b) = 1, B2 = b^-1 mod m
 ```
 
 ### 2.4 Field Division: $a(x) / b(x) \bmod m(x)$

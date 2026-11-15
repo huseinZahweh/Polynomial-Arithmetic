@@ -118,7 +118,7 @@ Output: Tuple (r_int, trace_steps) where DEG(r_int) < m_degree
 * Authors the concise 4-slide educational JSON content covering:
   1. $GF(2^m)$ axioms and $\mathbb{Z}_2$ polynomial arithmetic.
   2. Irreducible polynomial modulo reduction, i.e., $f(x) \bmod m(x)$.
-  3. Shift-and-XOR multiplication and Extended Euclidean inverse walkthroughs.
+  3. Shift-and-XOR multiplication and Extended Euclidean inverse walkthroughs, covering both termination outcomes: $B_3(x) = 1$ yields the inverse $B_2(x) = b(x)^{-1} \bmod m(x)$, while $B_3(x) = 0$ indicates no inverse exists and $A_3(x) = \gcd(m(x), b(x))$.
   4. Chapter 4 and Chapter 5 textbook classroom presets (consumed via `GET /api/tutorial` by Milestone 4's Tutorial Drawer UI).
 
 ---

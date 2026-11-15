@@ -26,7 +26,7 @@ Unify all four parallel engineering tracks into a single steady, cohesive applic
 * Verify Hexadecimal-encoded Shareable URL links reload exact field states (converting back cleanly when `base=binary`) on a fresh browser tab.
 
 ### Step 3: Edge-Case & Error Handling Alignment (Cross-Module)
-* **Zero Inverse / Division by Zero:** Confirm `0` triggers a clear HTTP `400` response and educational GUI alert explaining why $0$ has no multiplicative inverse in $GF(2^m)$.
+* **Zero Inverse / Division by Zero:** Confirm `0` triggers a clear HTTP `400` response and educational GUI alert explaining why $0$ has no multiplicative inverse in $GF(2^m)$—matching Stallings' $B_3(x) = 0$ termination rule with $A_3(x) = \gcd(m(x), b(x)) = m(x)$.
 * **Unreduced Inputs with $\deg \ge m$, including $b(x) = m(x)$:** Confirm automatic initial reduction modulo $m(x)$ with an explicit note in the educational trace, and confirm $b(x) = m(x)$ reduces to $0$ prior to inversion so multiplicative inverse/division raises the clear zero-inverse error.
 * **Malformed `.txt`/`.json` Polynomial Uploads:** Confirm uploading malformed `.txt` or `.json` operand files triggers a clean non-crashing HTTP `400` validation alert in the GUI.
 
