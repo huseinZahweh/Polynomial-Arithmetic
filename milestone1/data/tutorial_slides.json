@@ -1,0 +1,66 @@
+{
+  "version": "1.0",
+  "title": "Polynomial Arithmetic in GF(2^m)",
+  "slides": [
+    {
+      "id": 1,
+      "title": "Bits as polynomial coefficients",
+      "body": "GF(2^m) has 2^m elements. Each is represented by a polynomial of degree less than m, with coefficients 0 or 1. Bit i is the coefficient of x^i. Addition and subtraction use XOR because 1 + 1 = 0 modulo 2.",
+      "key_points": [
+        "In GF(2^8), 01010111 = {57} = x^6 + x^4 + x^2 + x + 1.",
+        "Addition and subtraction give the same result in characteristic 2.",
+        "Every nonzero field element has a multiplicative inverse."
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Reduce with the field polynomial",
+      "body": "The field is defined by an irreducible polynomial m(x) of degree m. When the current highest term has degree d ≥ m, shift m(x) by d − m and XOR it with the current polynomial. Repeat until the remainder has degree below m.",
+      "key_points": [
+        "The AES field uses m(x) = x^8 + x^4 + x^3 + x + 1, or {11B}.",
+        "In the AES field x^8 reduces to x^4 + x^3 + x + 1, or {1B}.",
+        "The same reduction rule applies at the project's primary degree, m = 163."
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Multiply by shifting, invert with Extended Euclid",
+      "body": "For each bit i of the multiplier, compute x^i times the first operand by shifting and reducing. XOR the values selected by the set bits. For an inverse, run Extended Euclid with A = (1, 0, m(x)) and B = (0, 1, b(x) mod m(x)). In each round divide A3 by B3, subtract the quotient times B from A using XOR, and shift the triples.",
+      "key_points": [
+        "The Shift-and-XOR tables show the shifted values and the selected values' cumulative XOR.",
+        "If B3(x) = 1, B2(x) gives the inverse modulo m(x).",
+        "If B3(x) = 0, no inverse exists and A3(x) = gcd(m(x), b(x))."
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Try two course examples",
+      "body": "Load a preset to compare the field operation with its binary and algebraic forms. In the Chapter 4 preset, you can also switch to addition or subtraction to see {57} XOR {83} = {D4}.",
+      "key_points": [
+        "Chapter 4 uses the degree-8 modulus {11B} to multiply {57} and {83}.",
+        "Chapter 5 uses the same modulus for the AES multiplicative inverse."
+      ],
+      "presets": [
+        {
+          "id": "ch4-gf256",
+          "title": "Chapter 4 GF(2^8) multiplication",
+          "m": 8,
+          "operation": "multiply",
+          "input_base": "hex",
+          "a": "57",
+          "b": "83",
+          "expected_hex": "C1"
+        },
+        {
+          "id": "ch5-aes-inverse",
+          "title": "Chapter 5 AES inverse of {95}",
+          "m": 8,
+          "operation": "inverse",
+          "input_base": "hex",
+          "a": "95",
+          "expected_hex": "8A"
+        }
+      ]
+    }
+  ]
+}
