@@ -30,7 +30,7 @@ References
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from ._reference import (
     deg,
@@ -152,6 +152,8 @@ def EXTENDED_EUCLID_GF2M(
     m_poly_int: int,
     m_degree: int,
     b_int: int,
+    *,
+    reduce_traced: Callable[[int, int, int], Tuple[int, Dict[str, Any]]] = mod_reduce,
 ) -> Tuple[int, Dict[str, Any]]:
     """Compute multiplicative inverse ``b(x)^(-1) mod m(x)`` via Extended Euclid.
 
@@ -178,6 +180,7 @@ def EXTENDED_EUCLID_GF2M(
         m_degree: Extension field degree ``m >= 1``.
         b_int: Non-negative polynomial integer to invert modulo ``m(x)``
             (automatically reduced if ``deg(b_int) >= m_degree``).
+        reduce_traced: Polynomial reduction implementation returning a trace.
 
     Returns:
         Tuple ``(b_inv_int, trace_dict)`` where ``0 <= b_inv_int < 2^m_degree``
@@ -200,7 +203,7 @@ def EXTENDED_EUCLID_GF2M(
     validate_modulus(m_poly_int, m_degree)
     validate_non_negative_poly(b_int, name="b_int")
 
-    b_red, b_mod_trace = mod_reduce(b_int, m_poly_int, m_degree)
+    b_red, b_mod_trace = reduce_traced(b_int, m_poly_int, m_degree)
 
     a1, a2, a3 = 1, 0, m_poly_int
     b1, b2, b3 = 0, 1, b_red
@@ -274,7 +277,7 @@ def EXTENDED_EUCLID_GF2M(
 
         step_num += 1
 
-    b_inv_int, _ = mod_reduce(b2, m_poly_int, m_degree)
+    b_inv_int, _ = reduce_traced(b2, m_poly_int, m_degree)
     trace_dict = _build_trace_dict(
         m_poly_int=m_poly_int,
         m_degree=m_degree,

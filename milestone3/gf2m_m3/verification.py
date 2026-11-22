@@ -13,7 +13,7 @@ References
 """
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Callable, Dict
 
 from ._reference import (
     format_poly_representations,
@@ -24,11 +24,18 @@ from ._reference import (
 )
 
 
+def _multiply_value(a: int, b: int, modulus: int, degree: int) -> int:
+    """Provide the standalone multiplication engine when used outside the app."""
+    return gf2m_multiply(a, b, modulus, degree)[0]
+
+
 def VERIFY_INVERSE(
     b_int: int,
     b_inv_int: int,
     m_poly_int: int,
     m_degree: int,
+    *,
+    multiply: Callable[[int, int, int, int], int] = _multiply_value,
 ) -> Dict[str, Any]:
     """Verify the finite-field inverse identity ``b(x) * b^-1(x) mod m(x) == 1``.
 
@@ -64,7 +71,7 @@ def VERIFY_INVERSE(
     validate_modulus(m_poly_int, m_degree)
 
     is_reduced = b_inv_int < (1 << m_degree)
-    check_result, _ = gf2m_multiply(b_int, b_inv_int, m_poly_int, m_degree)
+    check_result = multiply(b_int, b_inv_int, m_poly_int, m_degree)
     verified = is_reduced and (check_result == 1)
 
     return {
@@ -86,6 +93,8 @@ def VERIFY_DIVISION(
     q_int: int,
     m_poly_int: int,
     m_degree: int,
+    *,
+    multiply: Callable[[int, int, int, int], int] = _multiply_value,
 ) -> Dict[str, Any]:
     """Verify the field division identity ``(a(x)/b(x)) * b(x) mod m(x) == a(x) mod m(x)``.
 
@@ -122,7 +131,7 @@ def VERIFY_DIVISION(
     b_red, _ = mod_reduce(b_int, m_poly_int, m_degree)
     nonzero_divisor = b_red != 0
     is_reduced = q_int < (1 << m_degree)
-    check_result, _ = gf2m_multiply(q_int, b_red, m_poly_int, m_degree)
+    check_result = multiply(q_int, b_red, m_poly_int, m_degree)
     verified = nonzero_divisor and is_reduced and (check_result == a_red)
 
     return {

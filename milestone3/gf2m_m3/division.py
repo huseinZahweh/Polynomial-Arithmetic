@@ -18,7 +18,7 @@ References
 """
 from __future__ import annotations
 
-from typing import Any, Dict, Tuple
+from typing import Any, Callable, Dict, Tuple
 
 from ._reference import (
     format_poly_representations,
@@ -35,6 +35,9 @@ def GF2M_DIVIDE(
     b_int: int,
     m_poly_int: int,
     m_degree: int,
+    *,
+    multiply_traced: Callable[[int, int, int, int], Tuple[int, Dict[str, Any]]] = gf2m_multiply,
+    reduce_traced: Callable[[int, int, int], Tuple[int, Dict[str, Any]]] = mod_reduce,
 ) -> Tuple[int, Dict[str, Any]]:
     """Compute field division ``a(x) / b(x) mod m(x)`` in GF(2^m).
 
@@ -57,6 +60,8 @@ def GF2M_DIVIDE(
         m_poly_int: Reduction polynomial ``m(x)`` of degree ``m_degree`` with
             bit ``m_degree`` set to 1.
         m_degree: Extension field degree ``m >= 1``.
+        multiply_traced: Shift-and-XOR implementation producing an educational trace.
+        reduce_traced: Polynomial reduction implementation producing an educational trace.
 
     Returns:
         Tuple ``(quotient_int, trace_dict)`` where ``0 <= quotient_int < 2^m_degree``
@@ -79,14 +84,16 @@ def GF2M_DIVIDE(
     validate_non_negative_poly(b_int, name="b_int")
     validate_modulus(m_poly_int, m_degree)
 
-    a_red, a_mod_trace = mod_reduce(a_int, m_poly_int, m_degree)
-    b_red, b_mod_trace = mod_reduce(b_int, m_poly_int, m_degree)
+    a_red, a_mod_trace = reduce_traced(a_int, m_poly_int, m_degree)
+    b_red, b_mod_trace = reduce_traced(b_int, m_poly_int, m_degree)
 
     # Stage 1: Invert b(x) via Extended Euclid (raises cleanly on zero/reducible gcd).
-    b_inv_int, inverse_trace = EXTENDED_EUCLID_GF2M(m_poly_int, m_degree, b_int)
+    b_inv_int, inverse_trace = EXTENDED_EUCLID_GF2M(
+        m_poly_int, m_degree, b_int, reduce_traced=reduce_traced,
+    )
 
     # Stage 2: Multiply a_red(x) * b_inv(x) mod m(x) via Shift-and-XOR.
-    quotient_int, multiply_trace = gf2m_multiply(a_red, b_inv_int, m_poly_int, m_degree)
+    quotient_int, multiply_trace = multiply_traced(a_red, b_inv_int, m_poly_int, m_degree)
 
     trace_dict: Dict[str, Any] = {
         "trace_type": "gf2m_division_two_stage",

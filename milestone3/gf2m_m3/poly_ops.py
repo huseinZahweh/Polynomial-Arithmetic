@@ -19,6 +19,7 @@ References
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Tuple
 
 from ._reference import deg, validate_non_negative_poly
@@ -72,7 +73,17 @@ def POLY_MUL_NO_MOD(a_int: int, b_int: int) -> int:
     return p_int
 
 
-def POLY_DIVMOD(a_int: int, b_int: int) -> Tuple[int, int]:
+@dataclass(frozen=True)
+class DivisionStep:
+    """One shifted-divisor XOR in polynomial long division."""
+
+    shift: int
+    before: int
+    shifted_divisor: int
+    after: int
+
+
+def POLY_DIVMOD(a_int: int, b_int: int, *, steps: list[DivisionStep] | None = None) -> Tuple[int, int]:
     """Compute polynomial quotient and remainder ``A(x) = Q(x)*B(x) XOR R(x)``.
 
     Implements Euclidean polynomial long division over GF(2)[x] per Stallings
@@ -81,6 +92,7 @@ def POLY_DIVMOD(a_int: int, b_int: int) -> Tuple[int, int]:
     Args:
         a_int: Dividend polynomial ``A(x)`` as a non-negative ``int``.
         b_int: Non-zero divisor polynomial ``B(x)`` as a positive ``int``.
+        steps: Optional list that records each leading-term cancellation.
 
     Returns:
         Tuple ``(q_int, r_int)`` of non-negative ``int`` values satisfying::
@@ -115,6 +127,10 @@ def POLY_DIVMOD(a_int: int, b_int: int) -> Tuple[int, int]:
             break
         shift = deg_r - deg_b
         q_int ^= 1 << shift
-        r_int ^= b_int << shift
+        shifted = b_int << shift
+        reduced = r_int ^ shifted
+        if steps is not None:
+            steps.append(DivisionStep(shift, r_int, shifted, reduced))
+        r_int = reduced
 
     return q_int, r_int

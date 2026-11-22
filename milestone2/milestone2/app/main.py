@@ -21,8 +21,6 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
-from gf2m import polyrepr
-
 from . import providers
 from .schemas import (
     CalculateRequest,
@@ -100,15 +98,21 @@ def post_calculate(req: CalculateRequest):
 def post_random(req: RandomRequest) -> RandomResponse:
     if not providers.fields.is_supported(req.m):
         raise HTTPException(status_code=400, detail=f"unsupported field degree m={req.m}")
-    a = providers.randomops.generate_operand(req.m, req.density.value, req.seed)
-    b_seed = None if req.seed is None else req.seed + 1
-    b = providers.randomops.generate_operand(req.m, req.density.value, b_seed)
+    values = []
+    for index in range(req.count):
+        seed = None if req.seed is None else req.seed + index
+        value = providers.randomops.generate_operand(req.m, req.density.value, seed)
+        values.append(_element(value, req.m))
+    attribute = "poly" if req.output_base.value == "algebraic" else req.output_base.value
     return RandomResponse(
         field=field_info(req.m),
         density=req.density,
         seed=req.seed,
-        a=_element(a, req.m),
-        b=_element(b, req.m),
+        a=values[0],
+        b=values[1] if len(values) > 1 else None,
+        m=req.m,
+        output_base=req.output_base,
+        polynomials=[getattr(value, attribute) for value in values],
     )
 
 
@@ -169,4 +173,4 @@ def get_tutorial() -> TutorialResponse:
 def _element(value: int, m: int):
     from .schemas import ElementReprModel
 
-    return ElementReprModel(**polyrepr.ElementRepr.from_int(value, m).dict())
+    return ElementReprModel(**providers.polyrepr.ElementRepr.from_int(value, m).dict())

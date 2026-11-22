@@ -71,6 +71,9 @@ def to_markdown(calc: dict) -> str:
             f"- Result bit length: {metrics['result_bit_length']}",
             f"- Result Hamming weight: {metrics['result_hamming_weight']}",
         ]
+    if calc.get("initial_reduction") and calc.get("operation") != "modulo":
+        lines += ["", "## Initial operand reduction", "",
+                  indent(to_json(calc["initial_reduction"]), "    ")]
     if calc.get("trace") is not None:
         lines += ["", "## Educational trace", "", indent(to_json(calc["trace"]), "    ")]
     if calc.get("share_token"):

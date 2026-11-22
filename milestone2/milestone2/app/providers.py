@@ -1,25 +1,14 @@
-"""Single integration seam between the Milestone 2 backend and the other tracks.
+"""Select the integrated engines, with a fallback for the standalone milestone."""
 
-The API and service layers import *only* from here, never from M1/M3 modules
-directly. That keeps the merge to one file: when the real milestones land,
-repoint the bindings below and nothing else in ``app/`` changes.
+from importlib.util import find_spec
 
-    Current binding            ->   Replace on merge with
-    ----------------------------    ---------------------------------
-    multiply   (M2, permanent)      (keep — this is Milestone 2's engine)
-    fields     (reference)          Milestone 1 field registry
-    additive   (reference)          Milestone 1 additive/modulo engine
-    randomops  (reference)          Milestone 1 random operand generator
-    parser     (reference)          Milestone 1 batch file parser
-    formatter  (reference)          Milestone 1 summary formatter + share codec
-    tutorial   (reference)          Milestone 1 tutorial slides
-    invdiv     (reference)          Milestone 3 inverse + division engine
-"""
-from __future__ import annotations
+from gf2m import multiply
 
-# Milestone 2 — owned, permanent.
-from gf2m import multiply  # noqa: F401
 
-# Milestone 1 / Milestone 3 — reference shims (swap on merge).
-from gf2m._reference import additive, fields, formatter, inverse_division as invdiv
-from gf2m._reference import parser, randomops, tutorial  # noqa: F401
+if find_spec("gf2m_m1") and find_spec("gf2m_m3"):
+    from gf2m_m1 import additive, fields, formatter, parser, polyrepr, randomops, tutorial
+    from . import integrated_inverse as invdiv
+else:
+    from gf2m import polyrepr
+    from gf2m._reference import additive, fields, formatter, inverse_division as invdiv
+    from gf2m._reference import parser, randomops, tutorial

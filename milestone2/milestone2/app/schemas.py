@@ -9,7 +9,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 
 class Operation(str, Enum):
@@ -20,10 +20,23 @@ class Operation(str, Enum):
     inverse = "inverse"
     divide = "divide"
 
+    @classmethod
+    def _missing_(cls, value):
+        aliases = {"sub": cls.subtract, "mod": cls.modulo, "mul": cls.multiply,
+                   "inv": cls.inverse, "div": cls.divide}
+        if isinstance(value, str):
+            return aliases.get(value)
+
 
 class Base(str, Enum):
     hex = "hex"
     bin = "bin"
+    algebraic = "algebraic"
+
+    @classmethod
+    def _missing_(cls, value):
+        if value == "binary":
+            return cls.bin
 
 
 class Density(str, Enum):
@@ -68,8 +81,10 @@ class FieldsResponse(BaseModel):
 class CalculateRequest(BaseModel):
     m: int = Field(..., description="Field degree, e.g. 163")
     operation: Operation
-    a: str = Field(..., description="Operand A in the chosen input base")
-    b: Optional[str] = Field(None, description="Operand B (unused for modulo/inverse)")
+    a: str = Field(..., validation_alias=AliasChoices("a", "poly_a"), max_length=65536,
+                   description="Operand A in the chosen input base")
+    b: Optional[str] = Field(None, validation_alias=AliasChoices("b", "poly_b"), max_length=65536,
+                             description="Operand B (unused for modulo/inverse)")
     input_base: Base = Base.hex
     output_base: Base = Base.hex
     trace: bool = True
@@ -97,6 +112,7 @@ class Operands(BaseModel):
 class Verification(BaseModel):
     label: str
     passed: bool
+    proof: Optional[Dict[str, Any]] = None
 
 
 class Metrics(BaseModel):
@@ -111,6 +127,7 @@ class CalculateResponse(BaseModel):
     operands: Operands
     result: ElementReprModel
     trace: Optional[Dict[str, Any]] = None
+    initial_reduction: Optional[Dict[str, Any]] = None
     verification: Optional[Verification] = None
     metrics: Metrics
     share_token: str
@@ -121,8 +138,10 @@ class CalculateResponse(BaseModel):
 # --------------------------------------------------------------------------- #
 class RandomRequest(BaseModel):
     m: int
-    density: Density = Density.random
+    density: Density = Field(Density.random, validation_alias=AliasChoices("density", "sparsity"))
     seed: Optional[int] = None
+    count: int = Field(2, ge=1, le=100)
+    output_base: Base = Base.hex
 
 
 class RandomResponse(BaseModel):
@@ -130,7 +149,10 @@ class RandomResponse(BaseModel):
     density: Density
     seed: Optional[int]
     a: ElementReprModel
-    b: ElementReprModel
+    b: Optional[ElementReprModel]
+    m: int
+    output_base: Base
+    polynomials: List[str]
 
 
 # --------------------------------------------------------------------------- #

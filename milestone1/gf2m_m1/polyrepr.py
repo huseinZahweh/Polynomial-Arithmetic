@@ -1,6 +1,7 @@
 """Bitmask conversion for polynomial-basis arithmetic (Stallings Ch. 4 and 5)."""
 
 from dataclasses import asdict, dataclass
+import re
 
 _BINARY_DIGITS = frozenset("01")
 _HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
@@ -62,7 +63,31 @@ def HEX_TO_INT(text: str) -> int:
 
 def parse_value(text: str, base: str) -> int:
     """Read a single operand using the current API's strict digit validation."""
+    if base == "algebraic":
+        return ALGEBRAIC_TO_INT(text)
     return _parse(text, base, grouped=False)
+
+
+def ALGEBRAIC_TO_INT(text: str) -> int:
+    """Read a sum of monomials, cancelling duplicate terms modulo two."""
+    value = 0
+    for raw_term in text.split("+"):
+        term = raw_term.strip().lower()
+        if term == "0":
+            continue
+        if term == "1":
+            exponent = 0
+        elif term == "x":
+            exponent = 1
+        else:
+            match = re.fullmatch(r"x\s*\^\s*([0-9]{1,4})", term)
+            if match is None:
+                raise ValueError(f"invalid polynomial term: {term!r}; use x^7 + x + 1")
+            exponent = int(match[1])
+        if exponent >= 4096:
+            raise ValueError("polynomial exponents must be below 4096")
+        value ^= 1 << exponent
+    return value
 
 
 def _validate_width(m: int) -> None:

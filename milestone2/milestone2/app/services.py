@@ -10,8 +10,6 @@ from __future__ import annotations
 import time
 from typing import Any, Optional, Tuple
 
-from gf2m import polyrepr
-
 from . import providers
 from .schemas import (
     CalculateRequest,
@@ -23,6 +21,8 @@ from .schemas import (
     Operation,
     Verification,
 )
+
+polyrepr = providers.polyrepr
 
 
 class CalculationError(ValueError):
@@ -108,8 +108,9 @@ def _dispatch(op: Operation, a: int, b: Optional[int], mod_poly: int, m: int, wa
             result, trace = invdiv.inverse(a, mod_poly, m, with_trace=True)
         else:
             result, trace = invdiv.inverse(a, mod_poly, m), None
-        check = mul.multiply(a, result, mod_poly, m) == 1
-        ver = Verification(label="A(x) * A(x)^-1 mod m(x) = 1", passed=check)
+        proof = invdiv.verify_inverse(a, result, mod_poly, m) if hasattr(invdiv, "verify_inverse") else None
+        check = proof["passed"] if proof else mul.multiply(a, result, mod_poly, m) == 1
+        ver = Verification(label="A(x) * A(x)^-1 mod m(x) = 1", passed=check, proof=proof)
         return result, trace, ver
 
     if op is Operation.divide:
@@ -117,11 +118,33 @@ def _dispatch(op: Operation, a: int, b: Optional[int], mod_poly: int, m: int, wa
             result, trace = invdiv.divide(a, b, mod_poly, m, with_trace=True)
         else:
             result, trace = invdiv.divide(a, b, mod_poly, m), None
-        check = mul.multiply(result, b, mod_poly, m) == add.modulo(a, mod_poly, m)
-        ver = Verification(label="(A(x)/B(x)) * B(x) mod m(x) = A(x)", passed=check)
+        proof = invdiv.verify_division(a, b, result, mod_poly, m) if hasattr(invdiv, "verify_division") else None
+        check = proof["passed"] if proof else mul.multiply(result, b, mod_poly, m) == add.modulo(a, mod_poly, m)
+        ver = Verification(label="(A(x)/B(x)) * B(x) mod m(x) = A(x)", passed=check, proof=proof)
         return result, trace, ver
 
     raise CalculationError(f"unknown operation: {op}")
+
+
+def _reduce(value, field, want_trace):
+    """Reduce an operand and attach lossless display values to each trace row."""
+    if not want_trace or not hasattr(providers.additive, "MOD_REDUCE"):
+        return providers.additive.modulo(value, field.mod_poly, field.m), None
+    result, trace = providers.additive.MOD_REDUCE(value, field.mod_poly, field.m)
+    for row in trace["steps"]:
+        for key in ("before", "reducer", "after"):
+            row[f"{key}_hex"] = polyrepr.to_hex(row[key], field.m)
+    return result, trace
+
+
+def _parse_operand(text, base, name):
+    try:
+        value = polyrepr.parse_value(text, base)
+        if value.bit_length() > 4096:
+            raise ValueError("polynomials may have at most 4096 bits")
+        return value
+    except ValueError as exc:
+        raise CalculationError(f"operand {name}: {exc}") from exc
 
 
 def calculate(req: CalculateRequest) -> CalculateResponse:
@@ -129,30 +152,32 @@ def calculate(req: CalculateRequest) -> CalculateResponse:
     f = providers.fields.get_field(req.m)
 
     # Parse operands.
-    try:
-        a = polyrepr.parse_value(req.a, req.input_base.value)
-    except ValueError as exc:
-        raise CalculationError(f"operand A: {exc}")
+    a = _parse_operand(req.a, req.input_base.value, "A")
 
     b: Optional[int] = None
     if req.operation in _BINARY_OPS:
         if req.b is None or req.b.strip() == "":
             raise CalculationError(f"operation '{req.operation.value}' requires operand B")
-        try:
-            b = polyrepr.parse_value(req.b, req.input_base.value)
-        except ValueError as exc:
-            raise CalculationError(f"operand B: {exc}")
+        b = _parse_operand(req.b, req.input_base.value, "B")
 
     # Reduce displayed operands into the field so echoed operands, trace bits,
     # and dispatched arithmetic operate on the exact same reduced elements.
-    a_in = providers.additive.modulo(a, f.mod_poly, f.m)
-    b_in = providers.additive.modulo(b, f.mod_poly, f.m) if b is not None else None
+    t0 = time.perf_counter()
+    a_in, a_reduction = _reduce(a, f, req.trace)
+    b_in, b_reduction = _reduce(b, f, req.trace) if b is not None else (None, None)
+    reductions = {key: trace for key, trace in (("a", a_reduction), ("b", b_reduction))
+                  if trace and trace["was_reduced"]}
 
     try:
-        t0 = time.perf_counter()
-        result, trace, verification = _dispatch(
-            req.operation, a_in, b_in, f.mod_poly, f.m, req.trace
-        )
+        if req.operation == Operation.modulo:
+            result, trace, verification = a_in, a_reduction, None
+        else:
+            # Extended Euclid also records how its original inputs were reduced.
+            use_original = req.operation in (Operation.inverse, Operation.divide)
+            result, trace, verification = _dispatch(
+                req.operation, a if use_original else a_in, b if use_original else b_in,
+                f.mod_poly, f.m, req.trace,
+            )
         elapsed_ms = round((time.perf_counter() - t0) * 1000, 4)
     except _non_invertible_error_types() as exc:
         raise CalculationError(
@@ -166,8 +191,8 @@ def calculate(req: CalculateRequest) -> CalculateResponse:
     share_token = providers.formatter.make_share_token(
         m=req.m,
         operation=req.operation.value,
-        a_hex=polyrepr.to_hex(a_in, f.m),
-        b_hex=polyrepr.to_hex(b_in, f.m) if b_in is not None else "",
+        a_hex=polyrepr.to_hex(a, f.m),
+        b_hex=polyrepr.to_hex(b, f.m) if b is not None else "",
         out_base=req.output_base.value,
     )
 
@@ -177,6 +202,7 @@ def calculate(req: CalculateRequest) -> CalculateResponse:
         operands=Operands(a=_repr(a_in, f.m), b=_repr(b_in, f.m) if b_in is not None else None),
         result=_repr(result, f.m),
         trace=trace,
+        initial_reduction=reductions or None,
         verification=verification,
         metrics=Metrics(
             elapsed_ms=elapsed_ms,
