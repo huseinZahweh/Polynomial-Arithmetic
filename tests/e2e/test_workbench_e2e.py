@@ -209,7 +209,7 @@ def test_experiment_tour_tracks_the_active_view_and_result(
         page = browser.new_page(viewport=viewport)
         page.goto(f"{live_url}#{view}")
         check(page.locator(form)).to_be_visible()
-        tutorial = page.get_by_role("button", name="Tutorial", exact=True)
+        tutorial = page.get_by_role("button", name="Tutorial tour", exact=True)
         check(tutorial).to_be_visible(timeout=2000)
         tutorial.click()
         check(page.locator(form + ".tour-highlight")).to_be_in_viewport()
@@ -242,7 +242,7 @@ def test_calculator_tour_guides_the_preview_bits_and_comparison(live_url: str) -
         page = browser.new_page(viewport={"width": 390, "height": 840})
         page.goto(live_url)
         check(page.locator("#result-value")).to_have_text("2B79")
-        page.get_by_role("button", name="Tutorial", exact=True).click()
+        page.get_by_role("button", name="Tutorial tour", exact=True).click()
         next_step = page.locator("#tour-next")
         for _ in range(6):
             next_step.click()
@@ -417,3 +417,280 @@ def test_compare_this_product_transfers_the_exact_calculation(live_url: str) -> 
         check(page.locator("#result-value")).to_be_visible()
         check(shortcut).to_be_hidden()
         browser.close()
+
+
+def test_milestone6_zero_scroll_trace_modes_and_playback(live_url: str) -> None:
+    """Verify Milestone 6 zero-horizontal-scroll trace modes, 5-button playback, compact toggle, and full-view modal."""
+    playwright = pytest.importorskip("playwright.sync_api")
+    check = playwright.expect
+    with playwright.sync_playwright() as runner:
+        browser = runner.chromium.launch()
+        page = browser.new_page(viewport={"width": 1280, "height": 900})
+        page_errors = []
+        page.on("pageerror", lambda err: page_errors.append(str(err)))
+        page.goto(live_url)
+
+        # Verify "Tutorial tour" header button rename.
+        check(page.locator("#tutorial-open")).to_have_text("Tutorial tour")
+
+        # Run GF(2^163) Multiplicative Inverse (Extended Euclid Table 4.7).
+        page.locator("#field").select_option("163")
+        page.locator('input[value="inverse"]').check(force=True)
+        page.locator("#poly-a").fill("57")
+        page.locator("#calculate").click()
+        check(page.locator("#verification")).to_contain_text("Mathematically verified")
+
+        trace = page.locator("#trace-panel")
+        check(trace).to_be_visible()
+        # Large field (m=163 > 8) defaults to Step view and Compact values ON.
+        step_mode_btn = trace.get_by_role("button", name="Step view", exact=True)
+        grid_mode_btn = trace.get_by_role("button", name="All steps grid", exact=True)
+        table_mode_btn = trace.get_by_role("button", name="Classic table", exact=True)
+        check(step_mode_btn).to_have_attribute("aria-pressed", "true")
+
+        # Step Inspector Square renders Triple A(x), Triple B(x), and Q(x) with zero horizontal scroll.
+        inspector = trace.get_by_role("region", name="Current trace step")
+        check(inspector).to_be_visible()
+        check(inspector).to_contain_text("Extended Euclid · step 0")
+        check(inspector).to_contain_text("Triple A(x)")
+        check(inspector).to_contain_text("Triple B(x)")
+        assert page.evaluate(
+            "document.getElementById('trace-panel').scrollWidth <= document.getElementById('trace-panel').clientWidth"
+        )
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+
+        # Test 5-button playback bar: Next step, Last step, First step, Previous step.
+        trace.get_by_role("button", name="Next step", exact=True).click()
+        check(inspector).to_contain_text("Extended Euclid · step 1")
+        trace.get_by_role("button", name="Last step", exact=True).click()
+        check(inspector).to_contain_text("B3(x) = 1, so B2(x) gives the inverse.")
+        trace.get_by_role("button", name="Previous step", exact=True).click()
+        check(inspector).to_contain_text("Extended Euclid · step")
+        trace.get_by_role("button", name="First step", exact=True).click()
+        check(inspector).to_contain_text("Extended Euclid · step 0")
+
+        # Test Compact values / Full m-bit toggle in Step view with zero horizontal overflow.
+        full_toggle = trace.get_by_role("button", name="Full m-bit", exact=True)
+        check(full_toggle).to_be_visible()
+        full_toggle.click()
+        check(trace.get_by_role("button", name="Compact values", exact=True)).to_be_visible()
+        assert page.evaluate(
+            "document.getElementById('trace-panel').scrollWidth <= document.getElementById('trace-panel').clientWidth"
+        )
+
+        # Switch to All steps grid mode and verify zero horizontal overflow.
+        grid_mode_btn.click()
+        check(grid_mode_btn).to_have_attribute("aria-pressed", "true")
+        check(trace.locator(".trace-grid-cards .euclid-inspector-square").first).to_be_visible()
+        assert page.evaluate(
+            "document.getElementById('trace-panel').scrollWidth <= document.getElementById('trace-panel').clientWidth"
+        )
+
+        # Switch to Classic table mode and verify wrapped cells keep page overflow at zero.
+        table_mode_btn.click()
+        check(table_mode_btn).to_have_attribute("aria-pressed", "true")
+        check(trace.get_by_role("heading", name="Table 4.7", exact=False)).to_be_visible()
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+
+        # Open Expand full view modal and verify full Table 4.7 inside dialog.
+        trace.get_by_role("button", name="Expand full view", exact=True).click()
+        fullscreen = page.locator("#trace-fullscreen")
+        check(fullscreen).to_be_visible()
+        check(fullscreen.get_by_role("heading", name="Table 4.7", exact=False)).to_be_visible()
+        page.locator("#trace-fullscreen-close").click()
+        check(fullscreen).to_be_hidden()
+
+        # Verify mobile viewport (390x840) has zero horizontal overflow.
+        page.set_viewport_size({"width": 390, "height": 840})
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+        assert not page_errors
+        browser.close()
+
+
+def test_milestone6_standalone_lessons_page_and_handoff(live_url: str) -> None:
+    """Verify the standalone animated #lessons curriculum, 5-button playback, tour, activities, and Calculator handoff."""
+    playwright = pytest.importorskip("playwright.sync_api")
+    check = playwright.expect
+    with playwright.sync_playwright() as runner:
+        browser = runner.chromium.launch()
+        page = browser.new_page(viewport={"width": 1280, "height": 900})
+        page_errors = []
+        page.on("pageerror", lambda err: page_errors.append(str(err)))
+        page.goto(live_url)
+
+        # Navigate to Lessons page via top-level tab.
+        page.get_by_role("link", name="Lessons", exact=True).click()
+        check(page.get_by_role("heading", name="Polynomial arithmetic lessons")).to_be_visible()
+
+        # Verify all 7 lessons are rendered in the catalog hub.
+        cards = page.locator("#lesson-catalog .lesson-hub-card")
+        check(cards).to_have_count(7)
+        check(page.locator("#lesson-active-title")).to_contain_text("Lesson 1")
+
+        # Verify Tutorial tour works on the Lessons view across all 5 steps.
+        page.locator("#tutorial-open").click()
+        check(page.locator("#lesson-hub.tour-highlight")).to_be_visible()
+        for target in ("#lesson-subtabs", "#lesson-controls", "#lesson-stage", "#lesson-handoff-bar"):
+            page.locator("#tour-next").click()
+            check(page.locator(target + ".tour-highlight")).to_be_visible()
+        page.get_by_role("button", name="Done", exact=True).click()
+        check(page.locator("#page-tour")).to_be_hidden()
+
+        # Test Lesson 1 interactive 8-bit polynomial sandbox and 5-button playback controls.
+        sandbox = page.locator(".lesson-activity").first
+        check(sandbox).to_contain_text("Hex: {57}")
+        sandbox.get_by_label("Sandbox bit x^7").check()
+        check(sandbox).to_contain_text("Hex: {D7}")
+        check(page.locator("#lesson-step-progress")).to_have_text("Step 1 / 3")
+        page.locator("#lesson-next").click()
+        check(page.locator("#lesson-step-progress")).to_have_text("Step 2 / 3")
+        page.locator("#lesson-last").click()
+        check(page.locator("#lesson-step-progress")).to_have_text("Step 3 / 3")
+        page.locator("#lesson-first").click()
+        check(page.locator("#lesson-step-progress")).to_have_text("Step 1 / 3")
+
+        # Switch to Lesson 2 (Addition & Subtraction), sub-lesson 2.2 (3 steps), then sub-lesson 2.3 (quiz).
+        cards.nth(1).click()
+        check(page.locator("#lesson-active-title")).to_contain_text("Lesson 2")
+        page.locator("#lesson-subtabs .lesson-subtab").nth(1).click()
+        check(page.locator("#lesson-step-progress")).to_have_text("Step 1 / 3")
+        page.locator("#lesson-next").click()
+        check(page.locator("#lesson-step-progress")).to_have_text("Step 2 / 3")
+        page.locator("#lesson-subtabs .lesson-subtab").nth(2).click()
+        quiz_option = page.locator(".lesson-quiz-option").first
+        quiz_option.click()
+        check(page.locator(".lesson-quiz-feedback")).to_contain_text("Correct!")
+
+        # Switch to Lesson 6 (Multiplicative Inverse & Extended Euclid) and test Calculator handoff ({83}^-1 = {80}).
+        cards.nth(5).click()
+        check(page.locator("#lesson-active-title")).to_contain_text("Lesson 6")
+        page.locator(".lesson-try-calculator").click()
+        check(page.locator("#field")).to_have_value("8")
+        check(page.locator("#result-value")).to_have_text("80")
+
+        # Return to Lessons on mobile viewport (390x840) and verify zero horizontal overflow.
+        page.set_viewport_size({"width": 390, "height": 840})
+        page.get_by_role("link", name="Lessons", exact=True).click()
+        check(page.get_by_role("heading", name="Polynomial arithmetic lessons")).to_be_visible()
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+        assert not page_errors
+        browser.close()
+
+
+def test_milestone6_wave2_trace_visual_diffs_and_compare_mode(live_url: str) -> None:
+    """Verify Wave 2 visual diff badges, inline was: deltas, and side-by-side Compare prev → curr in Calculator traces."""
+    playwright = pytest.importorskip("playwright.sync_api")
+    check = playwright.expect
+    with playwright.sync_playwright() as runner:
+        browser = runner.chromium.launch()
+        page = browser.new_page(viewport={"width": 1280, "height": 900})
+        page_errors = []
+        page.on("pageerror", lambda err: page_errors.append(str(err)))
+        page.goto(live_url)
+
+        # Compute GF(2^163) Inverse ({57}^-1) which defaults to Step view.
+        page.locator("#field").select_option("163")
+        page.locator('input[value="inverse"]').check(force=True)
+        page.locator("#poly-a").fill("57")
+        page.locator("#calculate").click()
+        check(page.locator("#verification")).to_contain_text("Mathematically verified")
+
+        trace = page.locator("#trace-panel")
+        check(trace.locator(".diff-legend")).to_be_visible()
+
+        # Step 0 -> Step 1 -> Step 2: verify transition banner, diff badges, and inline was: values.
+        next_btn = trace.get_by_role("button", name="Next step", exact=True)
+        next_btn.click()
+        inspector = trace.get_by_role("region", name="Current trace step")
+        check(inspector.locator(".diff-banner")).to_contain_text("Step 0 → Step 1")
+        check(inspector.locator(".diff-carried").first).to_be_visible()
+        check(inspector.locator(".diff-updated").first).to_be_visible()
+        check(inspector.locator(".diff-prev-value").first).to_contain_text("was:")
+
+        next_btn.click()
+        check(inspector.locator(".diff-banner")).to_contain_text("Step 1 → Step 2")
+        check(inspector.locator(".diff-tag", has_text="← prev B").first).to_be_visible()
+        check(inspector.locator(".diff-tag", has_text="New T").first).to_be_visible()
+
+        # Toggle Compare prev → curr: both Previous (Step 1) and Current (Step 2) render simultaneously.
+        compare_btn = trace.get_by_role("button", name="Compare prev → curr", exact=True)
+        compare_btn.click()
+        check(compare_btn).to_have_attribute("aria-pressed", "true")
+        prev_pane = trace.get_by_role("region", name="Previous trace step")
+        check(prev_pane).to_be_visible()
+        check(prev_pane).to_contain_text("Extended Euclid · step 1")
+        check(inspector).to_contain_text("Extended Euclid · step 2")
+        assert page.evaluate(
+            "document.getElementById('trace-panel').scrollWidth <= document.getElementById('trace-panel').clientWidth"
+        )
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+
+        # Return to Step 0 in compare mode: placeholder message appears for Previous step.
+        trace.get_by_role("button", name="First step", exact=True).click()
+        check(prev_pane).to_contain_text("Initial state — no previous step")
+
+        # Verify zero horizontal overflow on mobile (390x840) with Compare prev → curr active.
+        page.set_viewport_size({"width": 390, "height": 840})
+        next_btn.click()
+        check(prev_pane).to_be_visible()
+        check(inspector).to_be_visible()
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+        assert not page_errors
+        browser.close()
+
+
+def test_milestone6_wave2_lessons_visual_diffs_and_compare_mode(live_url: str) -> None:
+    """Verify Wave 2 slide-to-slide diff banners, persistent badges, and Compare prev → curr in #lessons."""
+    playwright = pytest.importorskip("playwright.sync_api")
+    check = playwright.expect
+    with playwright.sync_playwright() as runner:
+        browser = runner.chromium.launch()
+        page = browser.new_page(viewport={"width": 1280, "height": 900})
+        page_errors = []
+        page.on("pageerror", lambda err: page_errors.append(str(err)))
+        page.goto(live_url)
+
+        page.get_by_role("link", name="Lessons", exact=True).click()
+        cards = page.locator("#lesson-catalog .lesson-hub-card")
+
+        # Lesson 5 (Multiplication), sub-lesson 5.3 ({57} × {83} = {C1}): verify diff legend & banner.
+        cards.nth(4).click()
+        page.locator("#lesson-subtabs .lesson-subtab").nth(2).click()
+        check(page.locator("#lesson-stage .diff-legend")).to_be_visible()
+        page.locator("#lesson-next").click()
+        check(page.locator("#lesson-stage .lesson-diff-banner")).to_contain_text("From Step 1 → Step 2:")
+        check(page.locator("#lesson-stage .diff-reduced").first).to_be_visible()
+        check(page.locator("#lesson-stage .diff-updated").first).to_be_visible()
+
+        # Lesson 6 (Table 4.7), sub-lesson 6.4 ({83}^-1 = {80}): verify carried/updated badges & was: deltas.
+        cards.nth(5).click()
+        page.locator("#lesson-subtabs .lesson-subtab").nth(3).click()
+        page.locator("#lesson-next").click()
+        check(page.locator("#lesson-stage .lesson-diff-banner")).to_contain_text("From Step 1 → Step 2:")
+        check(page.locator("#lesson-stage .diff-carried").first).to_be_visible()
+        check(page.locator("#lesson-stage .diff-updated").first).to_be_visible()
+        check(page.locator("#lesson-stage .diff-prev-value").first).to_contain_text("was:")
+
+        # Advance to Step 3 (Row 2) and toggle Compare prev → curr.
+        page.locator("#lesson-next").click()
+        check(page.locator("#lesson-stage .lesson-diff-banner")).to_contain_text("From Step 2 → Step 3:")
+        compare_btn = page.locator("#lesson-compare")
+        compare_btn.click()
+        check(compare_btn).to_have_attribute("aria-pressed", "true")
+        prev_slide = page.get_by_role("region", name="Previous lesson step")
+        curr_slide = page.get_by_role("region", name="Current lesson step")
+        check(prev_slide).to_be_visible()
+        check(curr_slide).to_be_visible()
+        check(prev_slide).to_contain_text("Table 4.7 · Step 1")
+        check(curr_slide).to_contain_text("Table 4.7 · Step 2")
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+
+        # Verify mobile viewport (390x840) stacks cleanly with zero horizontal overflow.
+        page.set_viewport_size({"width": 390, "height": 840})
+        check(prev_slide).to_be_visible()
+        check(curr_slide).to_be_visible()
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+        assert not page_errors
+        browser.close()
+
+

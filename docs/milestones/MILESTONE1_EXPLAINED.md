@@ -1,6 +1,6 @@
 # Milestone 1 — Field Configuration, Multi-Base I/O, Additive/Modulo Engine & Utilities
 
-**Project:** EECE 455/632 — Project-3: Polynomial Arithmetic in $GF(2^m)$  
+**Project:** EECE 455 — Project-3: Polynomial Arithmetic in $GF(2^m)$  
 **Assigned Owner:** Hussein Abbas  
 **Unified Code Locations:** [backend/engine/fields.py](../../backend/engine/fields.py), [backend/engine/polyrepr.py](../../backend/engine/polyrepr.py), [backend/engine/additive.py](../../backend/engine/additive.py), [backend/engine/randomops.py](../../backend/engine/randomops.py), [backend/engine/parser.py](../../backend/engine/parser.py), [backend/engine/formatter.py](../../backend/engine/formatter.py), [backend/engine/tutorial.py](../../backend/engine/tutorial.py), and [data/tutorial_slides.json](../../data/tutorial_slides.json)  
 **Textbook References:** William Stallings, *Cryptography and Network Security*, **Chapter 4** (Finite Fields), **Chapter 5** (AES), **Chapter 6** (XTS-AES over $GF(2^{128})$), and **Chapter 10** (Binary Elliptic Curve Cryptography over $GF(2^{163}) \dots GF(2^{571})$).
@@ -9,7 +9,7 @@
 
 ## 1. Field Registry & Polynomial Representation
 
-`backend.engine.fields.get_field(m)` returns an immutable `Field(m, mod_poly, category, name)` entry in $O(1)$ time. The registry constructs each bitmask directly from the canonical tap lists in the [Milestone 1 plan](../../Plan/Milestones/01_field_config_io_additive_mod_and_utilities.md), using the EECE 455/632 Project-2 irreducible moduli for $2 \le m \le 8$ (including $x^3 + x^2 + 1$, $x^4 + x^3 + 1$, and the AES polynomial $x^8 + x^4 + x^3 + x + 1$) and the six standard NIST/SEC binary ECC moduli for $m \in \{163, 233, 239, 283, 409, 571\}$ (with $m = 163$ as `DEFAULT_DEGREE`).
+`backend.engine.fields.get_field(m)` returns an immutable `Field(m, mod_poly, category, name)` entry in $O(1)$ time. The registry constructs each bitmask directly from the canonical tap lists in the [Milestone 1 plan](../../Plan/Milestones/01_field_config_io_additive_mod_and_utilities.md), using the EECE 455 Project-2 irreducible moduli for $2 \le m \le 8$ (including $x^3 + x^2 + 1$, $x^4 + x^3 + 1$, and the AES polynomial $x^8 + x^4 + x^3 + x + 1$) and the six standard NIST/SEC binary ECC moduli for $m \in \{163, 233, 239, 283, 409, 571\}$ (with $m = 163$ as `DEFAULT_DEGREE`).
 
 Every polynomial is encoded as a non-negative Python `int` where bit $i$ (LSB $= 0$) equals the coefficient $c_i \in \{0, 1\}$ of $x^i$, and the reduction modulus $m(x)$ includes bit $m$ set to $1$:
 

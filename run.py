@@ -1,4 +1,4 @@
-"""Root application launcher for the EECE 455/632 Finite Field Lab.
+"""Root application launcher for the EECE 455 Finite Field Lab.
 
 Original Author
 ---------------
@@ -35,7 +35,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         Parsed :class:`argparse.Namespace` with ``host``, ``port``, and ``reload``.
     """
     parser = argparse.ArgumentParser(
-        description="Launch the EECE 455/632 GF(2^m) Finite Field Lab server."
+        description="Launch the EECE 455 GF(2^m) Finite Field Lab server."
     )
     parser.add_argument(
         "--host",

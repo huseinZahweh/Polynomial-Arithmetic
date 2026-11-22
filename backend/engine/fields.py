@@ -6,10 +6,10 @@ Hussein Abbas — Milestone 1 (Field Configuration, I/O, Additive/Modulo & Utili
 
 Purpose & Course References
 ---------------------------
-Configures the 13 binary finite fields supported by EECE 455/632 Project-3:
+Configures the 13 binary finite fields supported by EECE 455 Project-3:
 
 * **7 Small Textbook Fields (2 <= m <= 8):** Exact irreducible polynomials from
-  the EECE 455/632 Project-2 handout, including the AES byte field ``GF(2^8)``
+  the EECE 455 Project-2 handout, including the AES byte field ``GF(2^8)``
   with ``m(x) = x^8 + x^4 + x^3 + x + 1`` (``0x11B``) from Stallings **Chapter 4**
   (Table 4.7) and **Chapter 5** (AES S-Box and MixColumns).
 * **6 Standard Cryptographic Fields (m in {163, 233, 239, 283, 409, 571}):**
@@ -74,7 +74,7 @@ class Field:
 
 
 # Canonical tap lists (descending exponents):
-# - Degrees 2..8: EECE 455/632 Project-2 handout (degree 8 is AES 0x11B).
+# - Degrees 2..8: EECE 455 Project-2 handout (degree 8 is AES 0x11B).
 # - Degrees 163..571: Standard binary ECC trinomials/pentanomials (NIST / SEC 2).
 _FIELD_TAPS: dict[int, tuple[int, ...]] = {
     2: (2, 1, 0),

@@ -1,4 +1,4 @@
-"""Backend package for the EECE 455/632 GF(2^m) Polynomial Arithmetic platform.
+"""Backend package for the EECE 455 GF(2^m) Polynomial Arithmetic platform.
 
 Combines the pure-Python finite-field arithmetic engines (:mod:`backend.engine`)
 with the FastAPI REST controller and static workbench host (:mod:`backend.api`).

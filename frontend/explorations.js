@@ -73,14 +73,17 @@ function bindExperiment(formId, errorId, results, calculate) {
 }
 
 /**
- * Bind top-level hash navigation (`#calculator`, `#modulus`, `#aes`, `#compare`).
+ * Bind top-level hash navigation (`#calculator`, `#lessons`, `#lessons/<id>`, `#modulus`, `#aes`, `#compare`).
+ *
  * @param {() => void} closeTour - Callback closing any active spotlight walkthrough on switch.
+ * @param {(lessonSlug?: string) => void} [onLessonRoute] - Optional callback invoked when `#lessons/<slug>` is navigated.
  */
-function setupNavigation(closeTour) {
+function setupNavigation(closeTour, onLessonRoute) {
   const tabs = Array.from(document.querySelectorAll("[data-lab-tab]"));
   const views = Array.from(document.querySelectorAll("[data-lab-view]"));
   function selectView(focus) {
-    const requested = window.location.hash.slice(1);
+    const rawHash = window.location.hash.slice(1);
+    const [requested, subroute] = rawHash.split("/");
     const selected = views.find(view => view.dataset.labView === requested) || views[0];
     closeTour();
     for (const view of views) view.hidden = view !== selected;
@@ -88,11 +91,14 @@ function setupNavigation(closeTour) {
       if (tab.dataset.labTab === selected.dataset.labView) tab.setAttribute("aria-current", "page");
       else tab.removeAttribute("aria-current");
     }
+    if (selected.dataset.labView === "lessons" && typeof onLessonRoute === "function") {
+      onLessonRoute(subroute);
+    }
     // Share-link URL encoding applies specifically to calculator state.
     $("share").hidden = selected.dataset.labView !== "calculator";
     if (focus) {
       window.scrollTo(0, 0);
-      selected.querySelector("h1").focus({ preventScroll: true });
+      selected.querySelector("h1")?.focus({ preventScroll: true });
     }
   }
   window.addEventListener("hashchange", () => selectView(true));
@@ -279,11 +285,11 @@ function setupComparison(api, currentOperands) {
  * Initialize view navigation and all three exploration labs.
  *
  * @param {(path: string, data?: object) => Promise<any>} api - Shared JSON API helper.
- * @param {{closeTour: () => void, currentField: () => object | undefined, currentOperands: () => {m: number, a: string, b: string}}} hooks - Calculator integration hooks.
+ * @param {{closeTour: () => void, currentField: () => object | undefined, currentOperands: () => {m: number, a: string, b: string}, onLessonRoute?: (slug?: string) => void}} hooks - Calculator & lesson integration hooks.
  * @returns {(fields: Array<{m: number}>) => void} Callback to populate `#compare-degree` once `/api/fields` loads.
  */
-export function setupExplorations(api, { closeTour, currentField, currentOperands }) {
-  setupNavigation(closeTour);
+export function setupExplorations(api, { closeTour, currentField, currentOperands, onLessonRoute }) {
+  setupNavigation(closeTour, onLessonRoute);
   setupModulus(api, currentField);
   setupAES(api);
   setupComparison(api, currentOperands);

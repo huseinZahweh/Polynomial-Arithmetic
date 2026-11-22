@@ -1,6 +1,6 @@
 # Milestones 4 & 5 — Educational Web Workbench, Explorations & End-to-End Integration
 
-**Project:** EECE 455/632 — Project-3: Polynomial Arithmetic in $GF(2^m)$  
+**Project:** EECE 455 — Project-3: Polynomial Arithmetic in $GF(2^m)$  
 **Assigned Owner:** Ali Zahreddine (Milestone 4 GUI & Bonus Explorations; Milestone 5 End-to-End Integration with the full team)  
 **Unified Code Locations:** [frontend/](../../frontend/index.html), [backend/engine/explorations.py](../../backend/engine/explorations.py), [backend/api/exploration_routes.py](../../backend/api/exploration_routes.py), [backend/api/main.py](../../backend/api/main.py), [run.py](../../run.py), and [tests/e2e/test_workbench_e2e.py](../../tests/e2e/test_workbench_e2e.py)  
 **Textbook References:** William Stallings, *Cryptography and Network Security*, **Chapter 4** (Finite Fields), **Chapter 5** (AES S-Box), **Chapter 6** (XTS-AES over $GF(2^{128})$), and **Chapter 10** (Binary ECC over $GF(2^{163}) \dots GF(2^{571})$).

@@ -6,7 +6,7 @@
 ---
 
 ## 1. Objective
-Design and build a polished, single-view Educational Web Graphical User Interface (GUI) tailored for classroom instruction in **EECE 455/632**. Beyond performing and visualizing the six $GF(2^m)$ operations across $m \in \{163, 233, 239, 283, 409, 571\}$ and $2 \le m \le 8$, the GUI simplifies classroom exploration with an **Interactive Tutorial Drawer**, one-click Chapter 4/5 presets, random/batch operand loading, downloadable calculation summaries, and **Hexadecimal-encoded Shareable Calculation Links**.
+Design and build a polished, single-view Educational Web Graphical User Interface (GUI) tailored for classroom instruction in **EECE 455**. Beyond performing and visualizing the six $GF(2^m)$ operations across $m \in \{163, 233, 239, 283, 409, 571\}$ and $2 \le m \le 8$, the GUI simplifies classroom exploration with an **Interactive Tutorial Drawer**, one-click Chapter 4/5 presets, random/batch operand loading, downloadable calculation summaries, and **Hexadecimal-encoded Shareable Calculation Links**.
 
 ---
 
@@ -18,10 +18,10 @@ Design and build a polished, single-view Educational Web Graphical User Interfac
 2. **Active Irreducible Polynomial Banner:**
    * Dynamically displays $m(x)$ in Algebraic form, e.g., $x^{163} + x^7 + x^6 + x^3 + 1$, Hexadecimal, and Binary.
 3. **Input / Output Format Toggle:**
-   * Segmented switch between **Binary** and **Hexadecimal** with automatic live conversion of existing inputs when toggling bases.
-4. **"Interactive Tutorial" Button:**
-   * Fetches `GET /api/tutorial` (Milestone 1's `tutorial_slides.json`) and opens the 4-slide guided educational walkthrough drawer.
-5. **"Share Link" Button (URL Snapshot Rule):**
+   * Segmented switch between **Hex**, **Binary**, and **Polynomial** (`algebraic`) with automatic live `BigInt` conversion of existing inputs when toggling bases.
+4. **"Tutorial tour" & "Field concepts" Controls:**
+   * Clicking **"Tutorial tour"** opens the context-aware spotlight walkthrough (`frontend/tour.js`) highlighting controls and results on the active view (`Calculator`, `Lessons`, `Modulus explorer`, `AES S-box`, `Compare multiplication`); clicking **"Field concepts"** opens the 4-slide educational dialog fetched from `GET /api/tutorial` (`data/tutorial_slides.json`).
+5. **"Copy calculation link" Button (URL Snapshot Rule):**
    * Copies a shareable URL encoding `(m, operation, base, poly_a, poly_b)` in query parameters and restores full GUI state on load.
    * **Hexadecimal URL Compression Rule:** Always encodes `poly_a` and `poly_b` in **Hexadecimal** inside URL query parameters (even when `base=binary`) so $571$-bit links remain compact, converting back to Binary on page load when `base=binary` is specified.
 
@@ -34,14 +34,14 @@ Design and build a polished, single-view Educational Web Graphical User Interfac
 2. **Classroom Preset, Random & Upload Toolbar:**
    * **"Load Ch. 4 $GF(2^8)$ Example"**: Pre-fills $f(x) = \{57\}$ and $g(x) = \{83\}$ in $GF(2^8)$.
    * **"Load Ch. 5 AES $\{95\}^{-1}$ Example"**: Pre-fills $A(x) = \{95\}$ in $GF(2^8)$.
-   * **"Generate Random Polynomials"**: Calls `POST /api/random-polynomials` (`count: 2`, sparse or dense mode) to populate both $A(x)$ and $B(x)$ in one click.
-   * **"Upload Polynomials (.txt/.json)"**: Calls `POST /api/parse-polynomials` to load validated operand pairs from a local `.txt` or `.json` file and displays structured validation alerts if a file is malformed.
-3. **Six Operation Action Buttons:**
-   * `Addition (A + B)`, `Subtraction (A - B)`, `Modulo Reduction (A mod m(x))`, `Multiplication (A x B)`, `Multiplicative Inverse (A^-1)`, and `Division (A / B)` (calling `POST /api/calculate`).
+   * **"Generate Random Polynomials"**: Calls `POST /api/random-polynomials` (`{ "m", "density": "sparse" | "dense" }` with `"sparsity"` alias and default `count: 2`) to populate both $A(x)$ and $B(x)$ in one click.
+   * **"Upload Polynomials (.txt/.json)"**: Calls `POST /api/parse-polynomials` (`{ "content", "filename", "default_base" }`) to load validated operand pairs from a local `.txt` or `.json` file and displays structured validation alerts if a file is malformed.
+3. **Six Operation Action Controls:**
+   * `Add (+)`, `Subtract (−)`, `Reduce (mod)`, `Multiply (×)`, `Inverse (x⁻¹)`, and `Divide (÷)` calling `POST /api/calculate` (`{ "m", "operation", "a", "b", "input_base", "output_base", "trace" }`, also accepting `"poly_a"` / `"poly_b"` and short aliases `"sub"`, `"mod"`, `"mul"`, `"inv"`, `"div"`).
 4. **Primary Result Display Card:**
-   * Displays the result in the selected primary base (**Binary** or **Hexadecimal**), secondary base, and **Algebraic Polynomial** notation with one-click `Copy` and `Export Summary (.md/.json)` buttons calling `POST /api/export-calculation`.
-   * Displays a green **"Mathematically Verified"** badge (for Inverse/Division) and a **Performance Metrics Badge** (`elapsed_ms`, `bit_length`, `hamming_weight`).
-5. **Four Custom Educational Trace Visualizers:**
+   * Displays the result in the selected primary base (**Hexadecimal**, **Binary**, or **Polynomial**) and secondary bases with one-click `Copy result` and `Export (.md/.json)` buttons calling `POST /api/export-calculation` (`{ "calculation", "format", "download": true }`).
+   * Displays a green **"Mathematically verified"** badge (for Inverse/Division) and **Performance Metrics Badges** (`elapsed_ms`, `result_bit_length`, `result_hamming_weight`).
+5. **Four Custom Educational Trace Visualizers (Upgraded in Milestone 6 with Zero-Horizontal-Scroll `Step view`, `All steps grid`, `Classic table`, and `Expand full view`):**
    * **Addition / Subtraction View:** Bit-aligned bitwise $\text{XOR}$ rows showing modulo-$2$ cancellation.
    * **Modulo Reduction View:** Each iterative shift $x^{d-m} \cdot m(x)$ and $\text{XOR}$ step until $\deg(r) < m$.
    * **Multiplication (Shift-and-XOR) View:** Table 1 showing shifted powers $x^i \cdot f(x) \bmod m(x)$ (highlighting $b_{m-1} = 1$ overflow reductions); Table 2 showing selected partial products and cumulative $\text{XOR}$.

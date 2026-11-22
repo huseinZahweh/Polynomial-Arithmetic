@@ -59,7 +59,7 @@ FRONTEND_DIR: Path = Path(__file__).resolve().parents[2] / "frontend"
 
 app = FastAPI(
     title="GF(2^m) Polynomial Arithmetic API",
-    description="EECE 455/632 Project-3 — Unified Finite Field Lab backend & workbench.",
+    description="EECE 455 Project-3 — Unified Finite Field Lab backend & workbench.",
     version="1.0.0",
 )
 

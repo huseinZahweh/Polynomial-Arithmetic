@@ -1,6 +1,6 @@
 # Codebase Explained — File-by-File & Function-by-Function Guide
 
-This reference walks through every Python and JavaScript module in the unified **EECE 455/632 Project-3 ($GF(2^m)$ Polynomial Arithmetic)** repository so any teammate or grader can trace how every operation, endpoint, visualizer, and benchmark works.
+This reference walks through every Python and JavaScript module in the unified **EECE 455 Project-3 ($GF(2^m)$ Polynomial Arithmetic)** repository so any teammate or grader can trace how every operation, endpoint, visualizer, and benchmark works.
 
 ---
 
@@ -98,7 +98,7 @@ Pure-Python exploration engines:
 * **`explore_modulus(polynomial)`:** Checks irreducibility for degrees $2 \le d \le 571$ via $\gcd(f, x^{2^i} + x)$ and extracts two nonzero factor witnesses when reducible.
 * **`compute_aes_sbox(byte)`:** Full FIPS 197 §5.1.1 / Stallings Ch. 5 SubBytes (EEA inverse + 4 cyclic left rotations + `0x63` affine XOR).
 * **`compare_multiplication(m, a, b)`:** Runs Shift-and-XOR (`multiply_traced`) alongside `POLY_MUL_NO_MOD` + traced `POLY_DIVMOD`.
-* **`benchmark_multiplication(seed=455632, trials=31, degrees=(163, 571))`:** Alternates untraced execution order across 31 trials per method and reports median microseconds.
+* **`benchmark_multiplication(seed=455, trials=31, degrees=(163, 571))`:** Alternates untraced execution order across 31 trials per method and reports median microseconds.
 
 ---
 
@@ -122,7 +122,7 @@ Creates the single FastAPI `app`, configures CORS, exposes meta routes (`GET /`,
 
 ## 4. Educational Web Workbench (`frontend/`)
 
-All five ES modules and HTML/CSS were authored by **Ali Zahreddine (Milestone 4 & Integration)**:
+All seven ES modules and HTML/CSS were authored by **Ali Zahreddine (Milestone 4, Integration & Milestone 6)**:
 
 ### `frontend/notation.js`
 * **`bases`:** Notation configuration table (`hex`, `binary`, `algebraic`).
@@ -130,16 +130,28 @@ All five ES modules and HTML/CSS were authored by **Ali Zahreddine (Milestone 4 
 * **`significantDigits(text)` / `element(tag, text, className)`:** Leading-zero trimmer for large-field previews and safe DOM builder (`textContent` only).
 
 ### `frontend/traces.js`
-* **`table(title, headers, rows, selected)` / `stepCard(title, labels, values)`:** Accessible table and mobile step-card builders.
-* **`reduction`, `xor`, `multiply`, `euclid`:** The four custom trace visualizers, including roving-tabindex multiplier-bit strips with linked Table 1/Table 2 row highlights and Table 4.7 cell-notation switching.
-* **`createTraceView(panel, body, tools)`:** Stateful controller managing step indices, 450 ms animation playback, narrow-screen step-card adaptation, collapsible initial-reduction details, and linked scrolling.
+* **`createDiffLegend()` / `buildDiffValueNode(displayValue, meta)`:** Shared WCAG AA visual diff legend (`.diff-carried`, `.diff-updated`, `.diff-reduced`, `.diff-unchanged`) and styled diff value box renderer with micro-badges and inline `was:` / `prev → now` deltas.
+* **`formatCellText` / `makeCopyableValue`:** Large-field cell formatter (`Compact values` vs. `Full m-bit`) and click-to-copy value helper.
+* **`table(title, headers, rows, selected, diffOpts)` / `stepCard(title, labels, values, isCurrentRegion, options)`:** Accessible wrapped table (supporting previous/current row & cell diff tinting) and diff-aware single-step card builders.
+* **`euclidInspectorSquare(trace, rowIndex, notation, compactValues, isCurrentRegion)`:** Zero-horizontal-scroll **Extended Euclid Step Inspector Square** rendering step metadata, quotient pill $Q(x)$, step-change transition banner, live recurrence formula callout, and side-by-side **Triple A** (`← prev B1..B3` carried) and **Triple B** (`New T1..T3` updated) cards with inline `was:` values and termination badges.
+* **`reduction`, `xor`, `multiply`, `euclid`:** The four custom trace visualizers supporting three layout modes (`Step view`, `All steps grid`, `Classic table`), `prev → now` shift/reduction and accumulator deltas, roving-tabindex multiplier-bit strips with linked Table 1/Table 2 row highlights, and Table 4.7 cell-notation switching.
+* **`createTraceView(panel, body, tools)`:** Stateful controller managing the 3 layout modes (defaulting to `Step view` when $m > 8$ or on mobile `max-width: 600px`), side-by-side `Compare prev → curr` mode, 5-button playback bar (`First step`, `Previous step`, `Play animation`/`Pause` + speed selector `Slow`/`Normal`/`Fast`, `Next step`, `Last step`), interactive range step scrubber, `Compact values` / `Full m-bit` toggle, and the `Expand full view` modal dialog (`#trace-fullscreen`).
+
+### `frontend/lesson-data.js`
+* **`LESSONS`:** Comprehensive 7-lesson curriculum array (21 sub-lessons) aligned with William Stallings Chapters 4, 5, 6 (XTS-AES), and 10 (Binary ECC), containing step titles, `diffSummary` slide-transition descriptions, mathematical formulas, zero-scroll visual specifications (`cards`, `xor-columns`, `reduction-step`, `shift-register`, `mul-walkthrough`, `poly-divmod`, `euclid-step`, `pipeline`), interactive mini-activities, self-check quizzes, and Calculator preset handoffs.
+
+### `frontend/lessons.js`
+* **`renderVisual(visual, prevVisual)`:** Renders animated zero-horizontal-scroll visual stages with automatic Previous-to-Current value-level diff highlights (`.diff-carried`, `.diff-updated`, `.diff-reduced`, `.diff-unchanged`), micro-badges, and inline `was:` / `prev → now` deltas.
+* **`buildLessonStepFrame(sub, steps, idx, isPreviousSnapshot)`:** Builds each slide frame with `"From Step k-1 → Step k"` transition banners for active slides and clean read-only snapshots for comparison mode.
+* **`buildBitSandbox()` / `buildXorActivity()` / `buildQuiz(quiz)`:** Interactive 8-bit polynomial coefficient builder, 4-bit XOR challenge, and instant-feedback multiple-choice check cards.
+* **`setupLessons({ openInCalculator })`:** Initializes the `#lessons` catalog hub, sub-lesson tabs, 5-button animation playback controller, `#lesson-compare` (`Compare prev → curr`) side-by-side slide toggle, step timeline dots, keyboard shortcuts (`ArrowLeft`, `ArrowRight`, `Home`, `End`, `Space`), deep-link selector `selectLessonById(id)`, and one-click Calculator handoffs.
 
 ### `frontend/tour.js`
-* **`calculatorSteps` & `walkthroughs`:** Step registries for all four views (`calculator`, `modulus`, `aes`, `compare`).
-* **`setupPageTour()`:** Floating spotlight walkthrough controller with dynamic fallback targets, `Escape` dismissal, and live re-highlighting on `lab:calculation-result` events.
+* **`calculatorSteps` & `walkthroughs`:** Step registries for all five views (`calculator`, `lessons`, `modulus`, `aes`, `compare`).
+* **`setupPageTour()`:** Floating **`Tutorial tour`** spotlight walkthrough controller with dynamic fallback targets, `Escape` dismissal, and live re-highlighting on `lab:calculation-result` events.
 
 ### `frontend/explorations.js`
-* **`bindExperiment` / `setupNavigation`:** Hash router (`#calculator`, `#modulus`, `#aes`, `#compare`) and busy-locked async form wrapper.
+* **`bindExperiment` / `setupNavigation(closeTour, onLessonRoute)`:** Hash router (`#calculator`, `#lessons`, `#lessons/<id>`, `#modulus`, `#aes`, `#compare`) and busy-locked async form wrapper.
 * **`setupModulus`, `setupAES`, `setupComparison`, `setupExplorations`:** UI controllers for the three exploration tabs, including the `Compare this product` transfer queue and the 163/571-bit benchmark table.
 
 ### `frontend/lab.js`
@@ -147,7 +159,7 @@ All five ES modules and HTML/CSS were authored by **Ali Zahreddine (Milestone 4 
 * **`renderBits` / `renderOperands` / `changeNotation`:** Interactive $m \le 8$ coefficient checkboxes, live validation previews, unary operand dimming, and lossless base conversion.
 * **`renderResult` / `previewValue` / `calculate`:** Compact large-field previews with `Show full value`, full-value clipboard copy, verification/metric badges, and revision-guarded async requests.
 * **`makeShareURL` / `readShareURL`:** Hexadecimal-compressed query-string serialization and restoration.
-* **`presetButton` / `renderSlide` / `loadPair` / `init`:** Textbook preset launchers, 4-slide concepts modal, batch upload pair selector, and parallel startup initialization.
+* **`presetButton` / `renderSlide` / `loadPair` / `setupLessons` / `init`:** Textbook preset launchers, 4-slide concepts modal, batch upload pair selector, Lesson-to-Calculator handoff bridge, and parallel startup initialization.
 
 ---
 

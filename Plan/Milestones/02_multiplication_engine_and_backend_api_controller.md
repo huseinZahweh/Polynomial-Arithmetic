@@ -66,23 +66,23 @@ Output: Tuple (product_int, trace_dict)
 
 Build the web API layer connecting the mathematical engine to the GUI with clean input validation, CORS support, execution-time instrumentation (`elapsed_ms`), interactive OpenAPI (`/docs`) documentation, and HTTP `400` educational error messages:
 
-### 3.1 Aligned API Endpoints
-1. **`GET /api/fields`**
-   * Returns all supported degrees $m \in \{163, 233, 239, 283, 409, 571\}$ and $2 \le m \le 8$ with their irreducible polynomials in Algebraic, Hexadecimal, and Binary formats.
+### 3.1 Aligned API Endpoints (`backend/api/schemas.py`)
+1. **`GET /api/fields`** (`?include_textbook=true`)
+   * Returns `{ "count", "fields": [{ "m", "category", "name", "reduction_poly_hex", "reduction_poly_bin", "reduction_poly", "element_bits" }] }` for all supported degrees $m \in \{163, 233, 239, 283, 409, 571\}$ and $2 \le m \le 8$.
 2. **`POST /api/calculate`**
-   * Accepts `{ "m", "operation", "input_base", "poly_a", "poly_b" }`.
-   * Dispatches to `add`, `sub`, `mod`, `mul`, `inv`, or `div`.
-   * Returns `{ "field_info", "inputs_parsed", "result", "verification", "metrics", "educational_trace" }` with runtime timing (`elapsed_ms`), operand metrics (`bit_length`, `hamming_weight`), and algebraic self-verification status for inverse/division.
-   * Returns clear HTTP `400` educational error messages for invalid characters, malformed base strings, or zero-inverse / division-by-zero attempts.
+   * Accepts `{ "m", "operation", "a", "b", "input_base", "output_base", "trace" }` (with `AliasChoices` supporting `"poly_a"` / `"poly_b"` for `"a"` / `"b"`, short operation names `"sub"`, `"mod"`, `"mul"`, `"inv"`, `"div"` alongside `"add"`, `"subtract"`, `"modulo"`, `"multiply"`, `"inverse"`, `"divide"`, and bases `"hex"`, `"bin"`, `"binary"`, `"algebraic"`).
+   * Returns `{ "operation", "field", "operands", "result", "trace", "initial_reduction", "verification", "metrics": { "elapsed_ms", "result_bit_length", "result_hamming_weight" }, "share_token" }`.
+   * Returns clear HTTP `400` educational error messages (`{ "detail", "gcd"?, "trace"? }`) for invalid characters, malformed base strings, or zero-inverse / division-by-zero attempts.
 3. **`POST /api/random-polynomials`**
-   * Accepts `{ "m", "count", "sparsity", "output_base" }` (default `count: 2`).
-   * Calls M1's `GENERATE_RANDOM_POLY` to return `{ "m", "output_base", "polynomials": [...] }` so the GUI fills both $A(x)$ and $B(x)$ in one click.
+   * Accepts `{ "m", "density" (or alias "sparsity"), "seed"?, "count": 2, "output_base" }`.
+   * Calls M1's `GENERATE_RANDOM_POLY` to return `{ "field", "density", "seed", "a", "b", "m", "output_base", "polynomials": [...] }` so the GUI fills both $A(x)$ and $B(x)$ in one click.
 4. **`POST /api/parse-polynomials`**
-   * Accepts an uploaded `.txt` or `.json` file and invokes M1's Batch Polynomial File Parser to return validated operand pairs (or HTTP `400` error details on malformed files).
+   * Accepts `{ "content", "filename", "default_base" }` containing raw `.txt` or `.json` text and invokes M1's Batch Polynomial File Parser to return `{ "count", "pairs": [{ "a", "b", "base" }] }` (or HTTP `400` error details on malformed files).
 5. **`POST /api/export-calculation`**
-   * Accepts a calculation payload and invokes M1's Calculation Summary Formatter to return a downloadable `.md` or `.json` summary file.
+   * Accepts `{ "calculation", "format": "md" | "json", "download": bool }` and invokes M1's Calculation Summary Formatter to return a downloadable `.md` or `.json` summary file (or `{ "filename", "media_type", "content" }`).
 6. **`GET /api/tutorial`**
-   * Serves M1's structured `tutorial_slides.json` content (4 educational slides and Chapter 4/5 presets) to the GUI.
+   * Serves M1's structured `data/tutorial_slides.json` content (`{ "version", "title", "slides" }` with 4 educational slides and Chapter 4/5 presets) to the GUI.
+   * *(In Milestone 4–6 integration, `/api/explorations/*` adds 4 bonus teaching endpoints documented in `docs/ARCHITECTURE.md`.)*
 
 ---
 

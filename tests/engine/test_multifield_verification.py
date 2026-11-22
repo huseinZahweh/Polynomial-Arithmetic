@@ -112,7 +112,7 @@ class TestCryptographicFields:
         mode: str,
     ) -> None:
         m_poly_int = get_m_poly_int(m_degree)
-        seed = (455632 + m_degree) if mode == "dense" else (990000 + m_degree)
+        seed = (455 + m_degree) if mode == "dense" else (990000 + m_degree)
         rng = random.Random(seed)
         sampler = _sample_sparse_nonzero if mode == "sparse" else _sample_dense_nonzero
 
@@ -163,7 +163,7 @@ def test_benchmark_runner_smoke() -> None:
     """Verify benchmarks.benchmark_gf2m executes and emits valid Markdown rows."""
     from benchmarks.benchmark_gf2m import format_markdown_table, run_benchmarks
 
-    rows = run_benchmarks(degrees=(8, 163), trials=2, seed=455632)
+    rows = run_benchmarks(degrees=(8, 163), trials=2, seed=455)
     assert len(rows) == 4
     table = format_markdown_table(rows)
     assert "$GF(2^{8})$" in table

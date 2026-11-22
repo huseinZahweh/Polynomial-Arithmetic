@@ -1,11 +1,12 @@
 <!--
-  Finite Field Lab — Educational Web Workbench (EECE 455/632 Project-3)
-  Original Author: Ali Zahreddine — Milestone 4 & Integration
-  Serves four hash-routed views from a single accessible HTML document:
-    1. #calculator — 13-field GF(2^m) calculator, bit builder, presets, traces, export & share links
-    2. #modulus    — Binary polynomial irreducibility checker & factor witness lab
-    3. #aes        — FIPS 197 §5.1.1 / Stallings Ch. 5 AES S-box walkthrough
-    4. #compare    — Shift-and-XOR vs. carry-free + long-division comparison & 163/571-bit benchmark
+  Finite Field Lab — Educational Web Workbench (EECE 455 Project-3)
+  Original Author: Ali Zahreddine — Milestone 4, Integration & Milestone 6
+  Serves five hash-routed views from a single accessible HTML document:
+    1. #calculator — 13-field GF(2^m) calculator, bit builder, presets, zero-scroll traces, export & share links
+    2. #lessons    — Standalone interactive & animated lessons on GF(2^m) arithmetic and number theory
+    3. #modulus    — Binary polynomial irreducibility checker & factor witness lab
+    4. #aes        — FIPS 197 §5.1.1 / Stallings Ch. 5 AES S-box walkthrough
+    5. #compare    — Shift-and-XOR vs. carry-free + long-division comparison & 163/571-bit benchmark
 -->
 <!doctype html>
 <html lang="en">
@@ -19,9 +20,9 @@
 <body>
   <header class="masthead">
     <div class="wrap topbar">
-      <a class="brand" href="./"><span class="mark" aria-hidden="true">⊕</span><span>Finite Field Lab<small>EECE 455 / 632</small></span></a>
+      <a class="brand" href="./"><span class="mark" aria-hidden="true">⊕</span><span>Finite Field Lab<small>EECE 455</small></span></a>
       <nav aria-label="Lab tools">
-        <button type="button" id="tutorial-open" class="quiet">Tutorial</button>
+        <button type="button" id="tutorial-open" class="quiet">Tutorial tour</button>
         <button type="button" id="share" class="outline">Copy calculation link</button>
       </nav>
     </div>
@@ -29,6 +30,7 @@
   <div class="wrap">
     <nav class="lab-nav" aria-label="Lab sections">
       <a href="#calculator" data-lab-tab="calculator" aria-current="page">Calculator</a>
+      <a href="#lessons" data-lab-tab="lessons">Lessons</a>
       <a href="#modulus" data-lab-tab="modulus">Modulus explorer</a>
       <a href="#aes" data-lab-tab="aes">AES S-box</a>
       <a href="#compare" data-lab-tab="compare">Compare multiplication</a>
@@ -274,7 +276,57 @@
         <div id="benchmark-results" aria-live="polite"></div>
       </section>
     </main>
-    <footer>Finite Field Lab <span>·</span> EECE 455 / 632 Cryptography and Network Security</footer>
+
+    <main class="experiment lessons-view" data-lab-view="lessons" hidden>
+      <header class="hero">
+        <div>
+          <h1 tabindex="-1">Polynomial arithmetic lessons</h1>
+          <p>Step through animated GF(2^m) operations, number theory tools, and cryptographic field examples.</p>
+        </div>
+        <div class="hero-math" aria-hidden="true"><span>7 Lessons</span><code>GF(2^m)</code></div>
+      </header>
+      <section class="panel lesson-hub" id="lesson-hub" aria-labelledby="lesson-hub-title">
+        <div class="section-head">
+          <h2 id="lesson-hub-title">Choose a lesson</h2>
+          <span class="meta">Select any topic below, switch sub-lessons, and animate each step</span>
+        </div>
+        <div id="lesson-catalog" class="lesson-catalog" role="group" aria-label="Lesson catalog"></div>
+      </section>
+      <section class="panel lesson-workspace" id="lesson-workspace" aria-labelledby="lesson-active-title">
+        <div class="section-head lesson-workspace-head">
+          <div>
+            <h2 id="lesson-active-title"></h2>
+            <p id="lesson-active-subtitle" class="meta"></p>
+          </div>
+          <div id="lesson-subtabs" class="lesson-subtabs" role="group" aria-label="Sub-lessons"></div>
+        </div>
+        <div class="tools lesson-controls" id="lesson-controls" role="group" aria-label="Lesson animation controls">
+          <button type="button" class="outline" id="lesson-first" aria-label="First step">First step</button>
+          <button type="button" class="outline" id="lesson-prev">Previous</button>
+          <button type="button" class="primary" id="lesson-play" aria-pressed="false">Play animation</button>
+          <label class="visually-hidden" for="lesson-speed">Animation speed</label>
+          <select id="lesson-speed" aria-label="Animation speed">
+            <option value="slow">Slow</option>
+            <option value="normal" selected>Normal</option>
+            <option value="fast">Fast</option>
+          </select>
+          <button type="button" class="outline" id="lesson-next">Next</button>
+          <button type="button" class="outline" id="lesson-last" aria-label="Last step">Last step</button>
+          <button type="button" class="outline" id="lesson-compare" aria-pressed="false">Compare prev → curr</button>
+          <span id="lesson-step-progress" class="trace-progress" aria-live="polite"></span>
+        </div>
+        <div id="lesson-step-dots" class="lesson-step-dots" role="group" aria-label="Lesson step timeline"></div>
+        <div id="lesson-stage" class="lesson-stage" aria-live="polite"></div>
+        <div class="section-head lesson-footer">
+          <div id="lesson-handoff-bar" class="tools lesson-handoff-bar"></div>
+          <div class="tools">
+            <button type="button" class="outline" id="lesson-prev-topic">Previous lesson</button>
+            <button type="button" class="outline" id="lesson-next-topic">Next lesson</button>
+          </div>
+        </div>
+      </section>
+    </main>
+    <footer>Finite Field Lab <span>·</span> EECE 455 Cryptography and Network Security</footer>
   </div>
   <aside id="page-tour" class="page-tour" aria-labelledby="tour-title" hidden>
     <div class="section-head">
@@ -301,6 +353,13 @@
       <span id="slide-count" aria-live="polite"></span>
       <button type="button" class="primary" id="slide-next">Next</button>
     </div>
+  </dialog>
+  <dialog id="trace-fullscreen" class="trace-fullscreen" aria-labelledby="trace-fullscreen-title">
+    <div class="drawer-head">
+      <span id="trace-fullscreen-title">Calculation steps · Full view</span>
+      <button type="button" id="trace-fullscreen-close" class="outline">Close full view</button>
+    </div>
+    <div id="trace-fullscreen-body" class="trace"></div>
   </dialog>
 </body>
 </html>

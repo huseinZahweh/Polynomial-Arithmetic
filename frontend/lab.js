@@ -14,6 +14,7 @@ import { bases, degreeOf, element, formatOperand, parseOperand, polynomial, sign
 import { createTraceView } from "./traces.js";
 import { setupPageTour } from "./tour.js";
 import { setupExplorations } from "./explorations.js";
+import { setupLessons } from "./lessons.js";
 
 /** @param {string} id @returns {HTMLElement} */
 const $ = id => document.getElementById(id);
@@ -534,12 +535,29 @@ $("pairs").addEventListener("change", () => {
   try { loadPair(Number($("pairs").value)); }
   catch (error) { showError(error.message); }
 });
+const lessonsController = setupLessons({
+  openInCalculator(preset) {
+    window.location.hash = "calculator";
+    if (fields.has(preset.m)) $("field").value = String(preset.m);
+    base = preset.base || "hex";
+    selectOperation(preset.operation);
+    for (const key of operands) {
+      const raw = preset[key];
+      operandInput(key).value = raw ? formatOperand(parseOperand(raw, preset.base || "hex"), base, preset.m) : "";
+    }
+    renderField();
+    renderNotation();
+    renderOperands();
+    calculate({ reveal: true });
+  },
+});
 const loadExperimentFields = setupExplorations(api, {
   closeTour: setupPageTour(),
   currentField: () => fields.get(activeDegree()),
   currentOperands: () => ({
     m: activeDegree(), a: readOperand("a").toString(16), b: readOperand("b").toString(16),
   }),
+  onLessonRoute: slug => lessonsController.selectLessonById(slug),
 });
 $("concepts-open").addEventListener("click", () => {
   if (slides.length) {

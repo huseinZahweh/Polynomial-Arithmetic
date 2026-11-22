@@ -14,11 +14,11 @@ Unify all four parallel engineering tracks into a single steady, cohesive applic
 
 ### Step 1: Backend Engine Alignment (M1, M2, & M3)
 * **Field Config, I/O & Utilities (M1) $\leftrightarrow$ FastAPI Controller (M2):**
-  * Verify `poly_a` and `poly_b` parsing via `BIN_TO_INT` and `HEX_TO_INT` (plus `ALGEBRAIC_TO_INT` if implemented as *(Optional Stretch)*), and consistent output formatting across all supported degrees.
-  * Verify `/api/random-polynomials` invokes `GENERATE_RANDOM_POLY`, `/api/parse-polynomials` invokes the Batch Polynomial File Parser, `/api/export-calculation` invokes the Calculation Summary Formatter, and `/api/tutorial` serves M1's `tutorial_slides.json`.
+  * Verify `a` and `b` (and aliases `poly_a` / `poly_b`) parsing via `parse_value` (`BIN_TO_INT`, `HEX_TO_INT`, and `ALGEBRAIC_TO_INT`), and consistent output formatting across all supported degrees.
+  * Verify `/api/random-polynomials` (`density` / `sparsity`) invokes `GENERATE_RANDOM_POLY`, `/api/parse-polynomials` (`{content, filename, default_base}`) invokes the Batch Polynomial File Parser, `/api/export-calculation` (`{calculation, format, download}`) invokes the Calculation Summary Formatter, and `/api/tutorial` serves M1's `data/tutorial_slides.json`.
 * **Extended Euclid & Division (M3) $\leftrightarrow$ Multiplication & API (M2):**
-  * Verify `POST /api/calculate` dispatches cleanly across `add`, `sub`, `mod`, `mul`, `inv`, and `div`.
-  * Verify Field Division invokes `EXTENDED_EUCLID_GF2M(m_poly_int, m_degree, b_int)` and `GF2M_MULTIPLY`, returning both traces and M3's live self-verification badge.
+  * Verify `POST /api/calculate` dispatches cleanly across `add`, `subtract` (`sub`), `modulo` (`mod`), `multiply` (`mul`), `inverse` (`inv`), and `divide` (`div`), returning `{ "operation", "field", "operands", "result", "trace", "initial_reduction", "verification", "metrics", "share_token" }`.
+  * Verify Field Division invokes `EXTENDED_EUCLID_GF2M(m_poly_int, m_degree, b_int)` and `multiply_traced`, returning both traces and M3's live self-verification badge (`VERIFY_INVERSE`, `VERIFY_DIVISION`).
 
 ### Step 2: Frontend-to-Backend Live Wiring (M1, M2, M3, & M4)
 * Switch the M4 GUI client from mock JSON to the exact 6 live FastAPI endpoints (`GET /api/fields`, `POST /api/calculate`, `POST /api/random-polynomials`, `POST /api/parse-polynomials`, `POST /api/export-calculation`, and `GET /api/tutorial`).

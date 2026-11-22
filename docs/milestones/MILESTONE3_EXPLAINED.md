@@ -1,6 +1,6 @@
 # Milestone 3 — Extended Euclid Inverse, Field Division & Verification Suite
 
-**Project:** EECE 455/632 — Project-3: Polynomial Arithmetic in $GF(2^m)$  
+**Project:** EECE 455 — Project-3: Polynomial Arithmetic in $GF(2^m)$  
 **Assigned Owner:** Husein Zahweh  
 **Unified Code Locations:** [backend/engine/poly_ops.py](../../backend/engine/poly_ops.py), [backend/engine/extended_euclid.py](../../backend/engine/extended_euclid.py), [backend/engine/division.py](../../backend/engine/division.py), [backend/engine/verification.py](../../backend/engine/verification.py), [backend/engine/exceptions.py](../../backend/engine/exceptions.py), and [benchmarks/benchmark_gf2m.py](../../benchmarks/benchmark_gf2m.py)  
 **Textbook References:** William Stallings, *Cryptography and Network Security*, **Chapter 4** (Finite Fields — Table 4.7), **Chapter 5** (AES S-Box), **Chapter 6** (XTS-AES over $GF(2^{128})$), and **Chapter 10** (Binary Elliptic Curve Cryptography over $GF(2^{163}) \dots GF(2^{571})$).
@@ -107,10 +107,10 @@ Let $m = m_{\text{degree}}$, $d_a = \deg(a)$, and $d_b = \deg(b)$:
 Run the multi-field benchmark directly from the repository root:
 
 ```bash
-python -m benchmarks.benchmark_gf2m --trials 10 --seed 455632
+python -m benchmarks.benchmark_gf2m --trials 10 --seed 455
 ```
 
-### Reference Benchmark Snapshot (`--trials 10 --seed 455632`, Full Traced Execution)
+### Reference Benchmark Snapshot (`--trials 10 --seed 455`, Full Traced Execution)
 
 | Field | Mode | Trials | EEA Avg (ms) | EEA Min/Max (ms) | EEA Iters Avg (Min-Max) | Div Avg (ms) | Div Min/Max (ms) |
 | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: |

@@ -1,6 +1,6 @@
 # System Architecture — Finite Field Lab ($GF(2^m)$)
 
-**Course:** EECE 455/632 — Cryptography and Network Security (Project-3)  
+**Course:** EECE 455 — Cryptography and Network Security (Project-3)  
 **Primary Field:** $GF(2^{163})$ | **Extended Standard Fields:** $m \in \{163, 233, 239, 283, 409, 571\}$ | **Textbook Fields:** $2 \le m \le 8$
 
 ---
@@ -36,7 +36,7 @@ flowchart LR
 | :--- | :--- | :--- | :--- |
 | **Pure Math & Utilities** | `backend/engine/` | Hussein Abbas (M1), Hassan Tarhini (M2), Husein Zahweh (M3), Ali Zahreddine (Explorations) | Canonical 13-field registry, lossless Binary/Hex/Algebraic converters, traced $+$, $-$, $\bmod$, Shift-and-XOR $\times$, carry-free $\times$, `POLY_DIVMOD`, Table 4.7 Extended Euclid $b^{-1}$, two-stage division, live verifiers, random generator, batch parser, exporter, tutorial loader, and 3 pure-Python explorations. |
 | **Web API & Service Layer** | `backend/api/` | Hassan Tarhini (M2 Core), Ali Zahreddine (Integration & Explorations) | Pydantic v2 schemas (`schemas.py`), operation dispatch / timing / verification assembly (`services.py`), 4 exploration endpoints (`exploration_routes.py`), 6 core endpoints + CORS + `/workbench/` mount (`main.py`). |
-| **Educational Web GUI** | `frontend/` | Ali Zahreddine (M4) | Single-document 4-view lab (`index.html`, `lab.css`), client `BigInt` formatting (`notation.js`), 4 trace visualizers + mobile step cards + animated playback (`traces.js`), interactive spotlight tours (`tour.js`), exploration labs (`explorations.js`), and calculator controller (`lab.js`). |
+| **Educational Web GUI** | `frontend/` | Ali Zahreddine (M4–M6) | Single-document 5-view lab (`index.html`, `lab.css` serving `#calculator`, `#lessons`, `#modulus`, `#aes`, `#compare`), client `BigInt` formatting (`notation.js`), zero-horizontal-scroll 3-mode trace visualizers + Step Inspector Square + 5-button playback + full-view modal (`traces.js`), standalone 7-lesson animated curriculum (`lesson-data.js`, `lessons.js`), interactive `Tutorial tour` spotlight walkthroughs (`tour.js`), exploration labs (`explorations.js`), and calculator controller (`lab.js`). |
 | **Static Classroom Data** | `data/` | Hussein Abbas (M1), Ali Zahreddine (M4) | Single source of truth for the 4 tutorial slides + Ch. 4/5 presets (`tutorial_slides.json`) and 4-pair classroom upload demo (`demo-operands.json`). |
 | **Benchmarks & Tests** | `benchmarks/`, `tests/` | Husein Zahweh (M3), Full Team | Multi-field EEA/division CLI benchmark (`benchmark_gf2m.py`) and unified root `pytest` suite (`tests/engine/`, `tests/api/`, `tests/e2e/`). |
 
@@ -122,7 +122,7 @@ Base URL (default): `http://127.0.0.1:8000` · Swagger OpenAPI UI: `/docs` · We
 | `POST` | `/api/explorations/modulus` | `{"polynomial": "x^8 + 1", "input_base": "algebraic"}` | `irreducible`, `degree`, `checks` (GCD checkpoints), `witness` (two nonzero factors with remainder `0`), `split_with_berlekamp`. |
 | `POST` | `/api/explorations/aes-sbox` | `{"byte": "53", "input_base": "hex"}` | `input`, `inverse`, `inverse_trace` (Table 4.7 or `null` for `00`), 6 `affine_rows`, `output` (`ED` for `53`, `63` for `00`). |
 | `POST` | `/api/explorations/compare-multiplication` | `{"m": 8, "a": "57", "b": "83", "input_base": "hex"}` | `agree`, `shift_result`, `shift_trace`, `raw_product`, `quotient`, `remainder`, `division_steps`. |
-| `GET` | `/api/explorations/multiplication-benchmarks` | *(none)* | `{"seed": 455632, "trials": 31, "rows": [{"m": 163, "agree": true, "shift_xor_us": ..., "long_division_us": ...}, {"m": 571, ...}]}`. |
+| `GET` | `/api/explorations/multiplication-benchmarks` | *(none)* | `{"seed": 455, "trials": 31, "rows": [{"m": 163, "agree": true, "shift_xor_us": ..., "long_division_us": ...}, {"m": 571, ...}]}`. |
 
 ---
 
@@ -144,5 +144,5 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pytest -v
 
 # 4. Run the multi-field Extended Euclid & Division benchmark
-.\.venv\Scripts\python.exe -m benchmarks.benchmark_gf2m --trials 10 --seed 455632
+.\.venv\Scripts\python.exe -m benchmarks.benchmark_gf2m --trials 10 --seed 455
 ```

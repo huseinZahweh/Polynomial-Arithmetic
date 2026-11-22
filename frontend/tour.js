@@ -30,12 +30,12 @@ const calculatorSteps = [
   ["#result", "Read, copy, or export the answer",
     "Calculate brings the result into view. For large fields, Show full value expands the preview. Copy result always copies the complete value in the selected notation. Use Back to inputs to edit the operands or Export to download the calculation."],
   ["#trace-panel", "Follow the calculation",
-    "Use Previous step and Next step to follow the calculation. Narrow screens show one labelled step at a time. Select Show tables for the full trace, or Show step cards to return to one step at a time."],
+    "Use First step, Previous step, Play animation, Next step, and Last step to follow the calculation. Color-coded badges highlight carried, updated, and reduced values, and Compare prev → curr places the previous step beside the current step. Switch between Step view, All steps grid, and Classic table (or Show tables / Show step cards), toggle Compact values, or click Expand full view."],
   ["#trace-body", "See which partial product a bit selects",
     "Select a bit of B to highlight its shifted row and any selected partial product. In Chapter 4, bit 7 selects 38 and the running XOR becomes C1. The arrow keys also move between bits.",
     ["#presets", "Load the Chapter 4 example to see the multiplier bits."], ".multiplier-bits"],
   ["#compare-product", "Compare this product",
-    "Click Compare this product to run both multiplication methods with the same field and original operands. The comparison view has its own Tutorial.",
+    "Click Compare this product to run both multiplication methods with the same field and original operands. The comparison view has its own Tutorial tour.",
     ["#presets", "Load the Chapter 4 example to show the comparison shortcut."]],
   ["#share", "Reopen an exact calculation",
     "Copy calculation link puts the field, operation, notation, and operands into a URL. Open it in another tab to recreate the calculation. A localhost link works on the computer running the lab."],
@@ -50,6 +50,22 @@ const walkthroughs = {
     name: "Page walkthrough",
     fallback: ["#calculate", "Click Calculate to show this section."],
     steps: calculatorSteps,
+  },
+  lessons: {
+    name: "Lessons walkthrough",
+    fallback: ["#lesson-hub", "Select a lesson from the catalog."],
+    steps: [
+      ["#lesson-hub", "Choose a lesson topic",
+        "Pick from 7 interactive lessons covering GF(2^m) foundations, XOR addition/subtraction, modular reduction, Shift-and-XOR multiplication, Extended Euclid (Table 4.7), division, and cryptographic standards."],
+      ["#lesson-subtabs", "Explore prerequisites and sub-lessons",
+        "Each lesson breaks down the underlying number theory and helper tools before walking through full textbook examples."],
+      ["#lesson-controls", "Step, animate, or compare slides",
+        "Use First step, Previous, Play animation (Slow, Normal, or Fast), Next, and Last step—or press Left/Right arrow keys—to watch each state change. Toggle Compare prev → curr to inspect the previous slide beside the current slide."],
+      ["#lesson-stage", "Inspect the zero-scroll visual stage",
+        "Follow the highlighted bit columns, shift registers, Table 4.7 Triple A/B transfers, interactive sandboxes, and self-check quizzes."],
+      ["#lesson-handoff-bar", "Open any lesson example in the Calculator",
+        "Click the handoff button to load the lesson's exact field, operation, and operands directly into the Calculator and inspect its live trace."],
+    ],
   },
   modulus: {
     name: "Modulus walkthrough",
@@ -183,7 +199,8 @@ export function setupPageTour() {
     if (!panel.hidden && !event.target.closest("[data-lab-view]").hidden) showStep(false);
   });
   document.addEventListener("keydown", event => {
-    if (event.key === "Escape" && !panel.hidden && !document.getElementById("tutorial").open) close();
+    const fullscreen = document.getElementById("trace-fullscreen");
+    if (event.key === "Escape" && !panel.hidden && !document.getElementById("tutorial").open && !fullscreen?.open) close();
   });
   return () => close(false);
 }

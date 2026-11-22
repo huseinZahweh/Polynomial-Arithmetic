@@ -24,7 +24,7 @@ outside the timed window via :func:`backend.engine.VERIFY_INVERSE` and
 Usage (from repository root)::
 
     python -m benchmarks.benchmark_gf2m
-    python -m benchmarks.benchmark_gf2m --trials 10 --seed 455632
+    python -m benchmarks.benchmark_gf2m --trials 10 --seed 455
 """
 from __future__ import annotations
 
@@ -120,7 +120,7 @@ def _sample_dense_nonzero(rng: random.Random, m_degree: int) -> int:
 def run_benchmarks(
     degrees: Sequence[int] = BENCHMARK_DEGREES,
     trials: int = 10,
-    seed: int = 455632,
+    seed: int = 455,
 ) -> list[BenchmarkRow]:
     """Run timed Extended Euclid and Field Division benchmarks across degrees.
 
@@ -244,8 +244,8 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--seed",
         type=int,
-        default=455632,
-        help="Deterministic PRNG seed. Default: 455632.",
+        default=455,
+        help="Deterministic PRNG seed. Default: 455.",
     )
     args = parser.parse_args(argv)
 

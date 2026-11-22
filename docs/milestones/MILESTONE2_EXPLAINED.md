@@ -1,6 +1,6 @@
 # Milestone 2 — Shift-and-XOR Multiplication Engine & Core FastAPI Backend
 
-**Project:** EECE 455/632 — Project-3: Polynomial Arithmetic in $GF(2^m)$  
+**Project:** EECE 455 — Project-3: Polynomial Arithmetic in $GF(2^m)$  
 **Assigned Owner:** Hassan Tarhini  
 **Unified Code Locations:** [backend/engine/multiply.py](../../backend/engine/multiply.py), [backend/api/main.py](../../backend/api/main.py), [backend/api/schemas.py](../../backend/api/schemas.py), and [backend/api/services.py](../../backend/api/services.py)  
 **Textbook References:** William Stallings, *Cryptography and Network Security*, **Chapter 4** (Finite Fields), **Chapter 5** (AES), **Chapter 6** (XTS-AES over $GF(2^{128})$), and **Chapter 10** (Binary Elliptic Curve Cryptography over $GF(2^{163}) \dots GF(2^{571})$).

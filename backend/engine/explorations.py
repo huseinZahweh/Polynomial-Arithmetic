@@ -321,7 +321,7 @@ def compare_multiplication(m: int, a: int, b: int) -> dict[str, Any]:
 
 
 def benchmark_multiplication(
-    seed: int = 455632,
+    seed: int = 455,
     trials: int = 31,
     degrees: tuple[int, ...] = (163, 571),
 ) -> dict[str, Any]:
@@ -332,7 +332,7 @@ def benchmark_multiplication(
     operands with MSB set (full degree ``m - 1``).
 
     Args:
-        seed: Deterministic PRNG seed (default ``455632``).
+        seed: Deterministic PRNG seed (default ``455``).
         trials: Number of timed trials per method per field degree (default ``31``).
         degrees: Field degrees to benchmark (default ``(163, 571)``).
 

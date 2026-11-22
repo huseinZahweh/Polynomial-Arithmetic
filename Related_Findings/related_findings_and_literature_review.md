@@ -70,5 +70,5 @@ Reviewing existing calculators reveals a stark gap between professional "black-b
 
 ### 5.3 Our Project's Unique Educational Value
 *   By combining industrial-scale bit-level processing capable of handling up to $GF(2^{571})$ with interactive textbook visualizations like the Extended Euclid Table 4.7, our platform uniquely fills this gap.
-*   It serves neither as a trivial small-field calculator nor an opaque industrial black box, but specifically targets the educational requirements of **EECE 455/632** students.
+*   It serves neither as a trivial small-field calculator nor an opaque industrial black box, but specifically targets the educational requirements of **EECE 455** students.
 
