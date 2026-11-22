@@ -50,7 +50,7 @@ All four teammates verify the integrated application end-to-end across the 8-row
 ---
 
 ## 4. Course Deliverables & Final Integration Sign-Off
-* [ ] **1. Clean Commented Source Code:** All milestone feature branches merged cleanly into `main`; codebase audited for clear variable naming, function docstrings, dead-code removal, and inline citations referencing **Stallings Chapters 4, 5, 6 (XTS-AES), and 10 (ECC)**.
+* [x] **1. Clean Commented Source Code:** All milestone feature branches merged cleanly into `main`; codebase audited for clear variable naming, function docstrings, dead-code removal, and inline citations referencing **Stallings Chapters 4, 5, 6 (XTS-AES), and 10 (ECC)**.
 * [ ] **2. Full Project Report:** Complete written report documenting architecture, finite-field algorithms, setup steps, verification results across all 8 test categories and `pytest` suites, and application testing screenshots.
 * [ ] **3. 20-Minute Presentation & Q&A:** Group presentation slides and live walkthrough prepared covering $GF(2^m)$ foundations, implementation design, and verification methodology.
 * [ ] **4. 5-Minute Max Demo Video:** Recorded system demonstration (maximum 5 minutes) showcasing interactive $GF(2^m)$ operations, step-by-step educational visualizers, tutorial mode, and textbook test cases.

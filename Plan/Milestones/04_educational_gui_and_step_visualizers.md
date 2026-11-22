@@ -1,6 +1,6 @@
 # Milestone 4: Educational GUI & Step-by-Step Visualizers
 
-**Assigned Owner:** Student 4  
+**Assigned Owner:** Ali Zahreddine  
 **Execution Mode:** Parallel & Independent (built against the shared 6-endpoint JSON API contract using textbook mock traces until Milestone 5 integration)
 
 ---
@@ -67,6 +67,6 @@ The following UI enhancements are explicitly scoped as *(Optional Stretch)* item
 ---
 
 ## 3. Deliverables & Verification Criteria
-* [ ] Clean, commented single-view frontend components with degree selector for $m \in \{163, 233, 239, 283, 409, 571\}$ and $2 \le m \le 8$, active $m(x)$ banner, and Binary/Hex auto-converting toggles.
-* [ ] All four custom educational trace visualizers (Add/Sub XOR, Mod Reduce, Shift-and-XOR Tables 1 & 2, Extended Euclid Table 4.7 with Algebraic/Hex/Binary cell toggle) rendering cleanly with mock JSON.
-* [ ] Interactive Tutorial drawer (`GET /api/tutorial`), Ch. 4/5 presets, Random/Upload operand toolbar (`/api/random-polynomials`, `/api/parse-polynomials`), Export Summary button (`/api/export-calculation`), and Hexadecimal-encoded Shareable URL loader verified prior to Milestone 5 integration.
+* [x] Clean, commented single-view frontend components with degree selector for $m \in \{163, 233, 239, 283, 409, 571\}$ and $2 \le m \le 8$, active $m(x)$ banner, and Binary/Hex auto-converting toggles.
+* [x] All four custom educational trace visualizers (Add/Sub XOR, Mod Reduce, Shift-and-XOR Tables 1 & 2, Extended Euclid Table 4.7 with Algebraic/Hex/Binary cell toggle) rendering cleanly with live API traces.
+* [x] Interactive Tutorial drawer (`GET /api/tutorial`), Ch. 4/5 presets, Random/Upload operand toolbar (`/api/random-polynomials`, `/api/parse-polynomials`), Export Summary button (`/api/export-calculation`), and Hexadecimal-encoded Shareable URL loader verified end-to-end.

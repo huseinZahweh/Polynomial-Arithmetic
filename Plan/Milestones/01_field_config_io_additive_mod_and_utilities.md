@@ -124,10 +124,10 @@ Output: Tuple (r_int, trace_steps) where DEG(r_int) < m_degree
 ---
 
 ## 6. Deliverables & Verification Criteria
-* [ ] Fully commented Field Registry module for $m \in \{163, 233, 239, 283, 409, 571\}$ and $2 \le m \le 8$.
-* [ ] Lossless `BIN_TO_INT`, `INT_TO_BIN`, `HEX_TO_INT`, `INT_TO_HEX`, and `INT_TO_ALGEBRAIC` converters verified on $8$-bit and $163$-bit polynomials (plus `ALGEBRAIC_TO_INT` if implemented as an *Optional Stretch* feature).
-* [ ] `GF2M_ADD_SUB` and `MOD_REDUCE` verified against Chapter 4 examples (e.g., $\{57\} \oplus \{83\} = \{\text{D4}\}$, i.e., `01010111` $\oplus$ `10000011` $=$ `11010100`).
-* [ ] `GENERATE_RANDOM_POLY` reliably produces valid non-zero sparse and dense test operands $A(x)$ and $B(x)$ across all supported field sizes.
-* [ ] Batch Polynomial File Parser cleanly parses valid `.txt`/`.json` operand-pair files and returns clear errors for malformed inputs.
-* [ ] Calculation Summary Formatter generates valid downloadable `.md` and `.json` reports, and `tutorial_slides.json` validates against the 4-slide + preset schema.
-* [ ] Automated `pytest` unit test suite covering Field Registry, converters, Add/Sub/Mod traces, Random Operand Generator, Batch File Parser, Summary Formatter, and tutorial content.
+* [x] Fully commented Field Registry module for $m \in \{163, 233, 239, 283, 409, 571\}$ and $2 \le m \le 8$.
+* [x] Lossless `BIN_TO_INT`, `INT_TO_BIN`, `HEX_TO_INT`, `INT_TO_HEX`, and `INT_TO_ALGEBRAIC` converters verified on $8$-bit and $163$-bit polynomials (plus `ALGEBRAIC_TO_INT` implemented as an *Optional Stretch* feature).
+* [x] `GF2M_ADD_SUB` and `MOD_REDUCE` verified against Chapter 4 examples (e.g., $\{57\} \oplus \{83\} = \{\text{D4}\}$, i.e., `01010111` $\oplus$ `10000011` $=$ `11010100`).
+* [x] `GENERATE_RANDOM_POLY` reliably produces valid non-zero sparse and dense test operands $A(x)$ and $B(x)$ across all supported field sizes.
+* [x] Batch Polynomial File Parser cleanly parses valid `.txt`/`.json` operand-pair files and returns clear errors for malformed inputs.
+* [x] Calculation Summary Formatter generates valid downloadable `.md` and `.json` reports, and `tutorial_slides.json` validates against the 4-slide + preset schema.
+* [x] Automated `pytest` unit test suite covering Field Registry, converters, Add/Sub/Mod traces, Random Operand Generator, Batch File Parser, Summary Formatter, and tutorial content.

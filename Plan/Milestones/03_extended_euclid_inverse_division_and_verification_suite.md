@@ -122,7 +122,7 @@ To guarantee mathematical correctness at runtime across both classroom examples 
 ---
 
 ## 4. Deliverables & Verification Criteria
-* [ ] Well-commented `POLY_MUL_NO_MOD`, `POLY_DIVMOD`, `EXTENDED_EUCLID_GF2M`, and Field Division functions citing Stallings Chapter 4.
-* [ ] Reproduce **Table 4.7** from Chapter 4 using $m(x) = x^8 + x^4 + x^3 + x + 1$ and $b(x) = x^7 + x + 1 \rightarrow$ inverse $B_2(x) = x^7$, i.e., $\{80\}$, in 3 iterations.
-* [ ] Reproduce the **Chapter 5 AES S-Box** inverse table: $\{95\}^{-1} \bmod (x^8 + x^4 + x^3 + x + 1) = \{8\text{A}\}$ or $x^7 + x^3 + x$.
-* [ ] Live algebraic self-verification (`VERIFY_INVERSE`, `VERIFY_DIVISION`) and automated `pytest` verification & benchmark suite confirming $b(x) \times b(x)^{-1} \bmod m(x) = 1$ and $(a(x) / b(x)) \times b(x) \bmod m(x) = a(x)$ across $m = 8$ and $m \in \{163, 233, 239, 283, 409, 571\}$.
+* [x] Well-commented `POLY_MUL_NO_MOD`, `POLY_DIVMOD`, `EXTENDED_EUCLID_GF2M`, and Field Division functions citing Stallings Chapter 4.
+* [x] Reproduce **Table 4.7** from Chapter 4 using $m(x) = x^8 + x^4 + x^3 + x + 1$ and $b(x) = x^7 + x + 1 \rightarrow$ inverse $B_2(x) = x^7$, i.e., $\{80\}$, in 3 iterations.
+* [x] Reproduce the **Chapter 5 AES S-Box** inverse table: $\{95\}^{-1} \bmod (x^8 + x^4 + x^3 + x + 1) = \{8\text{A}\}$ or $x^7 + x^3 + x$.
+* [x] Live algebraic self-verification (`VERIFY_INVERSE`, `VERIFY_DIVISION`) and automated `pytest` verification & benchmark suite confirming $b(x) \times b(x)^{-1} \bmod m(x) = 1$ and $(a(x) / b(x)) \times b(x) \bmod m(x) = a(x)$ across $m = 8$ and $m \in \{163, 233, 239, 283, 409, 571\}$.

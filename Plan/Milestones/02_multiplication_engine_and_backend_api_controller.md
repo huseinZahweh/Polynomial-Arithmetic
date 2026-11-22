@@ -87,7 +87,7 @@ Build the web API layer connecting the mathematical engine to the GUI with clean
 ---
 
 ## 4. Deliverables & Verification Criteria
-* [ ] Well-commented `GF2M_MULTIPLY` reproducing **Chapter 4**: `01010111` $\times$ `10000011` $\bmod$ `100011011` $=$ `11000001`, i.e., $\{\text{C1}\}$, and **Chapter 5 AES**: $\{02\} \cdot \{87\} \bmod \{11\text{b}\} = \{15\}$.
-* [ ] `GF2M_MULTIPLY` runs efficiently across $m = 163$ through $m = 571$ with full step-by-step Shift-and-XOR traces.
-* [ ] FastAPI server serves all 6 endpoints cleanly with CORS enabled and interactive OpenAPI (`/docs`) documentation.
-* [ ] Automated `pytest` + `TestClient` suite verifying Shift-and-XOR vectors, all 6 API endpoints, and HTTP `400` validation error handling.
+* [x] Well-commented `GF2M_MULTIPLY` reproducing **Chapter 4**: `01010111` $\times$ `10000011` $\bmod$ `100011011` $=$ `11000001`, i.e., $\{\text{C1}\}$, and **Chapter 5 AES**: $\{02\} \cdot \{87\} \bmod \{11\text{b}\} = \{15\}$.
+* [x] `GF2M_MULTIPLY` runs efficiently across $m = 163$ through $m = 571$ with full step-by-step Shift-and-XOR traces.
+* [x] FastAPI server serves all 6 endpoints cleanly with CORS enabled and interactive OpenAPI (`/docs`) documentation.
+* [x] Automated `pytest` + `TestClient` suite verifying Shift-and-XOR vectors, all 6 API endpoints, and HTTP `400` validation error handling.
