@@ -1,8 +1,8 @@
 <!--
   Finite Field Lab — Educational Web Workbench (EECE 455 Project-3)
-  Original Author: Ali Zahreddine — Milestone 4, Integration & Milestone 6
-  Serves five hash-routed views from a single accessible HTML document:
-    1. #calculator — 13-field GF(2^m) calculator, bit builder, presets, zero-scroll traces, export & share links
+  Original Author: Ali Zahreddine — Milestone 4, Integration & Milestone 6 (Waves 1–3)
+  Serves five hash-routed full-width views from a single accessible HTML document:
+    1. #calculator — 13-field GF(2^m) calculator, read-only Modulus card on unary ops, bit builder, presets, zero-scroll traces, export & share links
     2. #lessons    — Standalone interactive & animated lessons on GF(2^m) arithmetic and number theory
     3. #modulus    — Binary polynomial irreducibility checker & factor witness lab
     4. #aes        — FIPS 197 §5.1.1 / Stallings Ch. 5 AES S-box walkthrough
@@ -44,112 +44,127 @@
       <div class="hero-math" aria-hidden="true"><span>GF(2<sup id="hero-degree">163</sup>)</span><code>1 ⊕ 1 = 0</code></div>
     </section>
     <main class="workspace">
-      <aside class="sidebar" aria-label="Calculation settings">
+      <div class="top-controls-bar" aria-label="Calculation settings">
         <section class="panel setting">
-          <h2>Field settings</h2>
-          <label for="field">Field degree</label>
-          <select id="field"></select>
-          <h3>Irreducible modulus <i>m(x)</i></h3>
-          <p id="mod-poly" class="modulus"></p>
-          <details>
-            <summary>Binary and hexadecimal</summary>
-            <dl class="mod-formats"><dt>Hex</dt><dd id="mod-hex"></dd><dt>Binary</dt><dd id="mod-bin"></dd></dl>
-          </details>
-          <h3>Notation</h3>
-          <div class="segments notation" role="group" aria-label="Input and result notation">
-            <button type="button" data-base="hex" aria-pressed="true">Hex</button>
-            <button type="button" data-base="binary" aria-pressed="false">Binary</button>
-            <button type="button" data-base="algebraic" aria-pressed="false">Polynomial</button>
+          <div class="setting-row">
+            <div class="setting-field">
+              <label for="field">Field degree</label>
+              <select id="field"></select>
+            </div>
+            <div class="setting-notation">
+              <span class="setting-heading">Notation</span>
+              <div class="segments notation" role="group" aria-label="Input and result notation">
+                <button type="button" data-base="hex" aria-pressed="true">Hex</button>
+                <button type="button" data-base="binary" aria-pressed="false">Binary</button>
+                <button type="button" data-base="algebraic" aria-pressed="false">Polynomial</button>
+              </div>
+            </div>
+          </div>
+          <div class="setting-modulus">
+            <span class="setting-heading">Irreducible modulus <i>m(x)</i></span>
+            <p id="mod-poly" class="modulus"></p>
+            <details>
+              <summary>Binary and hexadecimal</summary>
+              <dl class="mod-formats"><dt>Hex</dt><dd id="mod-hex"></dd><dt>Binary</dt><dd id="mod-bin"></dd></dl>
+            </details>
           </div>
         </section>
         <section class="panel examples">
           <h2>Textbook examples</h2>
           <div id="presets"></div>
         </section>
-      </aside>
-      <div class="content">
-        <section class="panel calculator" aria-labelledby="calculator-title">
-          <div class="section-head">
-            <h2 id="calculator-title">Calculator</h2>
-            <div class="tools">
-              <label class="visually-hidden" for="density">Random operand density</label>
-              <select id="density"><option value="sparse">Sparse</option><option value="dense">Dense</option></select>
-              <button type="button" class="outline" id="random">Random operands</button>
-              <button type="button" class="outline" id="upload">Upload</button>
-              <input id="file" type="file" aria-label="Upload operand file" accept=".txt,.json" hidden>
+      </div>
+      <section class="panel calculator" aria-labelledby="calculator-title">
+        <div class="section-head">
+          <h2 id="calculator-title">Calculator</h2>
+          <div class="tools">
+            <label class="visually-hidden" for="density">Random operand density</label>
+            <select id="density"><option value="sparse">Sparse</option><option value="dense">Dense</option></select>
+            <button type="button" class="outline" id="random">Random operands</button>
+            <button type="button" class="outline" id="upload">Upload</button>
+            <input id="file" type="file" aria-label="Upload operand file" accept=".txt,.json" hidden>
+          </div>
+        </div>
+        <div class="batch" id="batch" hidden>
+          <label for="pairs">Operand pair from upload</label>
+          <select id="pairs"></select>
+        </div>
+        <form id="calculator" novalidate>
+          <div class="operands">
+            <div class="operand" id="operand-a">
+              <label for="poly-a">Operand <i>A(x)</i></label>
+              <input id="poly-a" type="text" spellcheck="false" autocomplete="off" maxlength="65536" aria-describedby="a-meta a-preview">
+              <p class="meta" id="a-meta"></p>
+              <p class="poly-preview" id="a-preview"></p>
+              <div class="bit-builder" id="a-bits"></div>
             </div>
-          </div>
-          <div class="batch" id="batch" hidden>
-            <label for="pairs">Operand pair from upload</label>
-            <select id="pairs"></select>
-          </div>
-          <form id="calculator" novalidate>
-            <div class="operands">
-              <div class="operand" id="operand-a">
-                <label for="poly-a">Operand <i>A(x)</i></label>
-                <input id="poly-a" type="text" spellcheck="false" autocomplete="off" maxlength="65536" aria-describedby="a-meta a-preview">
-                <p class="meta" id="a-meta"></p>
-                <p class="poly-preview" id="a-preview"></p>
-                <div class="bit-builder" id="a-bits"></div>
-              </div>
-              <div class="operand" id="operand-b">
+            <div class="operand" id="operand-b">
+              <div id="operand-b-editable">
                 <label for="poly-b">Operand <i>B(x)</i></label>
                 <input id="poly-b" type="text" spellcheck="false" autocomplete="off" maxlength="65536" aria-describedby="b-meta b-preview">
                 <p class="meta" id="b-meta"></p>
                 <p class="poly-preview" id="b-preview"></p>
                 <div class="bit-builder" id="b-bits"></div>
               </div>
-            </div>
-            <fieldset>
-              <legend>Operation</legend>
-              <div class="operations">
-                <label><input type="radio" name="operation" value="add"><span>＋</span>Add</label>
-                <label><input type="radio" name="operation" value="subtract"><span>−</span>Subtract</label>
-                <label><input type="radio" name="operation" value="modulo"><span>mod</span>Reduce</label>
-                <label><input type="radio" name="operation" value="multiply" checked><span>×</span>Multiply</label>
-                <label><input type="radio" name="operation" value="inverse"><span>x⁻¹</span>Inverse</label>
-                <label><input type="radio" name="operation" value="divide"><span>÷</span>Divide</label>
+              <div id="operand-b-modulus" class="operand-modulus-card" hidden>
+                <div class="operand-modulus-head">
+                  <span class="operand-card-title">Modulus <i>m(x)</i></span>
+                  <span class="readonly-badge" id="modulus-lock-badge">Locked to GF(2<sup>163</sup>)</span>
+                </div>
+                <p class="meta modulus-context" id="b-modulus-context"></p>
+                <div class="modulus-readonly-value" id="b-modulus-value" aria-readonly="true" tabindex="0"></div>
+                <p class="poly-preview" id="b-modulus-preview"></p>
               </div>
-            </fieldset>
-            <div class="action">
-              <button type="submit" class="primary" id="calculate">Calculate</button>
-              <p id="notice" role="status"></p>
-            </div>
-          </form>
-          <div id="error" role="alert" hidden></div>
-        </section>
-        <section class="panel result" id="result" aria-labelledby="result-title" hidden>
-          <div class="section-head">
-            <h2 id="result-title" tabindex="-1">Result</h2>
-            <div class="tools">
-              <button type="button" class="quiet" id="back-to-inputs">Back to inputs</button>
-              <button type="button" class="outline" id="copy-result">Copy result</button>
-              <label class="visually-hidden" for="export-format">Export format</label>
-              <select id="export-format"><option value="md">Markdown</option><option value="json">JSON</option></select>
-              <button type="button" class="outline" id="export">Export</button>
             </div>
           </div>
-          <div class="result-display" aria-live="polite">
-            <span id="result-base"></span>
-            <output id="result-value"></output>
+          <fieldset>
+            <legend>Operation</legend>
+            <div class="operations">
+              <label><input type="radio" name="operation" value="add"><span>＋</span>Add</label>
+              <label><input type="radio" name="operation" value="subtract"><span>−</span>Subtract</label>
+              <label><input type="radio" name="operation" value="modulo"><span>mod</span>Reduce</label>
+              <label><input type="radio" name="operation" value="multiply" checked><span>×</span>Multiply</label>
+              <label><input type="radio" name="operation" value="inverse"><span>x<sup>−1</sup></span>Inverse</label>
+              <label><input type="radio" name="operation" value="divide"><span>÷</span>Divide</label>
+            </div>
+          </fieldset>
+          <div class="action">
+            <button type="submit" class="primary" id="calculate">Calculate</button>
+            <p id="notice" role="status"></p>
           </div>
-          <dl id="result-alternatives" class="equivalents"></dl>
-          <div class="tools result-actions">
-            <button type="button" class="outline" id="result-expanded" aria-expanded="false" aria-controls="result-value result-alternatives" hidden>Show full value</button>
-            <button type="button" class="outline" id="compare-product" hidden>Compare this product</button>
-            <span id="result-notice" role="status"></span>
+        </form>
+      </section>
+      <section class="panel result" id="result" aria-labelledby="result-title" hidden>
+        <div class="section-head">
+          <h2 id="result-title" tabindex="-1">Result</h2>
+          <div class="tools">
+            <button type="button" class="quiet" id="back-to-inputs">Back to inputs</button>
+            <button type="button" class="outline" id="copy-result">Copy result</button>
+            <label class="visually-hidden" for="export-format">Export format</label>
+            <select id="export-format"><option value="md">Markdown</option><option value="json">JSON</option></select>
+            <button type="button" class="outline" id="export">Export</button>
           </div>
-          <p id="verification" class="verification" hidden></p>
-          <div id="metrics" class="metrics"></div>
-        </section>
-        <section class="panel trace" id="trace-panel" aria-labelledby="trace-title" hidden>
-          <div class="section-head">
-            <h2 id="trace-title">Calculation steps</h2>
-            <div class="tools" id="trace-tools"></div>
-          </div>
-          <div id="trace-body"></div>
-        </section>
-      </div>
+        </div>
+        <div class="result-display" aria-live="polite">
+          <span id="result-base"></span>
+          <output id="result-value"></output>
+        </div>
+        <dl id="result-alternatives" class="equivalents"></dl>
+        <div class="tools result-actions">
+          <button type="button" class="outline" id="result-expanded" aria-expanded="false" aria-controls="result-value result-alternatives" hidden>Show full value</button>
+          <button type="button" class="outline" id="compare-product" hidden>Compare this product</button>
+          <span id="result-notice" role="status"></span>
+        </div>
+        <p id="verification" class="verification" hidden></p>
+        <div id="metrics" class="metrics"></div>
+      </section>
+      <section class="panel trace" id="trace-panel" aria-labelledby="trace-title" hidden>
+        <div class="section-head trace-section-head">
+          <h2 id="trace-title">Calculation steps</h2>
+          <div class="trace-toolbar" id="trace-tools"></div>
+        </div>
+        <div id="trace-body"></div>
+      </section>
     </main>
     </div>
     <main class="experiment" data-lab-view="modulus" hidden>
@@ -170,10 +185,9 @@
           <div class="experiment-actions">
             <button type="submit" class="primary">Test irreducibility</button>
             <button type="button" class="outline" id="modulus-current">Use calculator modulus</button>
-            <button type="button" class="outline" id="modulus-example">Try reducible x⁸ + 1</button>
+            <button type="button" class="outline" id="modulus-example">Try reducible x<sup>8</sup> + 1</button>
           </div>
         </form>
-        <p class="experiment-error" id="modulus-error" role="alert" hidden></p>
       </section>
       <section class="panel trace" id="modulus-result" aria-labelledby="modulus-result-title" hidden>
         <h2 id="modulus-result-title">Irreducibility result</h2>
@@ -204,20 +218,19 @@
             <button type="button" class="outline" id="aes-zero">Try byte 00</button>
           </div>
         </form>
-        <p class="experiment-error" id="aes-error" role="alert" hidden></p>
       </section>
       <section class="panel" id="aes-result" aria-labelledby="aes-result-title" hidden>
         <h2 id="aes-result-title">Byte substitution</h2>
         <dl id="aes-pipeline" class="byte-pipeline" aria-live="polite"></dl>
         <p id="aes-inverse-note"></p>
         <details id="aes-euclid"><summary>Show the Extended Euclid trace</summary>
-          <div class="trace" id="aes-trace"><div class="tools" id="aes-trace-tools"></div><div id="aes-trace-body"></div></div>
+          <div class="trace" id="aes-trace"><div class="trace-toolbar" id="aes-trace-tools"></div><div id="aes-trace-body"></div></div>
         </details>
       </section>
       <section class="panel trace" id="aes-affine" aria-labelledby="aes-affine-title" hidden>
-        <div class="section-head">
+        <div class="section-head trace-section-head">
           <h2 id="aes-affine-title">Affine transformation</h2>
-          <div class="tools" id="aes-affine-tools"></div>
+          <div class="trace-toolbar" id="aes-affine-tools"></div>
         </div>
         <p>XOR the inverse byte with four left rotations and the constant <code>63</code> in hex. Each row shows the byte added and the running XOR.</p>
         <div id="aes-affine-table"></div>
@@ -244,7 +257,6 @@
             <button type="button" class="outline" id="compare-current">Use calculator operands</button>
           </div>
         </form>
-        <p class="experiment-error" id="compare-error" role="alert" hidden></p>
       </section>
       <section class="panel compare-results" id="compare-results" aria-labelledby="compare-result-title" hidden>
         <h2 id="compare-result-title">Comparison result</h2>
@@ -255,7 +267,7 @@
             <h3 id="shift-method-title">Shift and XOR</h3>
             <p id="shift-method-result" class="method-result"></p>
             <details open><summary>Shift-and-XOR trace</summary>
-              <div class="tools" id="compare-shift-tools"></div><div id="compare-shift-body"></div>
+              <div class="trace-toolbar" id="compare-shift-tools"></div><div id="compare-shift-body"></div>
             </details>
           </section>
           <section class="trace method" aria-labelledby="division-method-title">
@@ -263,7 +275,7 @@
             <p id="division-method-result" class="method-result"></p>
             <dl id="division-method-values" class="equivalents"></dl>
             <details open><summary>Long-division trace</summary>
-              <div id="compare-division-trace"><div class="tools" id="compare-division-tools"></div><div id="compare-division-body"></div></div>
+              <div id="compare-division-trace"><div class="trace-toolbar" id="compare-division-tools"></div><div id="compare-division-body"></div></div>
             </details>
           </section>
         </div>
@@ -272,7 +284,6 @@
         <div class="section-head"><h2 id="benchmark-title">Performance at 163 and 571 bits</h2>
           <button class="outline" type="button" id="run-benchmark">Run benchmark</button></div>
         <p>Both methods use the same seeded operands at each degree. Timings exclude trace generation, formatting, and network requests.</p>
-        <p class="experiment-error" id="benchmark-error" role="alert" hidden></p>
         <div id="benchmark-results" aria-live="polite"></div>
       </section>
     </main>
@@ -281,9 +292,9 @@
       <header class="hero">
         <div>
           <h1 tabindex="-1">Polynomial arithmetic lessons</h1>
-          <p>Step through animated GF(2^m) operations, number theory tools, and cryptographic field examples.</p>
+          <p>Step through animated GF(2<sup>m</sup>) operations, number theory tools, and cryptographic field examples.</p>
         </div>
-        <div class="hero-math" aria-hidden="true"><span>7 Lessons</span><code>GF(2^m)</code></div>
+        <div class="hero-math" aria-hidden="true"><span>7 Lessons</span><code>GF(2<sup>m</sup>)</code></div>
       </header>
       <section class="panel lesson-hub" id="lesson-hub" aria-labelledby="lesson-hub-title">
         <div class="section-head">
@@ -360,6 +371,17 @@
       <button type="button" id="trace-fullscreen-close" class="outline">Close full view</button>
     </div>
     <div id="trace-fullscreen-body" class="trace"></div>
+  </dialog>
+  <dialog id="error-popup" class="error-popup-dialog" aria-labelledby="error-popup-title">
+    <div class="error-popup-head">
+      <span class="error-popup-icon" aria-hidden="true">!</span>
+      <h2 id="error-popup-title">Error</h2>
+    </div>
+    <p id="error-popup-body" class="error-popup-body" role="alert"></p>
+    <div class="error-popup-actions">
+      <button type="button" id="error-popup-trace" class="outline" hidden>View Step 0 / GCD trace</button>
+      <button type="button" id="error-popup-ok" class="primary">OK / Dismiss</button>
+    </div>
   </dialog>
 </body>
 </html>

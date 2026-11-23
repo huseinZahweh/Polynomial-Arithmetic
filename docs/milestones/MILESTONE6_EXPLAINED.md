@@ -111,19 +111,32 @@ Wave 2 adds a shared, color-blind-safe visual diff system across both `Calculati
 
 ---
 
-## 5. Verification & Playwright E2E Coverage
+## 5. Wave 3: Full-Width Layout, Read-Only Modulus Card, Real `<sup>`/`<sub>` Typography, Pop-Up Errors, Smooth Transitions & Sequential Cascade
 
-Milestone 6 expands `tests/e2e/test_workbench_e2e.py` with four dedicated end-to-end browser tests (bringing the total suite to **362 automated tests**: `269` engine + `79` API + `14` Playwright E2E):
+Wave 3 delivers eight holistic visual and interaction refinements across `frontend/` without touching backend endpoints or math contracts:
+
+1. **Read-Only Modulus $m(x)$ Card on Unary Ops (`frontend/lab.js`, `frontend/index.html`):** Choosing **Reduce (`modulo`)** or **Inverse (`inverse`)** preserves the user's typed `Operand B(x)` value in memory while transforming the second card into a locked **Modulus $m(x)$** display showing `Locked to GF(2^m)`, operation context (`Reducing A(x) mod m(x)` or `Inverting A(x)⁻¹ mod m(x)`), and the active field modulus synced with the selected notation (`Hex`, `Binary`, or `Polynomial`).
+2. **True HTML `<sup>` and `<sub>` Typography (`frontend/notation.js`):** Safe DOM tokenizers (`mathFragment`, `appendMathText`, `setMathText`, `mathElement`) convert exponents (`GF(2^163)`, `x^4`, `x^-1`, `x^(2^i)`) and indexed variables (`A1`–`A3`, `B1`–`B3`, `T1`–`T3`, `b0`–`b7`) into true `<sup>`/`<sub>` nodes across UI labels, step titles, Table 4.7 headers/cells, bit-builders, errors, and lessons—while keeping raw `<input>` fields, clipboard copies, share URLs, and `.md`/`.json` downloads plain ASCII.
+3. **Elevated Pop-Up Error Dialog (`#error-popup`):** Routes all validation, batch-upload, exploration, and zero-inverse errors into a accessible `<dialog id="error-popup">` supporting `Esc`, backdrop click, `OK / Dismiss`, and an optional **"View Step 0 / GCD trace"** shortcut when an Extended Euclid failure trace is attached.
+4. **Full-Width De-Nested Workspace & Uncluttered 2-Row Toolbar:** Eliminates the dead left sidebar on `#calculator` by arranging field settings and textbook presets in a top `.top-controls-bar`, giving `Calculator`, `Result`, and `Calculation steps` full container width, flattening nested borders, removing redundant `Show all` / `Show step cards` buttons, and laying out trace controls in two clean non-clipping rows.
+5. **Smooth Color Cross-Fades & Gliding Active Pill (`attachSlidingIndicator`):** Pairs CSS color transitions (`240ms ease`) with a dynamic `.sliding-pill` highlight gliding smoothly across `.lab-nav`, `.segments.notation`, `.operations`, `.trace-modes`, `#lesson-subtabs`, and `#lesson-step-dots`.
+6. **Informative Educational Step Titles (`.step-knowledge-title`):** Renders a descriptive mathematical summary heading on every step card across both `Calculation steps` (with `Stage 1` / `Stage 2` prefixes on Division) and `Lessons`.
+7. **Auto-Maximize on `All steps grid`:** Selecting **`All steps grid`** expands `#trace-panel` (`.is-maximized`, ~95% viewport width/height) into a spacious multi-column grid, complete with `Exit maximized view` and `Esc` dismissal.
+8. **Sequential Step Cascade (`2 → 3 → 4 → 5`):** Jumping non-adjacently across multiplier bits, trace scrubber positions, or lesson timeline dots animates sequentially through intermediate steps (capped at 12 hops, cancelled on rapid clicks, and disabled cleanly under `prefers-reduced-motion`).
+
+---
+
+## 6. Verification & Playwright E2E Coverage
+
+Milestone 6 expands `tests/e2e/test_workbench_e2e.py` with five dedicated Milestone 6 end-to-end browser tests alongside updated core workflow assertions (bringing the total suite to **363 automated tests**: `269` engine + `79` API + `15` Playwright E2E):
 
 1. `test_milestone6_zero_scroll_trace_modes_and_playback`:
-   - Verifies the `#tutorial-open` header button is labeled **`Tutorial tour`**.
-   - Executes $GF(2^{163})$ Multiplicative Inverse (`{57}^-1`) and confirms `#trace-panel` defaults to `Step view` with `Compact values` enabled.
-   - Asserts the **Extended Euclid Step Inspector Square** renders `Triple A(x)` and `Triple B(x)` with **zero horizontal overflow** (`scrollWidth <= clientWidth` on `#trace-panel` and `document.documentElement.scrollWidth <= window.innerWidth`).
-   - Exercises all 5 playback controls (`Next step`, `Last step`, `Previous step`, `First step`), toggles `Full m-bit` / `Compact values`, switches across `Step view`, `All steps grid`, and `Classic table`, and opens/closes the `Expand full view` modal dialog (`#trace-fullscreen`) across desktop (`1280x900`) and mobile (`390x840`).
+   - Verifies `#tutorial-open` label (**`Tutorial tour`**), $GF(2^{163})$ Inverse Step view default, Step Inspector Square zero overflow, 5-button playback, `Full m-bit` / `Compact values` toggle, `All steps grid`, `Classic table`, and `Expand full view` modal across desktop (`1280x900`) and mobile (`390x840`).
 2. `test_milestone6_standalone_lessons_page_and_handoff`:
-   - Navigates to `#lessons`, verifies all 7 lessons appear in `#lesson-catalog`, and runs the 5-step `Tutorial tour` for the `Lessons` view.
-   - Interacts with Lesson 1's 8-bit polynomial sandbox, Lesson 2's 5-button playback controls and self-check quiz, and Lesson 6's **"Open {83}⁻¹ in Calculator"** handoff button, confirming automatic switching to `#calculator` and calculation of `{83}^-1 = {80}` in $GF(2^8)$ with zero horizontal overflow on desktop and mobile (`390x840`).
+   - Verifies `#lessons` 7-lesson catalog, 5-step `Lessons` Spotlight tour, interactive 8-bit sandbox, Lesson 2 playback + quiz, and Lesson 6 Calculator handoff (`{83}^-1 = {80}`).
 3. `test_milestone6_wave2_trace_visual_diffs_and_compare_mode`:
-   - Steps from Step 0 $\rightarrow$ Step 1 $\rightarrow$ Step 2 in $GF(2^{163})$ Inverse (Table 4.7), asserting `.diff-legend`, `.diff-banner`, `.diff-carried` (`← prev B`), `.diff-updated` (`New T`), and inline `was:` values appear, and verifies `Compare prev → curr` renders both Previous and Current steps side-by-side with zero horizontal overflow on desktop and mobile (`390x840`).
+   - Verifies `.diff-legend`, `.diff-banner`, `.diff-carried` (`← prev B`), `.diff-updated` (`New T`), inline `was:` values, and `Compare prev → curr` side-by-side mode on $GF(2^{163})$ traces.
 4. `test_milestone6_wave2_lessons_visual_diffs_and_compare_mode`:
-   - Steps through Lesson 5 (Shift-and-XOR Multiplication) and Lesson 6 (Stallings Table 4.7), asserting `"From Step k-1 → Step k"` diff summaries, persistent color-coded badges, inline `was:` values, and `Compare prev → curr` side-by-side slides with zero console/page errors and zero horizontal overflow on desktop and mobile (`390x840`).
+   - Verifies `"From Step k-1 → Step k"` diff summaries, persistent badges, `was:` deltas, and `Compare prev → curr` side-by-side slides in `#lessons`.
+5. `test_milestone6_wave3_layout_modulus_card_math_popup_maximize_cascade`:
+   - Verifies gliding `.sliding-pill` indicators, read-only **Modulus $m(x)$** card on `modulo`/`inverse` + preserved `B(x)` restore, real `<sup>`/`<sub>` DOM elements, `#error-popup` (`Esc` & `OK`), non-empty `.step-knowledge-title` headings, auto-maximized `All steps grid` + `Exit maximized view`, sequential step cascade (`0 → 1 → 2 → 3`), zero console/page errors, and zero horizontal overflow on desktop and mobile (`390x840`).

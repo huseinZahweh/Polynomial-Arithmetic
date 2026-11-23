@@ -1,16 +1,31 @@
 /**
  * @fileoverview Main controller for the Finite Field Lab educational calculator workbench.
  *
- * Original Author: Ali Zahreddine — Milestone 4 & Integration (Educational Web GUI).
+ * Original Author: Ali Zahreddine — Milestone 4, Integration & Milestone 6 (Waves 1–3).
  *
  * Orchestrates all six core REST endpoints (`/api/fields`, `/api/calculate`,
  * `/api/random-polynomials`, `/api/parse-polynomials`, `/api/export-calculation`,
- * `/api/tutorial`), live BigInt operand validation and notation switching, the
- * `m <= 8` interactive coefficient bit-builder, Hex-compressed shareable URLs,
- * large-field compact previews, classroom presets, and the 4-slide concepts modal.
+ * `/api/tutorial`), live BigInt operand validation and notation switching, the dynamic
+ * read-only Modulus m(x) card on unary ops (`modulo`, `inverse`), true HTML `<sup>`/`<sub>`
+ * math typography, pop-up error alerts (`#error-popup`), gliding navigation indicators,
+ * `m <= 8` coefficient bit-builder, Hex-compressed shareable URLs, classroom presets,
+ * standalone animated Lessons bridge, and the 4-slide concepts modal.
  */
 
-import { bases, degreeOf, element, formatOperand, parseOperand, polynomial, significantDigits } from "./notation.js";
+import {
+  attachSlidingIndicator,
+  bases,
+  closeErrorPopup,
+  degreeOf,
+  element,
+  formatOperand,
+  mathElement,
+  parseOperand,
+  polynomial,
+  setMathText,
+  showErrorPopup,
+  significantDigits,
+} from "./notation.js";
 import { createTraceView } from "./traces.js";
 import { setupPageTour } from "./tour.js";
 import { setupExplorations } from "./explorations.js";
@@ -32,6 +47,10 @@ let slides = [];
 let slideIndex = 0;
 let uploadPairs = [];
 
+// Gliding active selection bars across notation and operation controls.
+const notationIndicator = attachSlidingIndicator(document.querySelector(".segments.notation"), '[aria-pressed="true"]');
+const operationsIndicator = attachSlidingIndicator(document.querySelector(".operations"), "label:has(:checked)");
+
 /** @returns {string} Active operation radio value. */
 const activeOperation = () => document.querySelector("input[name=operation]:checked").value;
 /** @returns {number} Active field degree `m`. */
@@ -42,11 +61,12 @@ const unary = () => ["modulo", "inverse"].includes(activeOperation());
 const operandInput = key => $("poly-" + key);
 
 /**
- * Programmatically check an operation radio button.
+ * Programmatically check an operation radio button and update its gliding pill.
  * @param {string} op - Operation identifier (`add`, `subtract`, `modulo`, `multiply`, `inverse`, `divide`).
  */
 function selectOperation(op) {
   document.querySelector('input[name="operation"][value="' + op + '"]').checked = true;
+  operationsIndicator.update();
 }
 
 /**
@@ -63,7 +83,7 @@ function selectOperation(op) {
  */
 async function api(path, data, download = false) {
   const response = await fetch("/api/" + path, data === undefined ? {} : {
-    method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(data),
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
   });
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
@@ -73,12 +93,22 @@ async function api(path, data, download = false) {
 }
 
 /**
- * Show or hide the calculator error alert banner.
- * @param {string} [message=""] - Error message; empty string hides the alert.
+ * Display any validation, upload, or mathematical error in the prominent pop-up modal,
+ * or dismiss the popup when called with an empty message.
+ *
+ * @param {string} [message=""] - Error message; empty string closes `#error-popup`.
+ * @param {{title?: string, onViewTrace?: () => void}} [options={}] - Optional dialog heading and trace shortcut.
  */
-function showError(message = "") {
-  $("error").hidden = !message;
-  $("error").textContent = message;
+function showError(message = "", options = {}) {
+  if (!message) {
+    closeErrorPopup();
+    return;
+  }
+  showErrorPopup({
+    title: options.title || "Calculation error",
+    message,
+    onViewTrace: options.onViewTrace,
+  });
 }
 
 /**
@@ -109,8 +139,9 @@ function clearCalculation() {
 function renderField() {
   const degree = activeDegree();
   const field = fields.get(degree);
+  if (!field) return;
   $("hero-degree").textContent = degree;
-  $("mod-poly").textContent = field.reduction_poly;
+  setMathText($("mod-poly"), field.reduction_poly);
   $("mod-hex").textContent = field.reduction_poly_hex.toUpperCase();
   $("mod-bin").textContent = field.reduction_poly_bin;
 }
@@ -129,10 +160,8 @@ function readOperand(key) {
 }
 
 /**
- * Render the interactive `m <= 8` coefficient bit-builder checkboxes for one operand.
- *
- * Toggling any bit XORs `1n << BigInt(bit)` into the operand and immediately updates
- * the input field, bit/degree metadata, and algebraic polynomial preview.
+ * Render the interactive `m <= 8` coefficient bit-builder checkboxes for one operand,
+ * using true `<sup>` exponents (`x⁷`, ..., `x¹`, `1`).
  *
  * @param {"a" | "b"} key - Operand key.
  * @param {bigint} value - Current parsed polynomial bitmask.
@@ -148,7 +177,7 @@ function renderBits(key, value, valid) {
     toggle.checked = Boolean(value & (1n << BigInt(bit)));
     toggle.disabled = !valid;
     const label = element("label");
-    label.append(toggle, element("span", bit === 0 ? "1" : "x^" + bit));
+    label.append(toggle, mathElement("span", bit === 0 ? "1" : "x^" + bit));
     toggle.setAttribute("aria-label", "Operand " + key.toUpperCase() + ", coefficient of x to the power " + bit);
     toggle.addEventListener("change", () => {
       const index = [...bits.querySelectorAll("input")].indexOf(toggle);
@@ -163,26 +192,68 @@ function renderBits(key, value, valid) {
 }
 
 /**
- * Validate both operand inputs, update bit-length/degree previews, and dim `B(x)` for unary ops.
+ * Synchronize the second operand card (`#operand-b`):
+ *   - On `modulo` (`Reduce`) or `inverse`, switches cleanly to a read-only **Modulus m(x)**
+ *     display synced to the active field degree `m` and `base`, while preserving the user's
+ *     typed `#poly-b` input value in state.
+ *   - On binary ops (`add`, `subtract`, `multiply`, `divide`), restores editable `Operand B(x)`.
  */
 function renderOperands() {
+  const degree = activeDegree();
+  const field = fields.get(degree);
+  const op = activeOperation();
+
   for (const key of operands) {
     const input = operandInput(key);
-    const inactive = key === "b" && unary();
-    input.disabled = inactive;
-    $("operand-" + key).classList.toggle("inactive", inactive);
+    const isUnaryModulusCard = key === "b" && unary();
+    input.disabled = isUnaryModulusCard;
+    $("operand-" + key).classList.toggle("inactive", false);
+
+    if (isUnaryModulusCard) {
+      $("operand-b").classList.add("is-modulus-mode");
+      $("operand-b-editable").hidden = true;
+      $("operand-b-modulus").hidden = false;
+      $("b-bits").replaceChildren();
+
+      setMathText($("modulus-lock-badge"), "Locked to GF(2^" + degree + ")");
+      setMathText(
+        $("b-modulus-context"),
+        op === "modulo" ? "Reducing A(x) mod m(x)" : "Inverting A(x)^-1 mod m(x)",
+      );
+
+      if (field) {
+        if (base === "algebraic") {
+          setMathText($("b-modulus-value"), field.reduction_poly);
+          $("b-modulus-preview").textContent = "Hex: " + field.reduction_poly_hex.toUpperCase();
+        } else if (base === "binary") {
+          $("b-modulus-value").textContent = field.reduction_poly_bin;
+          setMathText($("b-modulus-preview"), field.reduction_poly);
+        } else {
+          $("b-modulus-value").textContent = field.reduction_poly_hex.toUpperCase();
+          setMathText($("b-modulus-preview"), field.reduction_poly);
+        }
+      }
+      continue;
+    }
+
+    if (key === "b") {
+      $("operand-b").classList.remove("is-modulus-mode");
+      $("operand-b-editable").hidden = false;
+      $("operand-b-modulus").hidden = true;
+    }
+
     input.placeholder = bases[base].example;
     input.removeAttribute("aria-invalid");
     $(key + "-preview").textContent = "";
-    $(key + "-meta").textContent = inactive ? "Unused for this operation" : "";
+    $(key + "-meta").textContent = "";
     let value = 0n;
     let valid = true;
-    if (!inactive && input.value.trim()) {
+    if (input.value.trim()) {
       try {
         value = readOperand(key);
-        const degree = degreeOf(value);
-        $(key + "-meta").textContent = (degree + 1) + " bits · " + (degree < 0 ? "zero polynomial" : "degree " + degree);
-        $(key + "-preview").textContent = polynomial(value);
+        const deg = degreeOf(value);
+        $(key + "-meta").textContent = (deg + 1) + " bits · " + (deg < 0 ? "zero polynomial" : "degree " + deg);
+        setMathText($(key + "-preview"), polynomial(value));
       } catch (error) {
         valid = false;
         input.setAttribute("aria-invalid", "true");
@@ -194,12 +265,13 @@ function renderOperands() {
 }
 
 /**
- * Sync `aria-pressed` state on the Hex / Binary / Polynomial segmented toggle buttons.
+ * Sync `aria-pressed` state and gliding indicator on the Hex / Binary / Polynomial segmented buttons.
  */
 function renderNotation() {
   for (const button of document.querySelectorAll("[data-base]")) {
     button.setAttribute("aria-pressed", button.dataset.base === base);
   }
+  notationIndicator.update();
 }
 
 /**
@@ -219,7 +291,7 @@ function changeNotation(nextBase) {
         operandInput(key).value = "";
         continue;
       }
-      showError("Operand " + key.toUpperCase() + ": " + error.message);
+      showError("Operand " + key.toUpperCase() + ": " + error.message, { title: "Invalid operand notation" });
       return;
     }
   }
@@ -263,7 +335,8 @@ function previewValue(text, notation) {
 }
 
 /**
- * Render the primary result card, secondary notations, verification badge, and timing metrics.
+ * Render the primary result card, secondary notations (with `<sup>` on Polynomials),
+ * verification badge, and timing metrics.
  */
 function renderResult() {
   $("result").hidden = false;
@@ -276,17 +349,23 @@ function renderResult() {
   expansion.setAttribute("aria-expanded", showFullResult);
   $("compare-product").hidden = result.operation !== "multiply";
   $("result-base").textContent = bases[base].label + (values[base] !== full[base] ? " preview" : "");
-  $("result-value").textContent = values[base];
+
+  if (base === "algebraic") setMathText($("result-value"), values[base]);
+  else $("result-value").textContent = values[base];
+
   $("result-alternatives").replaceChildren();
   for (const [key, info] of Object.entries(bases)) {
-    if (key !== base) $("result-alternatives").append(element("dt", info.label), element("dd", values[key]));
+    if (key !== base) {
+      const dd = key === "algebraic" ? mathElement("dd", values[key]) : element("dd", values[key]);
+      $("result-alternatives").append(element("dt", info.label), dd);
+    }
   }
   const verification = $("verification");
   verification.hidden = !result.verification;
   if (result.verification) {
     const proof = result.verification;
     verification.classList.toggle("failed", !proof.passed);
-    verification.textContent = (proof.passed ? "Mathematically verified · " : "Verification failed · ") + proof.label;
+    setMathText(verification, (proof.passed ? "Mathematically verified · " : "Verification failed · ") + proof.label);
   }
   const metrics = result.metrics;
   $("metrics").replaceChildren(
@@ -323,9 +402,13 @@ async function calculate({ reveal = false } = {}) {
     }
   } catch (error) {
     if (revision !== request) return;
-    showError(error.message);
+    const hasTrace = Boolean(error.payload?.trace);
     // Display the server's Table 4.7 B3 = 0 termination trace on zero-inverse HTTP 400 errors.
     traceView.show(error.payload?.trace);
+    showError(error.message, {
+      title: hasTrace ? "No multiplicative inverse" : "Calculation error",
+      onViewTrace: hasTrace ? () => $("trace-panel").scrollIntoView({ behavior: "smooth", block: "start" }) : undefined,
+    });
   } finally {
     $("calculate").disabled = false;
     if (revision === request) {
@@ -363,15 +446,9 @@ async function copyText(text, feedback, notice = $("notice")) {
  */
 function makeShareURL() {
   const url = new URL(location.pathname, location.origin);
-  const query = {m: activeDegree(), operation: activeOperation(), base, poly_a: readOperand("a").toString(16)};
-  if (operandInput("b").value.trim()) {
-    try {
-      query.poly_b = readOperand("b").toString(16);
-    } catch (error) {
-      if (!unary()) throw error;
-    }
-  } else if (!unary()) {
-    readOperand("b");
+  const query = { m: activeDegree(), operation: activeOperation(), base, poly_a: readOperand("a").toString(16) };
+  if (!unary()) {
+    query.poly_b = readOperand("b").toString(16);
   }
   url.search = new URLSearchParams(query);
   return url.href;
@@ -395,7 +472,9 @@ function readShareURL() {
   base = notation;
   for (const key of operands) {
     const hex = query.get("poly_" + key);
-    operandInput(key).value = hex === null ? "" : formatOperand(parseOperand(hex, "hex"), base, degree);
+    if (hex !== null) {
+      operandInput(key).value = formatOperand(parseOperand(hex, "hex"), base, degree);
+    }
   }
 }
 
@@ -418,13 +497,20 @@ function configDefaults() {
  */
 function presetButton(preset) {
   const inverse = preset.operation === "inverse";
-  const button = element("button", inverse ? "Chapter 5 · AES inverse" : "Chapter 4 · GF(2⁸)", "preset");
-  button.append(element("small", inverse ? "{95}⁻¹ = {8A}" : "{57} × {83} = {C1}"));
+  const button = element("button", "", "preset");
+  button.append(
+    mathElement("strong", inverse ? "Chapter 5 · AES inverse" : "Chapter 4 · GF(2^8)"),
+    mathElement("small", inverse ? "{95}^-1 = {8A}" : "{57} × {83} = {C1}")
+  );
   button.addEventListener("click", () => {
     $("field").value = preset.m;
     selectOperation(preset.operation);
     for (const key of operands) {
-      operandInput(key).value = preset[key] ? formatOperand(parseOperand(preset[key], preset.input_base), base, preset.m) : "";
+      if (preset[key]) {
+        operandInput(key).value = formatOperand(parseOperand(preset[key], preset.input_base), base, preset.m);
+      } else if (key !== "b" || !inverse) {
+        operandInput(key).value = "";
+      }
     }
     renderField();
     renderOperands();
@@ -435,15 +521,15 @@ function presetButton(preset) {
 }
 
 /**
- * Render the current slide inside the 4-slide Field Concepts `<dialog>` modal.
+ * Render the current slide inside the 4-slide Field Concepts `<dialog>` modal with `<sup>`/`<sub>`.
  */
 function renderSlide() {
   const slide = slides[slideIndex];
   const list = element("ul");
-  for (const point of slide.key_points) list.append(element("li", point));
-  const title = element("h2", slide.title);
+  for (const point of slide.key_points) list.append(mathElement("li", point));
+  const title = mathElement("h2", slide.title);
   title.id = "slide-title";
-  $("tutorial-slide").replaceChildren(title, element("p", slide.body), list,
+  $("tutorial-slide").replaceChildren(title, mathElement("p", slide.body), list,
     ...(slide.presets || []).map(presetButton));
   $("slide-count").textContent = (slideIndex + 1) + " / " + slides.length;
   $("slide-prev").disabled = slideIndex === 0;
@@ -460,7 +546,11 @@ function loadPair(index) {
   clearCalculation();
   for (const key of operands) {
     const pairBase = pair.base === "bin" ? "binary" : pair.base;
-    operandInput(key).value = pair[key] ? formatOperand(parseOperand(pair[key], pairBase), base, activeDegree()) : "";
+    if (pair[key]) {
+      operandInput(key).value = formatOperand(parseOperand(pair[key], pairBase), base, activeDegree());
+    } else if (key !== "b" || !unary()) {
+      operandInput(key).value = "";
+    }
   }
   renderOperands();
 }
@@ -469,14 +559,18 @@ function loadPair(index) {
 $("calculator").addEventListener("submit", event => { event.preventDefault(); calculate({ reveal: true }); });
 $("field").addEventListener("change", () => { clearCalculation(); renderField(); renderOperands(); });
 for (const input of document.querySelectorAll("input[name=operation], #poly-a, #poly-b")) {
-  input.addEventListener("input", () => { clearCalculation(); renderOperands(); });
+  input.addEventListener("input", () => {
+    clearCalculation();
+    renderOperands();
+    operationsIndicator.update();
+  });
 }
 for (const button of document.querySelectorAll("[data-base]")) {
   button.addEventListener("click", () => changeNotation(button.dataset.base));
 }
 $("share").addEventListener("click", () => {
   try { copyText(makeShareURL(), "Calculation link copied."); }
-  catch (error) { showError(error.message); }
+  catch (error) { showError(error.message, { title: "Share link error" }); }
 });
 $("copy-result").addEventListener("click", () => copyText(display(result.result, base), "Result copied.", $("result-notice")));
 $("back-to-inputs").addEventListener("click", () => operandInput("a").focus());
@@ -487,25 +581,25 @@ $("result-expanded").addEventListener("click", () => {
 $("export").addEventListener("click", async () => {
   const format = $("export-format").value;
   try {
-    const blob = await api("export-calculation", {calculation: result, format, download: true}, true);
+    const blob = await api("export-calculation", { calculation: result, format, download: true }, true);
     const url = URL.createObjectURL(blob);
     const link = element("a");
     link.href = url;
     link.download = "gf2m-calculation." + format;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-  } catch (error) { showError(error.message); }
+  } catch (error) { showError(error.message, { title: "Export error" }); }
 });
 $("random").addEventListener("click", async () => {
   const savedRevision = revision;
   try {
-    const pair = await api("random-polynomials", {m: activeDegree(), density: $("density").value});
+    const pair = await api("random-polynomials", { m: activeDegree(), density: $("density").value });
     if (savedRevision !== revision) return;
     clearCalculation();
     for (const key of operands) operandInput(key).value = display(pair[key], base);
     renderOperands();
     showNotice("Random operands generated.");
-  } catch (error) { showError(error.message); }
+  } catch (error) { showError(error.message, { title: "Random operand error" }); }
 });
 $("upload").addEventListener("click", () => $("file").click());
 $("file").addEventListener("change", async () => {
@@ -528,12 +622,12 @@ $("file").addEventListener("change", async () => {
     $("batch").hidden = false;
     loadPair(0);
     showNotice(parsed.count + (parsed.count === 1 ? " pair loaded." : " pairs loaded."));
-  } catch (error) { showError(error.message); }
+  } catch (error) { showError(error.message, { title: "File upload error" }); }
   finally { $("file").value = ""; }
 });
 $("pairs").addEventListener("change", () => {
   try { loadPair(Number($("pairs").value)); }
-  catch (error) { showError(error.message); }
+  catch (error) { showError(error.message, { title: "File pair error" }); }
 });
 const lessonsController = setupLessons({
   openInCalculator(preset) {
@@ -543,7 +637,11 @@ const lessonsController = setupLessons({
     selectOperation(preset.operation);
     for (const key of operands) {
       const raw = preset[key];
-      operandInput(key).value = raw ? formatOperand(parseOperand(raw, preset.base || "hex"), base, preset.m) : "";
+      if (raw) {
+        operandInput(key).value = formatOperand(parseOperand(raw, preset.base || "hex"), base, preset.m);
+      } else if (key !== "b" || !unary()) {
+        operandInput(key).value = "";
+      }
     }
     renderField();
     renderNotation();
@@ -558,6 +656,7 @@ const loadExperimentFields = setupExplorations(api, {
     m: activeDegree(), a: readOperand("a").toString(16), b: readOperand("b").toString(16),
   }),
   onLessonRoute: slug => lessonsController.selectLessonById(slug),
+  onError: (msg, title = "Exploration error") => showError(msg, { title }),
 });
 $("concepts-open").addEventListener("click", () => {
   if (slides.length) {
@@ -575,7 +674,7 @@ $("slide-next").addEventListener("click", () => {
 
 /**
  * Bootstrap the workbench by loading the field catalog and tutorial slides in parallel,
- * restoring URL state (or defaults), and running the initial calculation.
+ * restoring URL state (or defaults), syncing gliding indicators, and running the initial calculation.
  */
 async function init() {
   try {
@@ -595,9 +694,10 @@ async function init() {
     renderField();
     renderNotation();
     renderOperands();
-    if (invalidLink) showError(invalidLink);
+    operationsIndicator.update();
+    if (invalidLink) showError(invalidLink, { title: "Invalid calculation link" });
     else await calculate();
-  } catch (error) { showError(error.message); }
+  } catch (error) { showError(error.message, { title: "Initialization error" }); }
 }
 
 init();

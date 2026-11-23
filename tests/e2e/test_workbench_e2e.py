@@ -31,7 +31,7 @@ def test_browser_workflow(live_url: str) -> None:
         check(page.get_by_role("heading", name="Table 2", exact=False)).to_be_visible()
         page.get_by_role("button", name="Next step").click()
         check(page.get_by_text("Step 1 of", exact=False)).to_be_visible()
-        page.get_by_role("button", name="Show all").click()
+        page.get_by_role("button", name="Classic table", exact=True).click()
         page.get_by_role("button", name="Binary", exact=True).click()
         check(page.locator("#poly-a")).to_have_value("01010111")
 
@@ -82,7 +82,10 @@ def test_browser_workflow(live_url: str) -> None:
 
         page.locator("#poly-a").fill("100011011")
         page.locator("#calculate").click()
+        check(page.locator("#error-popup")).to_be_visible()
         check(page.get_by_role("alert")).to_contain_text("Zero element")
+        page.locator("#error-popup-trace").click()
+        check(page.locator("#error-popup")).to_be_hidden()
         check(page.get_by_text("A3(x) gives the gcd", exact=False)).to_be_visible()
 
         page.locator("#file").set_input_files(DEMO_OPERANDS)
@@ -97,7 +100,10 @@ def test_browser_workflow(live_url: str) -> None:
         page.locator("#file").set_input_files(
             {"name": "broken.json", "mimeType": "application/json", "buffer": b"{"}
         )
+        check(page.locator("#error-popup")).to_be_visible()
         check(page.get_by_role("alert")).to_contain_text("parse error")
+        page.locator("#error-popup-ok").click()
+        check(page.locator("#error-popup")).to_be_hidden()
         page.locator("#random").click()
         check(page.locator("#notice")).to_have_text("Random operands generated.")
 
@@ -164,7 +170,8 @@ def test_explorations_in_browser(live_url: str) -> None:
 
         page.get_by_role("link", name="Compare multiplication").click()
         page.get_by_role("button", name="Compare results").click()
-        check(page.locator("#compare-status")).to_have_text("Both methods agree · GF(2^8)")
+        check(page.locator("#compare-status")).to_have_text("Both methods agree · GF(28)")
+        check(page.locator("#compare-status sup")).to_have_text("8")
         check(page.locator("#shift-method-result")).to_have_text("C1 (hex)")
         check(page.get_by_role("heading", name="Leading-term cancellations")).to_be_visible()
         page.get_by_role("button", name="Run benchmark").click()
@@ -176,7 +183,7 @@ def test_explorations_in_browser(live_url: str) -> None:
         page.locator("#compare-degree").select_option("571")
         page.locator("#compare-a").fill("4" + "0" * 141 + "1")
         page.get_by_role("button", name="Compare results").click()
-        check(page.locator("#compare-status")).to_have_text("Both methods agree · GF(2^571)")
+        check(page.locator("#compare-status")).to_have_text("Both methods agree · GF(2571)")
         assert page.evaluate("document.documentElement.scrollWidth === window.innerWidth")
         page.get_by_role("link", name="Calculator", exact=True).click()
         check(page.locator("#field")).to_have_value("163")
@@ -253,7 +260,7 @@ def test_calculator_tour_guides_the_preview_bits_and_comparison(live_url: str) -
         check(page.locator("#result-value")).to_have_text(format(0x2B79, "041X"))
 
         next_step.click()
-        check(description).to_contain_text("Show tables")
+        check(description).to_contain_text("Classic table")
         next_step.click()
         check(page.locator("#trace-body.tour-highlight")).to_be_visible()
         page.locator('label:has(input[value="add"])').click()
@@ -270,7 +277,7 @@ def test_calculator_tour_guides_the_preview_bits_and_comparison(live_url: str) -
         check(shortcut).to_be_visible()
         shortcut.click()
         check(page.locator("#page-tour")).to_be_hidden()
-        check(page.locator("#compare-status")).to_have_text("Both methods agree · GF(2^8)")
+        check(page.locator("#compare-status")).to_have_text("Both methods agree · GF(28)")
         browser.close()
 
 
@@ -376,7 +383,7 @@ def test_mobile_trace_shows_one_labelled_step(live_url: str) -> None:
         )
         check(card).to_contain_text("F9 ⊕ 38 = C1")
         check(trace.get_by_role("region", name="Table 1", exact=False)).to_be_hidden()
-        trace.get_by_role("button", name="Show tables", exact=True).click()
+        trace.get_by_role("button", name="Classic table", exact=True).click()
         check(trace.get_by_role("region", name="Table 1", exact=False)).to_be_visible()
 
         page.locator('input[value="modulo"]').check(force=True)
@@ -406,7 +413,7 @@ def test_compare_this_product_transfers_the_exact_calculation(live_url: str) -> 
         check(page.locator("#compare-degree")).to_have_value("3")
         check(page.locator("#compare-a")).to_have_value("16")
         check(page.locator("#compare-b")).to_have_value("B")
-        check(page.locator("#compare-status")).to_have_text("Both methods agree · GF(2^3)")
+        check(page.locator("#compare-status")).to_have_text("Both methods agree · GF(23)")
         check(page.locator("#shift-method-result")).to_have_text("6 (hex)")
 
         page.get_by_role("link", name="Calculator", exact=True).click()
@@ -692,5 +699,131 @@ def test_milestone6_wave2_lessons_visual_diffs_and_compare_mode(live_url: str) -
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
         assert not page_errors
         browser.close()
+
+
+def test_milestone6_wave3_layout_modulus_card_math_popup_maximize_cascade(live_url: str) -> None:
+    """Verify Wave 3 refinements: read-only Modulus card, sup/sub typography, pop-up errors, gliding pills, informative step titles, auto-maximized grid, and sequential step cascade."""
+    playwright = pytest.importorskip("playwright.sync_api")
+    check = playwright.expect
+    with playwright.sync_playwright() as runner:
+        browser = runner.chromium.launch()
+        page = browser.new_page(viewport={"width": 1280, "height": 900})
+        page_errors = []
+        console_errors = []
+        page.on("pageerror", lambda err: page_errors.append(str(err)))
+        page.on("console", lambda msg: console_errors.append(msg.text) if msg.type == "error" else None)
+        page.goto(live_url)
+
+        # 1. Gliding active pill indicators across primary nav, notation, and operations strips.
+        for selector in (".lab-nav", ".segments.notation", ".operations"):
+            check(page.locator(selector + " > .sliding-pill")).to_have_count(1)
+
+        # 2. Read-only Modulus m(x) card on Reduce & Inverse preserves Operand B(x).
+        page.locator("#field").select_option("8")
+        page.locator("#poly-a").fill("57")
+        page.locator("#poly-b").fill("83")
+        check(page.locator("#operand-b-editable")).to_be_visible()
+        check(page.locator("#operand-b-modulus")).to_be_hidden()
+
+        page.locator('input[value="modulo"]').check(force=True)
+        check(page.locator("#operand-b-editable")).to_be_hidden()
+        check(page.locator("#operand-b-modulus")).to_be_visible()
+        check(page.locator("#modulus-lock-badge")).to_have_text("Locked to GF(28)")
+        check(page.locator("#modulus-lock-badge sup")).to_have_text("8")
+        check(page.locator("#b-modulus-context")).to_have_text("Reducing A(x) mod m(x)")
+        check(page.locator("#b-modulus-value")).to_have_text("11B")
+
+        page.locator('input[value="inverse"]').check(force=True)
+        check(page.locator("#b-modulus-context")).to_have_text("Inverting A(x)−1 mod m(x)")
+        check(page.locator("#b-modulus-context sup")).to_have_text("−1")
+
+        # Polynomial notation updates the read-only modulus display with true <sup> tags.
+        page.get_by_role("button", name="Polynomial", exact=True).click()
+        check(page.locator("#b-modulus-value sup").first).to_have_text("8")
+        check(page.locator("#a-preview sup").first).to_have_text("6")
+        assert page.locator("#a-bits sup").count() >= 6
+
+        # Switching back to Multiply restores editable Operand B(x) with its preserved value.
+        page.locator('input[value="multiply"]').check(force=True)
+        check(page.locator("#operand-b-editable")).to_be_visible()
+        check(page.locator("#operand-b-modulus")).to_be_hidden()
+        check(page.locator("#poly-b")).to_have_value("x^7 + x + 1")
+
+        # 3. Pop-Up Error Dialog (#error-popup) on 0^-1 closes cleanly on Esc and OK.
+        page.get_by_role("button", name="Hex", exact=True).click()
+        page.locator('input[value="inverse"]').check(force=True)
+        page.locator("#poly-a").fill("00")
+        page.locator("#calculate").click()
+        popup = page.locator("#error-popup")
+        check(popup).to_be_visible()
+        check(page.get_by_role("alert")).to_contain_text("Zero element")
+        page.keyboard.press("Escape")
+        check(popup).to_be_hidden()
+
+        page.locator("#calculate").click()
+        check(popup).to_be_visible()
+        page.locator("#error-popup-ok").click()
+        check(popup).to_be_hidden()
+
+        # 4. Real <sub> / <sup> and .step-knowledge-title in Extended Euclid + Auto-Maximize on All steps grid.
+        page.locator("#field").select_option("163")
+        page.locator("#poly-a").fill("57")
+        page.locator("#calculate").click()
+        trace = page.locator("#trace-panel")
+        check(trace.locator(".trace-modes > .sliding-pill")).to_have_count(1)
+        check(trace.locator(".step-knowledge-title")).to_contain_text("Initialize Bézout Triples")
+        check(trace.locator("dt sub").first).to_have_text("1")
+
+        trace.get_by_role("button", name="All steps grid", exact=True).click()
+        check(trace).to_have_class("panel trace is-maximized")
+        exit_max = trace.get_by_role("button", name="Exit maximized view", exact=True)
+        check(exit_max).to_be_visible()
+        assert page.evaluate(
+            "document.getElementById('trace-panel').scrollWidth <= document.getElementById('trace-panel').clientWidth"
+        )
+        exit_max.click()
+        check(trace).not_to_have_class("panel trace is-maximized")
+
+        # 5. Sequential step cascade (0 -> 1 -> 2 -> 3) when clicking distant multiplier bit 3.
+        page.locator("#presets").get_by_role("button", name="Chapter 4", exact=False).click()
+        trace.get_by_role("button", name="Step view", exact=True).click()
+        check(trace.locator(".step-eyebrow")).to_have_text("Multiplier bit 0")
+        page.evaluate("""() => {
+            window.__visitedTraceSteps = [];
+            const record = () => {
+                const el = document.querySelector('#trace-body .step-eyebrow');
+                if (el && window.__visitedTraceSteps.at(-1) !== el.textContent) {
+                    window.__visitedTraceSteps.push(el.textContent);
+                }
+            };
+            record();
+            window.__traceObserver = new MutationObserver(record);
+            window.__traceObserver.observe(document.getElementById('trace-body'), { childList: true, subtree: true });
+        }""")
+        bit3 = trace.get_by_role("button", name="Multiplier bit 3", exact=True)
+        bit3.click()
+        check(bit3).to_have_attribute("aria-pressed", "true", timeout=4000)
+        check(trace.locator(".step-eyebrow")).to_have_text("Multiplier bit 3")
+        check(trace.locator(".step-knowledge-title")).not_to_be_empty()
+        visited = page.evaluate("""() => {
+            window.__traceObserver?.disconnect();
+            return window.__visitedTraceSteps;
+        }""")
+        assert "Multiplier bit 1" in visited and "Multiplier bit 2" in visited and visited[-1] == "Multiplier bit 3"
+
+        # 6. Informative .step-knowledge-title and zero overflow on #lessons (desktop & 390x840 mobile).
+        page.get_by_role("link", name="Lessons", exact=True).click()
+        check(page.locator("#lesson-stage .step-knowledge-title")).not_to_be_empty()
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+
+        page.set_viewport_size({"width": 390, "height": 840})
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+        page.get_by_role("link", name="Calculator", exact=True).click()
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+        unexpected_console = [msg for msg in console_errors if "400 (Bad Request)" not in msg]
+        assert not unexpected_console
+        assert not page_errors
+        browser.close()
+
 
 

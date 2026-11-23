@@ -1,13 +1,16 @@
 /**
- * @fileoverview Interactive per-view spotlight walkthroughs for the Finite Field Lab.
+ * @fileoverview Interactive per-view spotlight walkthroughs for the Finite Field Lab
+ * with true HTML `<sup>`/`<sub>` math typography in tooltips.
  *
- * Original Author: Ali Zahreddine — Milestone 4 & Integration (Educational Web GUI).
+ * Original Author: Ali Zahreddine — Milestone 4, Integration & Milestone 6 (Waves 1–3).
  *
- * Provides contextual guided tours for all four lab views (Calculator, Modulus explorer,
- * AES S-box, Compare multiplication), dynamically falling back to the triggering action
- * button whenever a step's result section has not yet been calculated, and automatically
- * re-highlighting newly rendered results on `lab:calculation-result` events.
+ * Provides contextual guided tours for all five lab views (Calculator, Lessons, Modulus
+ * explorer, AES S-box, Compare multiplication), dynamically falling back to the triggering
+ * action button whenever a step's result section has not yet been calculated, and
+ * automatically re-highlighting newly rendered results on `lab:calculation-result` events.
  */
+
+import { setMathText } from "./notation.js";
 
 /**
  * Guided walkthrough steps for the main Calculator view.
@@ -18,19 +21,19 @@ const calculatorSteps = [
   [".setting", "Choose a field",
     "Field degree sets how many bits fit in one element. Watch the banner and the modulus update. Use Hex, Binary, or Polynomial to change notation without changing the operand values."],
   [".operands", "Enter the operands",
-    "Type values into A(x) and B(x). Each input previews the polynomial, bit length, and degree. In fields up to eight bits, click the checkboxes to turn individual coefficients on or off."],
+    "Type values into A(x) and B(x) — or view the locked Modulus m(x) card on Reduce and Inverse. Each input previews the polynomial, bit length, and degree. In fields up to eight bits, click the checkboxes to turn individual coefficients on or off."],
   [".calculator .section-head", "Generate or upload operands",
     "Choose Sparse or Dense and click Random operands to fill both inputs. Upload accepts .txt or .json files. When a file contains several pairs, choose one from the pair list."],
   [".operations", "Pick an operation",
-    "Add and Subtract both use XOR. Reduce takes A modulo the field polynomial. Multiply uses both operands, Inverse gives A⁻¹, and Divide gives A ÷ B."],
+    "Add and Subtract both use XOR. Reduce takes A modulo the field polynomial. Multiply uses both operands, Inverse gives A^-1, and Divide gives A ÷ B."],
   [".action", "Run the calculation",
-    "Click Calculate to run the selected operation. The result and tables appear below. The calculator also shows a message for a missing operand or an operation such as division by zero."],
+    "Click Calculate to run the selected operation. The result and tables appear below. Validation or zero-inverse errors open a prominent pop-up alert dialog."],
   [".examples", "Try a textbook example",
     "Chapter 4 loads and multiplies 57 and 83 in the 8-bit field. Chapter 5 loads and inverts 95. Both examples calculate immediately."],
   ["#result", "Read, copy, or export the answer",
     "Calculate brings the result into view. For large fields, Show full value expands the preview. Copy result always copies the complete value in the selected notation. Use Back to inputs to edit the operands or Export to download the calculation."],
   ["#trace-panel", "Follow the calculation",
-    "Use First step, Previous step, Play animation, Next step, and Last step to follow the calculation. Color-coded badges highlight carried, updated, and reduced values, and Compare prev → curr places the previous step beside the current step. Switch between Step view, All steps grid, and Classic table (or Show tables / Show step cards), toggle Compact values, or click Expand full view."],
+    "Use First step, Previous, Play animation, Next, and Last step to follow the calculation. Color-coded badges highlight carried, updated, and reduced values, and Compare prev → curr places the previous step beside the current step. Switch between Step view, All steps grid (auto-maximizes), and Classic table, toggle Compact values, or click Expand full view."],
   ["#trace-body", "See which partial product a bit selects",
     "Select a bit of B to highlight its shifted row and any selected partial product. In Chapter 4, bit 7 selects 38 and the running XOR becomes C1. The arrow keys also move between bits.",
     ["#presets", "Load the Chapter 4 example to see the multiplier bits."], ".multiplier-bits"],
@@ -62,7 +65,7 @@ const walkthroughs = {
       ["#lesson-controls", "Step, animate, or compare slides",
         "Use First step, Previous, Play animation (Slow, Normal, or Fast), Next, and Last step—or press Left/Right arrow keys—to watch each state change. Toggle Compare prev → curr to inspect the previous slide beside the current slide."],
       ["#lesson-stage", "Inspect the zero-scroll visual stage",
-        "Follow the highlighted bit columns, shift registers, Table 4.7 Triple A/B transfers, interactive sandboxes, and self-check quizzes."],
+        "Follow the informative step titles, highlighted bit columns, shift registers, Table 4.7 Triple A/B transfers, interactive sandboxes, and self-check quizzes."],
       ["#lesson-handoff-bar", "Open any lesson example in the Calculator",
         "Click the handoff button to load the lesson's exact field, operation, and operands directly into the Calculator and inspect its live trace."],
     ],
@@ -77,9 +80,9 @@ const walkthroughs = {
         "An irreducible polynomial of degree m defines GF(2^m). A reducible polynomial has smaller factors, so some nonzero values have no inverse."],
       ["#modulus-witness .witness", "See two nonzero factors multiply to zero",
         "Each factor is nonzero. Their product equals the modulus and leaves remainder zero.",
-        ["#modulus-example", "Click Try reducible x⁸ + 1 to reveal the factors."]],
+        ["#modulus-example", "Click Try reducible x^8 + 1 to reveal the factors."]],
       ["#modulus-result details", "Read the GCD checks",
-        "Each row tests for common factors with x raised to 2^i, plus x. A GCD other than 1 signals a factor at that checkpoint. If every GCD is 1 through half the modulus degree, the polynomial is irreducible."],
+        "Each row tests for common factors with x^(2^i) + x. A GCD other than 1 signals a factor at that checkpoint. If every GCD is 1 through half the modulus degree, the polynomial is irreducible."],
     ],
   },
   aes: {
@@ -94,7 +97,7 @@ const walkthroughs = {
         "Follow the quotients until B3 becomes 1. At that point B2 holds the inverse. AES uses zero directly in this stage when the input is 00.",
         ["#aes-example", "Click Try byte 53 to generate a nonzero inverse trace."]],
       ["#aes-affine", "Build the output with XOR",
-        "Start with the inverse byte, XOR its four left rotations, then XOR 63 in hex. The final running XOR is the S-box output. In step cards, use Next step for each XOR or Show tables for all rows."],
+        "Start with the inverse byte, XOR its four left rotations, then XOR 63 in hex. The final running XOR is the S-box output. In Step view, use Next for each XOR or Classic table for all rows."],
     ],
   },
   compare: {
@@ -106,7 +109,7 @@ const walkthroughs = {
       ["#compare-results", "Compare the remainders",
         "Shift and XOR reduces during multiplication. Carry-free multiplication forms the raw product first, then uses long division. Both give C1 for the starting example."],
       ["#compare-shift-body", "Follow the multiplier bits",
-        "Select a bit to inspect its shift, partial product, and running XOR. On small screens, step cards show these values one bit at a time. Select Show tables to see the matching rows together.",
+        "Select a bit to inspect its shift, partial product, and running XOR. On small screens, Step view shows these values one bit at a time. Select Classic table to see the matching rows together.",
         ["#compare-form button[type=submit]", "Compare a product with a nonzero multiplier to see the bit steps."], ".multiplier-bits"],
       ["#compare-division-body", "Follow the long-division steps",
         "The raw product is 2B79 in the starting example. Each row shifts the modulus and XORs it to cancel the leading term. The final After XOR value is the same remainder produced by shift and XOR."],
@@ -150,8 +153,8 @@ export function setupPageTour() {
       highlight.classList.add("tour-highlight");
     }
     progress.textContent = tour.name + " · " + (index + 1) + " / " + tour.steps.length;
-    heading.textContent = title;
-    description.textContent = available ? detail : fallback[1] + " " + detail;
+    setMathText(heading, title);
+    setMathText(description, available ? detail : fallback[1] + " " + detail);
     previous.disabled = index === 0;
     next.textContent = index === tour.steps.length - 1 ? "Done" : "Next";
     if (scroll || moved) {
@@ -163,7 +166,7 @@ export function setupPageTour() {
 
   /**
    * Close the walkthrough panel, remove highlight outlines, and optionally restore focus.
-   * @param {boolean} [restoreFocus=true] - Return keyboard focus to the Tutorial button.
+   * @param {boolean} [restoreFocus=true] - Return keyboard focus to the Tutorial tour button.
    */
   function close(restoreFocus = true) {
     panel.hidden = true;
@@ -200,7 +203,18 @@ export function setupPageTour() {
   });
   document.addEventListener("keydown", event => {
     const fullscreen = document.getElementById("trace-fullscreen");
-    if (event.key === "Escape" && !panel.hidden && !document.getElementById("tutorial").open && !fullscreen?.open) close();
+    const errPopup = document.getElementById("error-popup");
+    const maximizedTrace = document.querySelector(".panel.trace.is-maximized");
+    if (
+      event.key === "Escape" &&
+      !panel.hidden &&
+      !document.getElementById("tutorial")?.open &&
+      !fullscreen?.open &&
+      !errPopup?.open &&
+      !maximizedTrace
+    ) {
+      close();
+    }
   });
   return () => close(false);
 }

@@ -1,32 +1,35 @@
 /**
  * @fileoverview Standalone interactive & animated Lessons page controller (#lessons)
- * with Previous-to-Current visual diff tracking and side-by-side slide comparison.
+ * with Previous-to-Current visual diff tracking, true `<sup>`/`<sub>` typography,
+ * gliding sub-lesson/timeline indicators, sequential step cascade, and slide comparison.
  *
- * Original Author: Ali Zahreddine — Milestone 6 (Waves 1 & 2: Interactive Lessons & Visual Diffs).
+ * Original Author: Ali Zahreddine — Milestone 6 (Waves 1–3).
  *
  * Renders the 7-lesson curriculum from `frontend/lesson-data.js` inside the dedicated
  * `[data-lab-view="lessons"]` view:
  *   - Lesson Selector Hub with symbol badges, step counts, and completion tracking
- *   - Sub-lesson switcher pills teaching prerequisites before each animated walkthrough
+ *   - Sub-lesson switcher pills with gliding active selection highlight
  *   - 5-Button Playback Bar (`First step`, `Previous`, `Play animation`/`Pause` with
- *     `Slow`/`Normal`/`Fast` speed control, `Next`, `Last step`), clickable step dots,
- *     and `Compare prev → curr` side-by-side slide comparison toggle
+ *     `Slow`/`Normal`/`Fast` speed control, `Next`, `Last step`), clickable gliding step
+ *     dots with sequential cascade, and `Compare prev → curr` side-by-side slide toggle
  *   - Persistent color-coded change tracking (`.diff-carried`, `.diff-updated`,
  *     `.diff-reduced`, `.diff-unchanged`), `"From Step k-1 → Step k"` transition banners,
- *     and inline `was:` / `prev → now` deltas across all lesson visualizers
+ *     informative `.step-knowledge-title` headings, and inline `was:` / `prev → now` deltas
  *   - Interactive mini-activities (8-bit polynomial builder, XOR bit check, self-check quizzes)
  *   - Keyboard navigation (`ArrowLeft`, `ArrowRight`, `Home`, `End`, `Space`) and one-click
  *     "Open in Calculator" deep-link handoffs.
  */
 
 import { LESSONS } from "./lesson-data.js";
-import { element, formatOperand, polynomial } from "./notation.js";
+import { attachSlidingIndicator, element, formatOperand, mathElement, polynomial, setMathText } from "./notation.js";
 import { createDiffLegend } from "./traces.js";
 
 /** @param {string} id @returns {HTMLElement} */
 const $ = id => document.getElementById(id);
 
 const SPEED_MS = { slow: 2200, normal: 1300, fast: 650 };
+const LESSON_CASCADE_MS = 140;
+const MAX_LESSON_HOPS = 12;
 
 /**
  * Determine whether bit column `colIdx` was highlighted in a `xor-columns` visual payload.
@@ -42,8 +45,8 @@ function isXorColHighlighted(visual, colIdx) {
 }
 
 /**
- * Render the custom visual payload for a lesson step with automatic Previous-to-Current
- * value-level diff highlights and zero horizontal scrolling.
+ * Render the custom visual payload for a lesson step with true `<sup>`/`<sub>` math typography,
+ * automatic Previous-to-Current value-level diff highlights, and zero horizontal scrolling.
  *
  * @param {object} visual - Step visual specification from `LESSONS`.
  * @param {object | null} [prevVisual=null] - Previous step's visual payload for automatic diffing.
@@ -66,12 +69,12 @@ function renderVisual(visual, prevVisual = null) {
         "lesson-concept-card" + (isNew ? " diff-updated" : ""),
       );
       const badgeRow = element("div", undefined, "diff-cell-head");
-      badgeRow.append(element("span", item.badge, "lesson-badge"));
+      badgeRow.append(mathElement("span", item.badge, "lesson-badge"));
       if (isNew) badgeRow.append(element("span", "New", "diff-tag diff-updated"));
       card.append(
         badgeRow,
-        element("h4", item.title),
-        element("p", item.detail),
+        mathElement("h4", item.title),
+        mathElement("p", item.detail),
       );
       grid.append(card);
     }
@@ -88,7 +91,7 @@ function renderVisual(visual, prevVisual = null) {
     headerRow.append(element("span", "Power", "lesson-row-label"));
     for (let i = 0; i < width; i += 1) {
       const exp = width - 1 - i;
-      headerRow.append(element("span", exp === 0 ? "1" : "x^" + exp, "lesson-bit-exp"));
+      headerRow.append(mathElement("span", exp === 0 ? "1" : "x^" + exp, "lesson-bit-exp"));
     }
     grid.append(headerRow);
 
@@ -106,7 +109,7 @@ function renderVisual(visual, prevVisual = null) {
       [visual.outLabel, outBits.join(""), "out"],
     ]) {
       const row = element("div", undefined, "lesson-bit-row" + (rowKind === "out" ? " is-result" : ""));
-      row.append(element("span", label, "lesson-row-label"));
+      row.append(mathElement("span", label, "lesson-row-label"));
       for (let i = 0; i < width; i += 1) {
         const isActive = isXorColHighlighted(visual, i);
         const wasActive = isXorColHighlighted(prevVisual, i);
@@ -157,7 +160,7 @@ function renderVisual(visual, prevVisual = null) {
     grid.append(tagRow);
 
     wrap.append(grid);
-    if (visual.note) wrap.append(element("p", visual.note, "lesson-visual-note"));
+    if (visual.note) wrap.append(mathElement("p", visual.note, "lesson-visual-note"));
     container.append(wrap);
   }
 
@@ -196,11 +199,11 @@ function renderVisual(visual, prevVisual = null) {
       const card = element("div", undefined, "lesson-reduce-row " + r.diffClass);
       const head = element("div", undefined, "diff-cell-head");
       head.append(
-        element("span", r.label, "lesson-badge"),
-        element("span", r.badge, "diff-tag " + r.diffClass),
+        mathElement("span", r.label, "lesson-badge"),
+        mathElement("span", r.badge, "diff-tag " + r.diffClass),
       );
-      card.append(head, element("strong", r.hex + " · " + r.bits), element("code", r.poly));
-      if (r.prevText) card.append(element("span", r.prevText, "diff-prev-value"));
+      card.append(head, mathElement("strong", r.hex + " · " + r.bits), mathElement("code", r.poly));
+      if (r.prevText) card.append(mathElement("span", r.prevText, "diff-prev-value"));
       box.append(card);
     }
     container.append(box);
@@ -220,23 +223,23 @@ function renderVisual(visual, prevVisual = null) {
     );
     step1.append(
       h1,
-      element("h4", "{" + visual.inputHex + "} = " + visual.inputBits + "₂"),
-      element("p", "Inspect MSB bit b₇ = " + visual.msb),
+      mathElement("h4", "{" + visual.inputHex + "} = " + visual.inputBits + "₂"),
+      mathElement("p", "Inspect MSB bit b7 = " + visual.msb),
     );
-    if (inputChanged) step1.append(element("span", "was: {" + prevReg.inputHex + "} (b₇ = " + prevReg.msb + ")", "diff-prev-value"));
+    if (inputChanged) step1.append(mathElement("span", "was: {" + prevReg.inputHex + "} (b7 = " + prevReg.msb + ")", "diff-prev-value"));
 
     const shiftClass = visual.msb ? "diff-reduced" : "diff-carried";
     const step2 = element("div", undefined, "lesson-concept-card " + shiftClass + (visual.msb ? " is-overflow" : ""));
     const h2 = element("div", undefined, "diff-cell-head");
     h2.append(
       element("span", "2 · Shift Left << 1", "lesson-badge"),
-      element("span", visual.msb ? "Overflow x^8 = 1" : "Shifted left", "diff-tag " + shiftClass),
+      mathElement("span", visual.msb ? "Overflow x^8 = 1" : "Shifted left", "diff-tag " + shiftClass),
     );
     step2.append(
       h2,
-      element("h4", visual.shiftedBits + "₂"),
-      element("p", visual.msb ? "Overflow x^8 = 1 popped out!" : "No overflow (b₇ was 0)"),
-      element("span", "prev: " + visual.inputBits + "₂ → shifted: " + visual.shiftedBits + "₂", "diff-prev-value"),
+      mathElement("h4", visual.shiftedBits + "₂"),
+      mathElement("p", visual.msb ? "Overflow x^8 = 1 popped out!" : "No overflow (b7 was 0)"),
+      mathElement("span", "prev: " + visual.inputBits + "₂ → shifted: " + visual.shiftedBits + "₂", "diff-prev-value"),
     );
 
     const step3 = element("div", undefined, "lesson-concept-card is-highlight diff-updated");
@@ -247,8 +250,8 @@ function renderVisual(visual, prevVisual = null) {
     );
     step3.append(
       h3,
-      element("h4", "{" + visual.outputHex + "} = " + visual.outputBits + "₂"),
-      element("p", visual.note),
+      mathElement("h4", "{" + visual.outputHex + "} = " + visual.outputBits + "₂"),
+      mathElement("p", visual.note),
       element("span", "prev: {" + visual.inputHex + "} → now: {" + visual.outputHex + "}", "diff-prev-value"),
     );
     flow.append(step1, step2, step3);
@@ -276,7 +279,7 @@ function renderVisual(visual, prevVisual = null) {
       const top = element("div", undefined, "diff-cell-head");
       top.append(
         element("span", "i = " + row.i + " · bit = " + row.bit, "lesson-badge"),
-        element(
+        mathElement(
           "span",
           row.reduced ? "Shifted + Reduced ⊕ m(x)" : row.i > 0 ? "Shifted left" : "Init A",
           "diff-tag " + shiftClass,
@@ -293,13 +296,13 @@ function renderVisual(visual, prevVisual = null) {
         : "Acc unchanged: {" + row.acc + "}";
       card.append(
         top,
-        element("strong", "x^" + row.i + "·A = {" + row.partial + "} (" + prevPartialNote + ")"),
+        mathElement("strong", "x^" + row.i + "·A = {" + row.partial + "} (" + prevPartialNote + ")"),
         element("span", accText),
       );
       grid.append(card);
     });
     wrap.append(grid);
-    if (visual.note) wrap.append(element("p", visual.note, "lesson-visual-note"));
+    if (visual.note) wrap.append(mathElement("p", visual.note, "lesson-visual-note"));
     container.append(wrap);
   }
 
@@ -317,14 +320,14 @@ function renderVisual(visual, prevVisual = null) {
       const dd = element("dd", undefined, "diff-cell-box " + diffClass);
       const head = element("div", undefined, "diff-cell-head");
       head.append(
-        element("span", val, "diff-cell-val"),
+        mathElement("span", val, "diff-cell-val"),
         element("span", badge, "diff-tag " + diffClass),
       );
       dd.append(head);
-      if (prevText) dd.append(element("span", prevText, "diff-prev-value"));
-      dl.append(element("dt", dt), dd);
+      if (prevText) dd.append(mathElement("span", prevText, "diff-prev-value"));
+      dl.append(mathElement("dt", dt), dd);
     }
-    box.append(dl, element("p", visual.note, "lesson-visual-note"));
+    box.append(dl, mathElement("p", visual.note, "lesson-visual-note"));
     container.append(box);
   }
 
@@ -334,15 +337,15 @@ function renderVisual(visual, prevVisual = null) {
     const head = element("div", undefined, "euclid-inspector-head");
     head.append(
       element("span", "Table 4.7 · Step " + visual.step, "lesson-badge"),
-      element("span", "Quotient Q(x) = " + visual.q, "euclid-q-badge"),
-      element("code", visual.formula, "euclid-formula-pill"),
+      mathElement("span", "Quotient Q(x) = " + visual.q, "euclid-q-badge"),
+      mathElement("code", visual.formula, "euclid-formula-pill"),
     );
     const triples = element("div", undefined, "euclid-triples-grid");
 
     // Triple A: carried from previous B
     const cardA = element("div", undefined, "euclid-triple-card is-carried");
-    const headA = element("h4", "Triple A(x) ");
-    headA.append(element("small", visual.step > 0 ? "A ← prev B" : "Modulus m(x)"));
+    const headA = mathElement("h4", "Triple A(x) ");
+    headA.append(mathElement("small", visual.step > 0 ? "A ← prev B" : "Modulus m(x)"));
     const dlA = element("dl", undefined, "equivalents");
     for (const [k, v] of Object.entries(visual.a)) {
       const prevVal = prevEuclid?.a?.[k];
@@ -351,10 +354,10 @@ function renderVisual(visual, prevVisual = null) {
       const badge = visual.step === 0 ? "Init" : changed ? "← prev B" + k[1] : "Unchanged";
       const dd = element("dd", undefined, "diff-cell-box " + diffClass);
       const cellHead = element("div", undefined, "diff-cell-head");
-      cellHead.append(element("span", v, "diff-cell-val"), element("span", badge, "diff-tag " + diffClass));
+      cellHead.append(mathElement("span", v, "diff-cell-val"), mathElement("span", badge, "diff-tag " + diffClass));
       dd.append(cellHead);
-      if (changed) dd.append(element("span", "was: " + prevVal, "diff-prev-value"));
-      dlA.append(element("dt", k + "(x)"), dd);
+      if (changed) dd.append(mathElement("span", "was: " + prevVal, "diff-prev-value"));
+      dlA.append(mathElement("dt", k + "(x)"), dd);
     }
     cardA.append(headA, dlA);
 
@@ -364,8 +367,8 @@ function renderVisual(visual, prevVisual = null) {
       undefined,
       "euclid-triple-card is-updated" + (visual.status === "success" ? " is-inverse-found" : ""),
     );
-    const headB = element("h4", "Triple B(x) ");
-    headB.append(element("small", visual.step > 0 ? "B ← A ⊕ Q·B" : "Operand b(x)"));
+    const headB = mathElement("h4", "Triple B(x) ");
+    headB.append(mathElement("small", visual.step > 0 ? "B ← A ⊕ Q·B" : "Operand b(x)"));
     const dlB = element("dl", undefined, "equivalents");
     for (const [k, v] of Object.entries(visual.b)) {
       const prevVal = prevEuclid?.b?.[k];
@@ -375,10 +378,10 @@ function renderVisual(visual, prevVisual = null) {
       const badge = visual.step === 0 ? "Init" : isInverse ? "Inverse Found" : changed ? "New T" + k[1] : "Unchanged";
       const dd = element("dd", undefined, "diff-cell-box " + diffClass + (isInverse ? " picked" : ""));
       const cellHead = element("div", undefined, "diff-cell-head");
-      cellHead.append(element("span", v, "diff-cell-val"), element("span", badge, "diff-tag " + diffClass));
+      cellHead.append(mathElement("span", v, "diff-cell-val"), mathElement("span", badge, "diff-tag " + diffClass));
       dd.append(cellHead);
-      if (changed) dd.append(element("span", "was: " + prevVal, "diff-prev-value"));
-      dlB.append(element("dt", k + "(x)"), dd);
+      if (changed) dd.append(mathElement("span", "was: " + prevVal, "diff-prev-value"));
+      dlB.append(mathElement("dt", k + "(x)"), dd);
     }
     cardB.append(headB, dlB);
 
@@ -403,7 +406,7 @@ function renderVisual(visual, prevVisual = null) {
       );
       const head = element("div", undefined, "diff-cell-head");
       head.append(element("span", item.stage, "lesson-badge"), element("span", badge, "diff-tag " + diffClass));
-      card.append(head, element("h4", item.title), element("p", item.detail));
+      card.append(head, mathElement("h4", item.title), mathElement("p", item.detail));
       if (isCurrent && prevActiveStage > 0 && prevActiveStage < stageNum) {
         card.append(element("span", "was: Pending → now active", "diff-prev-value"));
       }
@@ -416,7 +419,7 @@ function renderVisual(visual, prevVisual = null) {
 }
 
 /**
- * Build the interactive 8-bit polynomial sandbox for Lesson 1.1.
+ * Build the interactive 8-bit polynomial sandbox for Lesson 1.1 with true `<sup>` labels.
  *
  * @returns {HTMLElement} Interactive bit-builder widget.
  */
@@ -439,13 +442,13 @@ function buildBitSandbox() {
         update();
       });
       const label = element("label");
-      label.append(toggle, element("span", bit === 0 ? "1" : "x^" + bit));
+      label.append(toggle, mathElement("span", bit === 0 ? "1" : "x^" + bit));
       bitsRow.append(label);
     }
     readout.replaceChildren(
       element("span", "Hex: {" + formatOperand(mask, "hex", 8) + "}"),
       element("span", "Binary: " + formatOperand(mask, "binary", 8)),
-      element("span", "Polynomial: " + polynomial(mask)),
+      mathElement("span", "Polynomial: " + polynomial(mask)),
     );
   }
   update();
@@ -463,7 +466,7 @@ function buildXorActivity() {
   const b = [0, 1, 1, 1];
   const user = [0, 0, 0, 0];
   const box = element("section", undefined, "lesson-activity");
-  box.append(element("h4", "Interactive 4-Bit XOR Check: Click each result bit to compute 1011₂ ⊕ 0111₂"));
+  box.append(mathElement("h4", "Interactive 4-Bit XOR Check: Click each result bit to compute 1011₂ ⊕ 0111₂"));
   const buttons = element("div", undefined, "lesson-xor-buttons");
   const feedback = element("p", "Toggle the 4 output bits until every column satisfies A ⊕ B.", "meta");
 
@@ -473,7 +476,7 @@ function buildXorActivity() {
     for (let i = 0; i < 4; i += 1) {
       const expected = a[i] ^ b[i];
       if (user[i] !== expected) allCorrect = false;
-      const btn = element(
+      const btn = mathElement(
         "button",
         "x^" + (3 - i) + ": " + a[i] + " ⊕ " + b[i] + " = " + user[i],
         "outline" + (user[i] === expected ? " is-correct-bit" : ""),
@@ -485,9 +488,11 @@ function buildXorActivity() {
       });
       buttons.append(btn);
     }
-    feedback.textContent = allCorrect
-      ? "Correct! 1011₂ ⊕ 0111₂ = 1100₂ (x^3 + x^2), because x and 1 both canceled via 1 ⊕ 1 = 0."
-      : "Click the buttons above to toggle each output bit between 0 and 1.";
+    if (allCorrect) {
+      setMathText(feedback, "Correct! 1011₂ ⊕ 0111₂ = 1100₂ (x^3 + x^2), because x and 1 both canceled via 1 ⊕ 1 = 0.");
+    } else {
+      feedback.textContent = "Click the buttons above to toggle each output bit between 0 and 1.";
+    }
   }
   render();
   box.append(buttons, feedback);
@@ -502,20 +507,23 @@ function buildXorActivity() {
  */
 function buildQuiz(quiz) {
   const box = element("section", undefined, "lesson-activity lesson-quiz");
-  box.append(element("h4", "Quick Self-Check"), element("p", quiz.question));
+  box.append(element("h4", "Quick Self-Check"), mathElement("p", quiz.question));
   const choices = element("div", undefined, "lesson-quiz-choices");
   const status = element("p", "", "lesson-quiz-feedback");
   status.hidden = true;
 
   for (const option of quiz.options) {
-    const btn = element("button", option.text, "outline lesson-quiz-option");
+    const btn = mathElement("button", option.text, "outline lesson-quiz-option");
     btn.type = "button";
     btn.addEventListener("click", () => {
       status.hidden = false;
       status.className = "lesson-quiz-feedback " + (option.correct ? "is-correct" : "is-wrong");
-      status.textContent = option.correct
-        ? "Correct! " + option.text
-        : "Not quite — review the step formula above and try the other choice.";
+      setMathText(
+        status,
+        option.correct
+          ? "Correct! " + option.text
+          : "Not quite — review the step formula above and try the other choice.",
+      );
     });
     choices.append(btn);
   }
@@ -524,8 +532,8 @@ function buildQuiz(quiz) {
 }
 
 /**
- * Build one complete lesson step frame (header, optional `"From Step k-1 → Step k"` transition banner,
- * diff-aware visual stage, and interactive activities for the active slide).
+ * Build one complete lesson step frame (header with prominent `.step-knowledge-title`,
+ * optional `"From Step k-1 → Step k"` transition banner, diff-aware visual stage, and activities).
  *
  * @param {object} sub - Active sub-lesson object.
  * @param {Array<object>} steps - Step array for `sub`.
@@ -539,17 +547,17 @@ function buildLessonStepFrame(sub, steps, idx, isPreviousSnapshot = false) {
   const frame = element("article", undefined, "lesson-step-frame");
   const header = element("header", undefined, "lesson-step-header");
   header.append(
-    element("span", sub.title + " · Step " + (idx + 1) + " / " + steps.length, "lesson-badge"),
-    element("h3", step.title),
-    element("code", step.formula, "lesson-formula-banner"),
-    element("p", step.explanation, "lesson-step-explanation"),
+    mathElement("span", sub.title + " · Step " + (idx + 1) + " / " + steps.length, "lesson-badge"),
+    mathElement("h3", step.title, "step-knowledge-title"),
+    mathElement("code", step.formula, "lesson-formula-banner"),
+    mathElement("p", step.explanation, "lesson-step-explanation"),
   );
   frame.append(header);
 
   if (!isPreviousSnapshot && prevStep) {
     const changeSummary = step.diffSummary || ("Transitioned from \"" + prevStep.title + "\" to \"" + step.title + "\".");
     frame.append(
-      element("p", "From Step " + idx + " → Step " + (idx + 1) + ": " + changeSummary, "diff-banner lesson-diff-banner"),
+      mathElement("p", "From Step " + idx + " → Step " + (idx + 1) + ": " + changeSummary, "diff-banner lesson-diff-banner"),
     );
   }
 
@@ -564,13 +572,14 @@ function buildLessonStepFrame(sub, steps, idx, isPreviousSnapshot = false) {
 }
 
 /**
- * Initialize the standalone `#lessons` page, catalog cards, 5-button stepper,
- * `Compare prev → curr` slide diff mode, and Calculator handoff.
+ * Initialize the standalone `#lessons` page, catalog cards, gliding sub-lesson and timeline pills,
+ * 5-button stepper with sequential cascade on timeline jumps, `Compare prev → curr`, and Calculator handoff.
  *
  * @param {{openInCalculator: (preset: {m: number, operation: string, base: string, a: string, b: string}) => void}} hooks - Integration callbacks.
  * @returns {{selectLessonById: (id?: string) => void}} Controller handle for hash navigation.
  */
 export function setupLessons({ openInCalculator }) {
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const catalogEl = $("lesson-catalog");
   const subtabsEl = $("lesson-subtabs");
   const stageEl = $("lesson-stage");
@@ -595,10 +604,27 @@ export function setupLessons({ openInCalculator }) {
   let stepIndex = 0;
   let comparePrev = false;
   let timer = null;
+  let cascadeTimer = null;
+  let cascadeTarget = null;
+  let renderedSubtabsLesson = -1;
+  let renderedDotsKey = "";
   const completedLessons = new Set();
 
-  /** Stop any active auto-play interval timer. */
+  const subtabsIndicator = attachSlidingIndicator(subtabsEl, ".lesson-subtab.is-active");
+  const dotsIndicator = attachSlidingIndicator(dotsEl, ".lesson-step-dot.is-active");
+
+  /** Stop any active cascade timer. */
+  function stopCascade() {
+    if (cascadeTimer) {
+      clearTimeout(cascadeTimer);
+      cascadeTimer = null;
+    }
+    cascadeTarget = null;
+  }
+
+  /** Stop any active auto-play interval or cascade timer. */
   function stopPlay() {
+    stopCascade();
     if (timer) {
       clearInterval(timer);
       timer = null;
@@ -614,7 +640,57 @@ export function setupLessons({ openInCalculator }) {
   /** @returns {Array<object>} Step array for active sub-lesson. */
   const currentSteps = () => currentSub().steps;
 
-  /** Render the 7-card Lesson Selector Hub with completion badges. */
+  /**
+   * Sequentially cascade through intermediate slides when jumping across non-adjacent timeline dots.
+   *
+   * @param {number} targetStep - Zero-based target slide index.
+   */
+  function cascadeToStep(targetStep) {
+    const steps = currentSteps();
+    const clamped = Math.max(0, Math.min(steps.length - 1, targetStep));
+    const start = stepIndex;
+    stopPlay();
+
+    if (Math.abs(clamped - start) <= 1 || reducedMotion.matches) {
+      stepIndex = clamped;
+      renderWorkspace();
+      return;
+    }
+
+    const hops = [];
+    const distance = Math.abs(clamped - start);
+    const dir = clamped > start ? 1 : -1;
+    if (distance <= MAX_LESSON_HOPS) {
+      for (let s = start + dir; dir > 0 ? s <= clamped : s >= clamped; s += dir) hops.push(s);
+    } else {
+      for (let k = 1; k < MAX_LESSON_HOPS; k += 1) {
+        const hop = Math.round(start + ((clamped - start) * k) / MAX_LESSON_HOPS);
+        if (hops.at(-1) !== hop && hop !== start && hop !== clamped) hops.push(hop);
+      }
+      hops.push(clamped);
+    }
+
+    cascadeTarget = clamped;
+    function stepHop() {
+      const nextStep = hops.shift();
+      if (nextStep === undefined) {
+        cascadeTimer = null;
+        cascadeTarget = null;
+        return;
+      }
+      stepIndex = nextStep;
+      renderWorkspace();
+      if (hops.length) {
+        cascadeTimer = setTimeout(stepHop, LESSON_CASCADE_MS);
+      } else {
+        cascadeTimer = null;
+        cascadeTarget = null;
+      }
+    }
+    stepHop();
+  }
+
+  /** Render the 7-card Lesson Selector Hub with completion badges and true `<sup>`/`<sub>`. */
   function renderCatalog() {
     catalogEl.replaceChildren();
     LESSONS.forEach((lesson, idx) => {
@@ -630,12 +706,12 @@ export function setupLessons({ openInCalculator }) {
       card.dataset.lessonId = lesson.id;
       const top = element("div", undefined, "lesson-hub-card-top");
       top.append(
-        element("span", lesson.symbol, "lesson-symbol-badge"),
+        mathElement("span", lesson.symbol, "lesson-symbol-badge"),
         element("span", "Lesson " + lesson.number + (done ? " · ✓" : ""), "lesson-hub-num"),
       );
       card.append(
         top,
-        element("strong", lesson.title, "lesson-hub-title"),
+        mathElement("strong", lesson.title, "lesson-hub-title"),
         element("small", lesson.sublessons.length + " sub-lessons · " + totalSteps + " animated steps"),
       );
       card.addEventListener("click", () => {
@@ -649,22 +725,62 @@ export function setupLessons({ openInCalculator }) {
     });
   }
 
-  /** Render the sub-lesson tabs for the active lesson. */
+  /** Render or update active state in place on sub-lesson tabs so the gliding pill animates smoothly. */
   function renderSubtabs() {
-    subtabsEl.replaceChildren();
     const lesson = currentLesson();
-    lesson.sublessons.forEach((sub, idx) => {
-      const btn = element("button", sub.title, "lesson-subtab" + (idx === subIndex ? " is-active" : ""));
-      btn.type = "button";
-      btn.setAttribute("aria-pressed", String(idx === subIndex));
-      btn.addEventListener("click", () => {
-        stopPlay();
-        subIndex = idx;
-        stepIndex = 0;
-        renderWorkspace();
+    if (renderedSubtabsLesson !== lessonIndex) {
+      renderedSubtabsLesson = lessonIndex;
+      subtabsEl.replaceChildren();
+      lesson.sublessons.forEach((sub, idx) => {
+        const btn = mathElement("button", sub.title, "lesson-subtab" + (idx === subIndex ? " is-active" : ""));
+        btn.type = "button";
+        btn.setAttribute("aria-pressed", String(idx === subIndex));
+        btn.addEventListener("click", () => {
+          stopPlay();
+          subIndex = idx;
+          stepIndex = 0;
+          renderWorkspace();
+        });
+        subtabsEl.append(btn);
       });
-      subtabsEl.append(btn);
-    });
+    } else {
+      const buttons = Array.from(subtabsEl.querySelectorAll(".lesson-subtab"));
+      buttons.forEach((btn, idx) => {
+        const isActive = idx === subIndex;
+        btn.classList.toggle("is-active", isActive);
+        btn.setAttribute("aria-pressed", String(isActive));
+      });
+    }
+    subtabsIndicator.update();
+  }
+
+  /** Render or update timeline dots in place so the active dot pill glides smoothly across steps. */
+  function renderStepDots(steps) {
+    const key = lessonIndex + ":" + subIndex;
+    if (renderedDotsKey !== key) {
+      renderedDotsKey = key;
+      dotsEl.replaceChildren();
+      steps.forEach((s, idx) => {
+        const dot = element(
+          "button",
+          String(idx + 1),
+          "lesson-step-dot" + (idx === stepIndex ? " is-active" : ""),
+        );
+        dot.type = "button";
+        dot.setAttribute("aria-label", "Jump to step " + (idx + 1) + ": " + s.title);
+        dot.setAttribute("aria-current", idx === stepIndex ? "step" : "false");
+        dot.addEventListener("click", () => cascadeToStep(idx));
+        dotsEl.append(dot);
+      });
+    } else {
+      const dotButtons = Array.from(dotsEl.querySelectorAll(".lesson-step-dot"));
+      dotButtons.forEach((dot, idx) => {
+        const isActive = idx === stepIndex;
+        dot.classList.toggle("is-active", isActive);
+        dot.setAttribute("aria-current", isActive ? "step" : "false");
+      });
+    }
+    dotsIndicator.update();
   }
 
   /** Render the active sub-lesson step, optional side-by-side comparison, dots, and handoff bar. */
@@ -677,8 +793,8 @@ export function setupLessons({ openInCalculator }) {
       completedLessons.add(lesson.id);
     }
 
-    titleEl.textContent = "Lesson " + lesson.number + " · " + lesson.title;
-    subtitleEl.textContent = sub.summary;
+    setMathText(titleEl, "Lesson " + lesson.number + " · " + lesson.title);
+    setMathText(subtitleEl, sub.summary);
     progressEl.textContent = "Step " + (stepIndex + 1) + " / " + steps.length;
 
     firstBtn.disabled = stepIndex === 0;
@@ -689,23 +805,7 @@ export function setupLessons({ openInCalculator }) {
       compareBtn.setAttribute("aria-pressed", String(comparePrev));
     }
 
-    dotsEl.replaceChildren();
-    steps.forEach((s, idx) => {
-      const dot = element(
-        "button",
-        String(idx + 1),
-        "lesson-step-dot" + (idx === stepIndex ? " is-active" : ""),
-      );
-      dot.type = "button";
-      dot.setAttribute("aria-label", "Jump to step " + (idx + 1) + ": " + s.title);
-      dot.setAttribute("aria-current", idx === stepIndex ? "step" : "false");
-      dot.addEventListener("click", () => {
-        stopPlay();
-        stepIndex = idx;
-        renderWorkspace();
-      });
-      dotsEl.append(dot);
-    });
+    renderStepDots(steps);
 
     stageEl.replaceChildren();
     if (steps.length > 1) {
@@ -741,7 +841,7 @@ export function setupLessons({ openInCalculator }) {
 
     handoffEl.replaceChildren();
     if (lesson.handoff) {
-      const tryBtn = element("button", lesson.handoff.label, "primary lesson-try-calculator");
+      const tryBtn = mathElement("button", lesson.handoff.label, "primary lesson-try-calculator");
       tryBtn.type = "button";
       tryBtn.addEventListener("click", () => {
         stopPlay();
@@ -778,6 +878,7 @@ export function setupLessons({ openInCalculator }) {
       stopPlay();
       return;
     }
+    stopCascade();
     const steps = currentSteps();
     if (stepIndex >= steps.length - 1) {
       stepIndex = 0;
@@ -803,18 +904,20 @@ export function setupLessons({ openInCalculator }) {
     renderWorkspace();
   });
   prevBtn.addEventListener("click", () => {
+    const baseStep = cascadeTarget ?? stepIndex;
     stopPlay();
-    if (stepIndex > 0) {
-      stepIndex -= 1;
+    if (baseStep > 0) {
+      stepIndex = baseStep - 1;
       renderWorkspace();
     }
   });
   playBtn.addEventListener("click", () => togglePlay());
   nextBtn.addEventListener("click", () => {
+    const baseStep = cascadeTarget ?? stepIndex;
     stopPlay();
     const steps = currentSteps();
-    if (stepIndex < steps.length - 1) {
-      stepIndex += 1;
+    if (baseStep < steps.length - 1) {
+      stepIndex = baseStep + 1;
       renderWorkspace();
     }
   });
@@ -891,19 +994,25 @@ export function setupLessons({ openInCalculator }) {
 
   return {
     /**
-     * Select a lesson by slug id (e.g. `"addition"`, `"inverse"`) when navigating via `#lessons/<id>`.
+     * Select a lesson by slug id (e.g. `"addition"`, `"inverse"`) when navigating via `#lessons/<id>`,
+     * and refresh gliding indicators once the view is visible.
+     *
      * @param {string} [id] - Optional lesson id slug.
      */
     selectLessonById(id) {
       stopPlay();
-      if (!id) return;
-      const found = LESSONS.findIndex(item => item.id === id);
-      if (found >= 0 && found !== lessonIndex) {
-        lessonIndex = found;
-        subIndex = 0;
-        stepIndex = 0;
-        renderAll();
+      if (id) {
+        const found = LESSONS.findIndex(item => item.id === id);
+        if (found >= 0 && found !== lessonIndex) {
+          lessonIndex = found;
+          subIndex = 0;
+          stepIndex = 0;
+          renderAll();
+          return;
+        }
       }
+      subtabsIndicator.update();
+      dotsIndicator.update();
     },
   };
 }
