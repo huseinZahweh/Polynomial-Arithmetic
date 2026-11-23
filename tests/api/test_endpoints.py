@@ -13,9 +13,15 @@ def _calc(client, **kw):
 # --- Meta routes -------------------------------------------------------------
 def test_health_and_root(client) -> None:
     assert client.get("/api/health").json() == {"status": "ok"}
-    root_data = client.get("/").json()
-    assert root_data["service"] == "gf2m-api"
-    assert root_data["docs"] == "/docs"
+    api_data = client.get("/api").json()
+    assert api_data["service"] == "gf2m-api"
+    assert api_data["docs"] == "/docs"
+    assert api_data["workbench"] == "/workbench/"
+
+    root_redirect = client.get("/", follow_redirects=False)
+    assert root_redirect.status_code in (302, 307)
+    assert root_redirect.headers["location"] == "/workbench/"
+    assert client.get("/").status_code == 200
     assert client.get("/workbench/").status_code == 200
 
 

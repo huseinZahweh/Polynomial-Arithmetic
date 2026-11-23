@@ -23,7 +23,8 @@ Teaching Explorations (4 endpoints via :mod:`backend.api.exploration_routes`):
     GET  /api/explorations/multiplication-benchmarks
 
 Static & Meta Routes:
-    GET  /                         Service discovery metadata
+    GET  /                         Redirect to the web workbench (/workbench/)
+    GET  /api                      Service discovery metadata
     GET  /api/health               Liveness probe
     GET  /docs                     Interactive OpenAPI Swagger UI
     GET  /workbench/               Single-view educational Finite Field Lab GUI
@@ -35,7 +36,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from backend.engine import fields, formatter, parser, randomops, tutorial
@@ -73,8 +74,14 @@ app.add_middleware(
 )
 
 
-@app.get("/", tags=["meta"])
-def root() -> dict[str, str]:
+@app.get("/", include_in_schema=False)
+def root() -> RedirectResponse:
+    """Redirect the root URL directly to the web workbench."""
+    return RedirectResponse(url="/workbench/")
+
+
+@app.get("/api", tags=["meta"])
+def api_info() -> dict[str, str]:
     """Return service metadata and links to OpenAPI docs and the web workbench."""
     return {
         "service": "gf2m-api",
