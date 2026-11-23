@@ -2,6 +2,7 @@
 
 **Course:** EECE 455 — Cryptography and Network Security  
 **Topic:** Project-3: Polynomial Arithmetic (More Challenging)  
+**Live Workbench:** [https://finite-field-lab.onrender.com](https://finite-field-lab.onrender.com)  
 **Primary Field:** $GF(2^{163})$  
 **Extended Standard Fields:** $m \in \{163, 233, 239, 283, 409, 571\}$  
 **Textbook Verification Fields:** $2 \le m \le 8$ (including AES $GF(2^8)$ modulo $x^8 + x^4 + x^3 + x + 1$)
@@ -26,7 +27,7 @@ You can also launch the ASGI server directly with Uvicorn:
 
 On macOS or Linux, use `.venv/bin/python` in place of `.\.venv\Scripts\python.exe`.
 
-Open [the web workbench](http://127.0.0.1:8000/workbench/) or [the interactive OpenAPI docs](http://127.0.0.1:8000/docs). The browser workbench and all **10 REST API endpoints** (6 core arithmetic/utility routes + 4 exploration routes) run from the same FastAPI process.
+Open [the web workbench](http://127.0.0.1:8000/workbench/) or [the interactive OpenAPI docs](http://127.0.0.1:8000/docs). The browser workbench and all **10 REST API endpoints** (6 core arithmetic/utility routes + 4 exploration routes) run from the same FastAPI process. You can also use the hosted deployment at [https://finite-field-lab.onrender.com](https://finite-field-lab.onrender.com).
 
 ### Run Automated Tests & Benchmarks
 
@@ -87,7 +88,7 @@ $$
 | **[Milestone 2](./docs/milestones/MILESTONE2_EXPLAINED.md)** | **Hassan Tarhini** | Shift-and-XOR Multiplication Engine with Tables 1 & 2 Traces (`multiply.py`), Core 6-Endpoint FastAPI Controller, Pydantic v2 Schemas, Service Dispatch & CORS (`backend/api/`) |
 | **[Milestone 3](./docs/milestones/MILESTONE3_EXPLAINED.md)** | **Husein Zahweh** | Carry-Free Multiply & Long Division (`poly_ops.py`), Table 4.7 Extended Euclid Inverse (`extended_euclid.py`), Two-Stage Division (`division.py`), Live Self-Verifiers (`verification.py`), Structured Exceptions (`exceptions.py`), Multi-Field Benchmarks (`benchmarks/benchmark_gf2m.py`) |
 | **[Milestones 4 & 5](./docs/milestones/MILESTONE4_5_EXPLAINED.md)** | **Ali Zahreddine** | Educational Web Workbench (`frontend/`), 4 Custom Trace Visualizers, Bit-Builder, Algebraic Parser (`ALGEBRAIC_TO_INT`), Guided Spotlight Tours, 3 Bonus Teaching Explorations (`explorations.py`, `exploration_routes.py`), Unified Integration & Playwright E2E Suite |
-| **[Milestone 6](./docs/milestones/MILESTONE6_EXPLAINED.md)** | **Team (Lead UI & E2E: Ali Zahreddine)** | Zero-Horizontal-Scroll Trace Redesign & Visual Diffs (`Step view` Inspector Square, auto-maximized `All steps grid`, `Classic table`, `Compare prev → curr`, sequential step cascade, educational step titles), Standalone Animated `Lessons` Page (`lesson-data.js`, `lessons.js`), Full-Width Layout, Read-Only Modulus Card, True `<sup>`/`<sub>` Math, Pop-Up Errors, Gliding Pills & Extended E2E Tests |
+| **[Milestone 6](./docs/milestones/MILESTONE6_EXPLAINED.md)** | **Team** | Zero-Horizontal-Scroll Trace Redesign & Visual Diffs (`Step view` Inspector Square, auto-maximized `All steps grid`, `Classic table`, `Compare prev → curr`, sequential step cascade, educational step titles), Standalone Animated `Lessons` Page (`lesson-data.js`, `lessons.js`), Full-Width Layout, Read-Only Modulus Card, True `<sup>`/`<sub>` Math, Pop-Up Errors, Gliding Pills & Extended E2E Tests |
 
 ---
 
