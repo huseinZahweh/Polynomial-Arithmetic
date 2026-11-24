@@ -1,6 +1,6 @@
 # Milestone 6: Refinements, Interactive Lessons & Extended Testing
 
-**Assigned Owners:** Team (Collaborative Post-Integration Refinement & Testing Phase — UI/UX & E2E led by **Ali Zahreddine**)  
+**Assigned Owner:** **Husein Zahweh**  
 **Prerequisite:** Completion of Milestones 1–5 Unified Application Layout
 
 ---
@@ -72,6 +72,18 @@ Continuously refine the integrated **Finite Field Lab** user experience, elimina
 * [x] **Full-Width De-Nested Layout & 2-Row Toolbar (`frontend/index.html`, `frontend/lab.css`, `frontend/traces.js`):** Removed the left sidebar dead column on `#calculator`, placed settings & textbook presets in a top `.top-controls-bar`, softened nested borders, removed redundant `Show all` / `Show step cards` buttons, and organized `Calculation steps` into a clean 2-row toolbar with zero pill clipping.
 * [x] **Smooth Navigation Cross-Fades & Gliding Active Pill (`attachSlidingIndicator`):** Added smooth CSS color transitions and dynamic sliding highlight pills across `.lab-nav`, `.segments.notation`, `.operations`, `.trace-modes`, `#lesson-subtabs`, and `#lesson-step-dots`.
 * [x] **Informative `.step-knowledge-title` Headers, Auto-Maximize & Sequential Step Cascade (`frontend/traces.js`, `frontend/lessons.js`):** Rendered educational step titles above every step in Traces & Lessons, auto-maximized `#trace-panel` when selecting `All steps grid` (with `Exit maximized view` + `Esc`), and added sequential intermediate-step cascading (`2 → 3 → 4 → 5`) on non-adjacent bit/dot/scrubber jumps.
+
+### Wave 4 — Playback Boundaries, First Changed Bit Jump, Toasts, Upload Modal & UI Polish (Completed)
+* [x] **Boundary Disabled States (`frontend/traces.js`, `frontend/lessons.js`, `frontend/lab.css`):** Disabled `First step` / `Previous` on Step 0, `Next` / `Last step` on the final step, and all steppers + `Play animation` on `<= 1` step traces with matching `aria-disabled="true"`, cursor/opacity styling, and keyboard no-op guards.
+* [x] **Instant `First changed bit` / `First active step` Jump (`frontend/traces.js`, `frontend/lessons.js`):** Added one-click jump directly to the first active bit or reduction/division step (cancelling active playback or sequential cascades cleanly, and disabling when already on the target step or when no active step exists).
+* [x] **Confirmation Toast Pop-Ups (`#feedback-popup`, `frontend/notation.js`, `frontend/lab.js`, `frontend/traces.js`):** Added non-blocking bottom-right toast alerts for clipboard copies (`Result`, `Share link`, click-to-copy trace cells), `.md`/`.json` downloads (`Exported successfully`), and batch operand uploads (`File uploaded`), with 2800 ms auto-dismiss and manual close.
+* [x] **Interactive Upload Pop-Up Modal (`#upload-modal`, `frontend/index.html`, `frontend/lab.js`, `frontend/lab.css`):** Upgraded the Upload trigger to open a full modal dialog with drag-and-drop, file browser button, side-by-side `.txt` and `.json` format guides, and one-click sample template downloads.
+* [x] **Hero Badge & Typographic Dash Cleanup:** Removed `1 ⊕ 1 = 0` from the hero `GF(2^m)` badge and replaced all Unicode em-dashes (`\u2014`) and en-dashes (`\u2013`) across `frontend/` and `data/tutorial_slides.json`, verified with Playwright E2E coverage (`test_milestone6_wave4_boundaries_first_changed_toasts_upload_modal_and_dashes`).
+
+### Wave 5 — Explicit $m(x)$ Reduction Math, Clearer Shift-and-XOR Step Cards & Contributor Sync (Completed)
+* [x] **Explicit $m(x)$ Overflow Reduction Breakdown (`frontend/traces.js`, `frontend/lab.css`):** Implemented `formatStepReductionBreakdown` using Stallings' identity $x^m \bmod m(x) = m(x) - x^m$ (3-line aligned binary XOR view for $m \le 16$ and compact sparse-tap polynomial view for $m > 16$), and auto-expanded `.initial-reduction-panel` (`<details open>`) with explicit `before ⊕ (m(x) · x^(d-m)) = after` equations whenever an input has $\deg \ge m$.
+* [x] **Shift-and-XOR Step-Card Readability Redesign (`frontend/traces.js`, `frontend/lab.css`):** Wrapped hex literals in Stallings brace notation (`{E}`, `{A}`, `{5}`) so `{A}` is never confused with `Operand A(x)`, structured each card into two clean sub-blocks (**1. Shift & Reduce** vs. **2. Check Bit $b_i$ & Update Running Sum**), de-cluttered duplicate badges, and added a bottom live running formula strip (`.mul-formula-strip`).
+* [x] **Milestone 6 Contributor Attribution & E2E Verification (`Plan/`, `docs/`, `README.md`, `tests/e2e/test_workbench_e2e.py`):** Updated Milestone 6 ownership to **Husein Zahweh** across Milestone 6 docs/roadmaps and added `test_milestone6_wave5_explicit_reduction_and_clear_step_cards` (bringing the automated suite to **365 tests**).
 
 ### Remaining Course Deliverables (Open)
 * [ ] Finalize updated Project Report PDF (`deliverables/Polynomial-Arithmetic-Report.pdf`), 20-minute presentation slides, and 5-minute max demo video (`deliverables/Finite-Field-Lab-Demo.mp4`) reflecting the unified layout and Milestone 6 features.

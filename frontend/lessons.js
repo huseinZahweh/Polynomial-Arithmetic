@@ -3,7 +3,7 @@
  * with Previous-to-Current visual diff tracking, true `<sup>`/`<sub>` typography,
  * gliding sub-lesson/timeline indicators, sequential step cascade, and slide comparison.
  *
- * Original Author: Ali Zahreddine — Milestone 6 (Waves 1–3).
+ * Original Author: Ali Zahreddine - Milestone 6 (Waves 1-4).
  *
  * Renders the 7-lesson curriculum from `frontend/lesson-data.js` inside the dedicated
  * `[data-lab-view="lessons"]` view:
@@ -522,7 +522,7 @@ function buildQuiz(quiz) {
         status,
         option.correct
           ? "Correct! " + option.text
-          : "Not quite — review the step formula above and try the other choice.",
+          : "Not quite: review the step formula above and try the other choice.",
       );
     });
     choices.append(btn);
@@ -591,6 +591,7 @@ export function setupLessons({ openInCalculator }) {
 
   const firstBtn = $("lesson-first");
   const prevBtn = $("lesson-prev");
+  const firstActiveBtn = $("lesson-first-active");
   const playBtn = $("lesson-play");
   const nextBtn = $("lesson-next");
   const lastBtn = $("lesson-last");
@@ -798,9 +799,29 @@ export function setupLessons({ openInCalculator }) {
     progressEl.textContent = "Step " + (stepIndex + 1) + " / " + steps.length;
 
     firstBtn.disabled = stepIndex === 0;
+    firstBtn.setAttribute("aria-disabled", String(stepIndex === 0));
     prevBtn.disabled = stepIndex === 0;
-    nextBtn.disabled = stepIndex === steps.length - 1;
-    lastBtn.disabled = stepIndex === steps.length - 1;
+    prevBtn.setAttribute("aria-disabled", String(stepIndex === 0));
+    nextBtn.disabled = stepIndex >= steps.length - 1;
+    nextBtn.setAttribute("aria-disabled", String(stepIndex >= steps.length - 1));
+    lastBtn.disabled = stepIndex >= steps.length - 1;
+    lastBtn.setAttribute("aria-disabled", String(stepIndex >= steps.length - 1));
+    playBtn.disabled = steps.length <= 1;
+    playBtn.setAttribute("aria-disabled", String(steps.length <= 1));
+
+    if (firstActiveBtn) {
+      const firstActiveIdx = steps.length > 1 ? 1 : null;
+      const isBitLesson = ["addition", "subtraction", "multiplication"].includes(lesson.id);
+      firstActiveBtn.textContent = isBitLesson ? "First changed bit" : "First active step";
+      const tip = firstActiveIdx === null
+        ? "Only one step in this sub-lesson"
+        : "Jump directly to " + (isBitLesson ? "first changed bit" : "first active step") + " (Step " + (firstActiveIdx + 1) + ")";
+      firstActiveBtn.title = tip;
+      firstActiveBtn.setAttribute("aria-label", tip);
+      const activeDisabled = firstActiveIdx === null || stepIndex === firstActiveIdx;
+      firstActiveBtn.disabled = activeDisabled;
+      firstActiveBtn.setAttribute("aria-disabled", String(activeDisabled));
+    }
     if (compareBtn) {
       compareBtn.setAttribute("aria-pressed", String(comparePrev));
     }
@@ -819,7 +840,7 @@ export function setupLessons({ openInCalculator }) {
       prevPane.setAttribute("aria-label", "Previous lesson step");
       prevPane.append(element("div", stepIndex > 0 ? "Previous · Step " + stepIndex : "Previous step", "diff-compare-pane-head"));
       if (stepIndex === 0) {
-        prevPane.append(element("div", "Initial step — no previous slide", "diff-empty-prev"));
+        prevPane.append(element("div", "Initial step: no previous slide", "diff-empty-prev"));
       } else {
         prevPane.append(buildLessonStepFrame(sub, steps, stepIndex - 1, true));
       }
@@ -899,31 +920,43 @@ export function setupLessons({ openInCalculator }) {
   }
 
   firstBtn.addEventListener("click", () => {
+    if ((cascadeTarget ?? stepIndex) <= 0) return;
     stopPlay();
     stepIndex = 0;
     renderWorkspace();
   });
   prevBtn.addEventListener("click", () => {
     const baseStep = cascadeTarget ?? stepIndex;
+    if (baseStep <= 0) return;
     stopPlay();
-    if (baseStep > 0) {
-      stepIndex = baseStep - 1;
-      renderWorkspace();
-    }
+    stepIndex = baseStep - 1;
+    renderWorkspace();
   });
-  playBtn.addEventListener("click", () => togglePlay());
+  firstActiveBtn?.addEventListener("click", () => {
+    const steps = currentSteps();
+    const targetIdx = steps.length > 1 ? 1 : null;
+    if (targetIdx === null || stepIndex === targetIdx) return;
+    stopPlay();
+    stepIndex = targetIdx;
+    renderWorkspace();
+  });
+  playBtn.addEventListener("click", () => {
+    if (currentSteps().length <= 1) return;
+    togglePlay();
+  });
   nextBtn.addEventListener("click", () => {
     const baseStep = cascadeTarget ?? stepIndex;
-    stopPlay();
     const steps = currentSteps();
-    if (baseStep < steps.length - 1) {
-      stepIndex = baseStep + 1;
-      renderWorkspace();
-    }
+    if (baseStep >= steps.length - 1) return;
+    stopPlay();
+    stepIndex = baseStep + 1;
+    renderWorkspace();
   });
   lastBtn.addEventListener("click", () => {
+    const steps = currentSteps();
+    if ((cascadeTarget ?? stepIndex) >= steps.length - 1) return;
     stopPlay();
-    stepIndex = currentSteps().length - 1;
+    stepIndex = steps.length - 1;
     renderWorkspace();
   });
   if (compareBtn) {
@@ -964,27 +997,32 @@ export function setupLessons({ openInCalculator }) {
     if (!view || view.hidden) return;
     const tag = document.activeElement?.tagName;
     if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
-    if (event.key === "ArrowLeft" && stepIndex > 0) {
+    if (event.key === "ArrowLeft") {
+      if (stepIndex <= 0) return;
       event.preventDefault();
       stopPlay();
       stepIndex -= 1;
       renderWorkspace();
-    } else if (event.key === "ArrowRight" && stepIndex < currentSteps().length - 1) {
+    } else if (event.key === "ArrowRight") {
+      if (stepIndex >= currentSteps().length - 1) return;
       event.preventDefault();
       stopPlay();
       stepIndex += 1;
       renderWorkspace();
     } else if (event.key === "Home") {
+      if (stepIndex <= 0) return;
       event.preventDefault();
       stopPlay();
       stepIndex = 0;
       renderWorkspace();
     } else if (event.key === "End") {
+      if (stepIndex >= currentSteps().length - 1) return;
       event.preventDefault();
       stopPlay();
       stepIndex = currentSteps().length - 1;
       renderWorkspace();
     } else if (event.key === " " && tag !== "BUTTON") {
+      if (currentSteps().length <= 1) return;
       event.preventDefault();
       togglePlay();
     }

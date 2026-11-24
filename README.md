@@ -88,7 +88,7 @@ $$
 | **[Milestone 2](./docs/milestones/MILESTONE2_EXPLAINED.md)** | **Hassan Tarhini** | Shift-and-XOR Multiplication Engine with Tables 1 & 2 Traces (`multiply.py`), Core 6-Endpoint FastAPI Controller, Pydantic v2 Schemas, Service Dispatch & CORS (`backend/api/`) |
 | **[Milestone 3](./docs/milestones/MILESTONE3_EXPLAINED.md)** | **Husein Zahweh** | Carry-Free Multiply & Long Division (`poly_ops.py`), Table 4.7 Extended Euclid Inverse (`extended_euclid.py`), Two-Stage Division (`division.py`), Live Self-Verifiers (`verification.py`), Structured Exceptions (`exceptions.py`), Multi-Field Benchmarks (`benchmarks/benchmark_gf2m.py`) |
 | **[Milestones 4 & 5](./docs/milestones/MILESTONE4_5_EXPLAINED.md)** | **Ali Zahreddine** | Educational Web Workbench (`frontend/`), 4 Custom Trace Visualizers, Bit-Builder, Algebraic Parser (`ALGEBRAIC_TO_INT`), Guided Spotlight Tours, 3 Bonus Teaching Explorations (`explorations.py`, `exploration_routes.py`), Unified Integration & Playwright E2E Suite |
-| **[Milestone 6](./docs/milestones/MILESTONE6_EXPLAINED.md)** | **Team** | Zero-Horizontal-Scroll Trace Redesign & Visual Diffs (`Step view` Inspector Square, auto-maximized `All steps grid`, `Classic table`, `Compare prev → curr`, sequential step cascade, educational step titles), Standalone Animated `Lessons` Page (`lesson-data.js`, `lessons.js`), Full-Width Layout, Read-Only Modulus Card, True `<sup>`/`<sub>` Math, Pop-Up Errors, Gliding Pills & Extended E2E Tests |
+| **[Milestone 6](./docs/milestones/MILESTONE6_EXPLAINED.md)** | **Husein Zahweh** | Zero-Horizontal-Scroll Trace Redesign & Visual Diffs (`Step view` Inspector Square, auto-maximized `All steps grid`, `Classic table`, `Compare prev → curr`, explicit $m(x)$ reduction math, two-block `{hex}` Shift-and-XOR cards with live formula strips, `First changed bit` jump, sequential step cascade), Standalone Animated `Lessons` Page (`lesson-data.js`, `lessons.js`), Full-Width Layout, Read-Only Modulus Card, True `<sup>`/`<sub>` Math, Upload Modal, Pop-Up Alerts/Toasts, Gliding Pills & Extended E2E Tests |
 
 ---
 
@@ -146,7 +146,7 @@ Polynomial-Arithmetic/
 ├── benchmarks/
 │   ├── __init__.py
 │   └── benchmark_gf2m.py             # Multi-field EEA & division benchmark CLI
-├── tests/                            # Unified root pytest suite (363 tests)
+├── tests/                            # Unified root pytest suite (365 tests)
 │   ├── conftest.py
 │   ├── engine/                       # Pure-Python math, utilities, & exploration unit tests
 │   ├── api/                          # FastAPI endpoint, 8-row matrix, & exploration route tests

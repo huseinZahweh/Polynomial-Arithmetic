@@ -2,13 +2,13 @@
  * @fileoverview Hash-based view routing and controllers for the three teaching explorations,
  * upgraded with gliding tab selection, `<sup>`/`<sub>` typography, and pop-up error alerts.
  *
- * Original Author: Ali Zahreddine — Milestone 4, Integration & Milestone 6 (Waves 1–3).
+ * Original Author: Ali Zahreddine - Milestone 4, Integration & Milestone 6 (Waves 1-4).
  *
  * Connects the frontend exploration views to `/api/explorations/*`:
- *   - `#modulus` — Binary polynomial irreducibility checker & factor witnesses (Stallings Ch. 4
+ *   - `#modulus`: Binary polynomial irreducibility checker & factor witnesses (Stallings Ch. 4
  *     plus Berlekamp square-free splitting extension).
- *   - `#aes`     — FIPS 197 §5.1.1 / Stallings Ch. 5 AES S-box walkthrough (EEA + affine XOR).
- *   - `#compare` — Shift-and-XOR vs. carry-free + long-division comparison and 163/571-bit benchmark.
+ *   - `#aes`:     FIPS 197 §5.1.1 / Stallings Ch. 5 AES S-box walkthrough (EEA + affine XOR).
+ *   - `#compare`: Shift-and-XOR vs. carry-free + long-division comparison and 163/571-bit benchmark.
  */
 
 import { attachSlidingIndicator, element, mathElement, setMathText, showErrorPopup } from "./notation.js";

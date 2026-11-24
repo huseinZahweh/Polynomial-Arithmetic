@@ -1,7 +1,7 @@
 /**
  * @fileoverview Structured 7-lesson animated curriculum data for the Finite Field Lab.
  *
- * Original Author: Ali Zahreddine — Milestone 6 (Interactive Lessons & Trace Redesign).
+ * Original Author: Ali Zahreddine - Milestone 6 (Interactive Lessons & Trace Redesign).
  *
  * Course References:
  *   - William Stallings, Cryptography and Network Security, Chapter 4 (Finite Fields:
@@ -76,7 +76,7 @@ export const LESSONS = [
               type: "cards",
               items: [
                 { badge: "Degree", title: "Highest set bit", detail: "deg(0) = −1 by convention; deg({57}) = 6" },
-                { badge: "Hamming weight", title: "Count of 1 bits", detail: "Measures sparsity—fewer set bits mean fewer XOR steps" },
+                { badge: "Hamming weight", title: "Count of 1 bits", detail: "Measures sparsity: fewer set bits mean fewer XOR steps" },
               ],
             },
           },
@@ -90,7 +90,7 @@ export const LESSONS = [
           {
             title: "Why 1 + 1 = 0 in characteristic 2",
             formula: "1 + 1 = 2 ≡ 0 (mod 2)   ⇒   x^k + x^k = 0",
-            explanation: "In ordinary integer addition, 1 + 1 generates a carry into the next bit position. In GF(2), coefficients wrap modulo 2 inside their own column—no carry ever crosses into an adjacent power of x.",
+            explanation: "In ordinary integer addition, 1 + 1 generates a carry into the next bit position. In GF(2), coefficients wrap modulo 2 inside their own column: no carry ever crosses into an adjacent power of x.",
             visual: {
               type: "xor-columns",
               aLabel: "Term A",
@@ -559,7 +559,7 @@ export const LESSONS = [
           {
             title: "GF(2^3) vs. GF(2^163) storage explosion",
             formula: "|GF(2^3)| = 8 elements (64-cell table)   vs.   |GF(2^163)| = 2^163 ≈ 1.17 × 10^49 elements",
-            explanation: "A multiplication lookup table for GF(2^163) would need 2^326 entries—more than the number of atoms in the observable universe (~10^80). Shift-and-XOR computes any product on the fly in at most m steps!",
+            explanation: "A multiplication lookup table for GF(2^163) would need 2^326 entries, more than the number of atoms in the observable universe (~10^80). Shift-and-XOR computes any product on the fly in at most m steps!",
             visual: {
               type: "cards",
               items: [
@@ -789,7 +789,7 @@ export const LESSONS = [
             visual: {
               type: "euclid-step",
               step: 0,
-              q: "—",
+              q: "-",
               formula: "Init: A ← (1, 0, m(x)),  B ← (0, 1, b(x))",
               a: { A1: "1 (01)", A2: "0 (00)", A3: "x^8+x^4+x^3+x+1 (11B)" },
               b: { B1: "0 (00)", B2: "1 (01)", B3: "x^7+x+1 (83)" },

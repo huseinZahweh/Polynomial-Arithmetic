@@ -2,7 +2,7 @@
  * @fileoverview Interactive per-view spotlight walkthroughs for the Finite Field Lab
  * with true HTML `<sup>`/`<sub>` math typography in tooltips.
  *
- * Original Author: Ali Zahreddine — Milestone 4, Integration & Milestone 6 (Waves 1–3).
+ * Original Author: Ali Zahreddine - Milestone 4, Integration & Milestone 6 (Waves 1-4).
  *
  * Provides contextual guided tours for all five lab views (Calculator, Lessons, Modulus
  * explorer, AES S-box, Compare multiplication), dynamically falling back to the triggering
@@ -21,7 +21,7 @@ const calculatorSteps = [
   [".setting", "Choose a field",
     "Field degree sets how many bits fit in one element. Watch the banner and the modulus update. Use Hex, Binary, or Polynomial to change notation without changing the operand values."],
   [".operands", "Enter the operands",
-    "Type values into A(x) and B(x) — or view the locked Modulus m(x) card on Reduce and Inverse. Each input previews the polynomial, bit length, and degree. In fields up to eight bits, click the checkboxes to turn individual coefficients on or off."],
+    "Type values into A(x) and B(x), or view the locked Modulus m(x) card on Reduce and Inverse. Each input previews the polynomial, bit length, and degree. In fields up to eight bits, click the checkboxes to turn individual coefficients on or off."],
   [".calculator .section-head", "Generate or upload operands",
     "Choose Sparse or Dense and click Random operands to fill both inputs. Upload accepts .txt or .json files. When a file contains several pairs, choose one from the pair list."],
   [".operations", "Pick an operation",
@@ -63,7 +63,7 @@ const walkthroughs = {
       ["#lesson-subtabs", "Explore prerequisites and sub-lessons",
         "Each lesson breaks down the underlying number theory and helper tools before walking through full textbook examples."],
       ["#lesson-controls", "Step, animate, or compare slides",
-        "Use First step, Previous, Play animation (Slow, Normal, or Fast), Next, and Last step—or press Left/Right arrow keys—to watch each state change. Toggle Compare prev → curr to inspect the previous slide beside the current slide."],
+        "Use First step, Previous, First changed bit / First active step, Play animation (Slow, Normal, or Fast), Next, and Last step, or press Left/Right arrow keys, to watch each state change. Toggle Compare prev → curr to inspect the previous slide beside the current slide."],
       ["#lesson-stage", "Inspect the zero-scroll visual stage",
         "Follow the informative step titles, highlighted bit columns, shift registers, Table 4.7 Triple A/B transfers, interactive sandboxes, and self-check quizzes."],
       ["#lesson-handoff-bar", "Open any lesson example in the Calculator",

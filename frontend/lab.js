@@ -1,13 +1,14 @@
 /**
  * @fileoverview Main controller for the Finite Field Lab educational calculator workbench.
  *
- * Original Author: Ali Zahreddine — Milestone 4, Integration & Milestone 6 (Waves 1–3).
+ * Original Author: Ali Zahreddine - Milestone 4, Integration & Milestone 6 (Waves 1-4).
  *
  * Orchestrates all six core REST endpoints (`/api/fields`, `/api/calculate`,
  * `/api/random-polynomials`, `/api/parse-polynomials`, `/api/export-calculation`,
  * `/api/tutorial`), live BigInt operand validation and notation switching, the dynamic
  * read-only Modulus m(x) card on unary ops (`modulo`, `inverse`), true HTML `<sup>`/`<sub>`
- * math typography, pop-up error alerts (`#error-popup`), gliding navigation indicators,
+ * math typography, pop-up error alerts (`#error-popup`), confirmation toasts (`#feedback-popup`),
+ * drag-and-drop upload modal (`#upload-modal`), gliding navigation indicators,
  * `m <= 8` coefficient bit-builder, Hex-compressed shareable URLs, classroom presets,
  * standalone animated Lessons bridge, and the 4-slide concepts modal.
  */
@@ -16,6 +17,7 @@ import {
   attachSlidingIndicator,
   bases,
   closeErrorPopup,
+  copyToClipboard,
   degreeOf,
   element,
   formatOperand,
@@ -24,6 +26,7 @@ import {
   polynomial,
   setMathText,
   showErrorPopup,
+  showFeedbackPopup,
   significantDigits,
 } from "./notation.js";
 import { createTraceView } from "./traces.js";
@@ -419,17 +422,19 @@ async function calculate({ reveal = false } = {}) {
 }
 
 /**
- * Copy text to the clipboard with a `window.prompt` fallback when Clipboard API is restricted.
+ * Copy text to the clipboard using `copyToClipboard` and display a `#feedback-popup` toast.
+ * Falls back to `window.prompt` only if both Clipboard API and `execCommand` are blocked.
  *
  * @param {string} text - String to copy.
  * @param {string} feedback - Confirmation message displayed on success.
  * @param {HTMLElement} [notice=$("notice")] - Status element receiving confirmation text.
  */
 async function copyText(text, feedback, notice = $("notice")) {
-  try {
-    await navigator.clipboard.writeText(text);
+  const copied = await copyToClipboard(text);
+  if (copied) {
     notice.textContent = feedback;
-  } catch {
+    showFeedbackPopup("Copied to clipboard", feedback);
+  } else {
     window.prompt("Copy this value", text);
   }
 }
@@ -438,7 +443,7 @@ async function copyText(text, feedback, notice = $("notice")) {
  * Build a shareable URL encoding `(m, operation, base, poly_a, poly_b)`.
  *
  * **Hexadecimal URL Compression Rule:** Operands are always serialized in lowercase
- * hexadecimal inside query parameters—even when `base=binary`—so 571-bit share links
+ * hexadecimal inside query parameters, even when `base=binary`, so 571-bit share links
  * remain compact (~143 chars instead of 571 chars) and convert back to `base` on load.
  *
  * @returns {string} Full shareable URL string.
@@ -569,10 +574,10 @@ for (const button of document.querySelectorAll("[data-base]")) {
   button.addEventListener("click", () => changeNotation(button.dataset.base));
 }
 $("share").addEventListener("click", () => {
-  try { copyText(makeShareURL(), "Calculation link copied."); }
+  try { copyText(makeShareURL(), "Share link copied to clipboard"); }
   catch (error) { showError(error.message, { title: "Share link error" }); }
 });
-$("copy-result").addEventListener("click", () => copyText(display(result.result, base), "Result copied.", $("result-notice")));
+$("copy-result").addEventListener("click", () => copyText(display(result.result, base), "Result copied to clipboard", $("result-notice")));
 $("back-to-inputs").addEventListener("click", () => operandInput("a").focus());
 $("result-expanded").addEventListener("click", () => {
   showFullResult = !showFullResult;
@@ -580,14 +585,16 @@ $("result-expanded").addEventListener("click", () => {
 });
 $("export").addEventListener("click", async () => {
   const format = $("export-format").value;
+  const filename = "gf2m-calculation." + format;
   try {
     const blob = await api("export-calculation", { calculation: result, format, download: true }, true);
     const url = URL.createObjectURL(blob);
     const link = element("a");
     link.href = url;
-    link.download = "gf2m-calculation." + format;
+    link.download = filename;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showFeedbackPopup("Exported successfully", "Downloaded " + filename);
   } catch (error) { showError(error.message, { title: "Export error" }); }
 });
 $("random").addEventListener("click", async () => {
@@ -601,10 +608,55 @@ $("random").addEventListener("click", async () => {
     showNotice("Random operands generated.");
   } catch (error) { showError(error.message, { title: "Random operand error" }); }
 });
-$("upload").addEventListener("click", () => $("file").click());
-$("file").addEventListener("change", async () => {
-  const file = $("file").files[0];
+
+const SAMPLE_TXT_CONTENT = [
+  "# Comment lines start with #",
+  "A: 57",
+  "B: 83",
+  "---",
+  "# B is optional for Reduce (mod) or Inverse",
+  "A: 95",
+  "",
+].join("\n");
+
+const SAMPLE_JSON_CONTENT = JSON.stringify({
+  pairs: [
+    { a: "57", b: "83", base: "hex" },
+    { a: "10010101", base: "bin" },
+  ],
+}, null, 2) + "\n";
+
+/**
+ * Trigger a browser download for a generated sample `.txt` or `.json` starter file.
+ *
+ * @param {string} filename - Suggested download filename.
+ * @param {string} content - UTF-8 file text.
+ * @param {string} mimeType - MIME type for the Blob.
+ */
+function downloadSampleFile(filename, content, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = element("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showFeedbackPopup("Sample downloaded", "Saved " + filename, "info");
+}
+
+/**
+ * Validate, read, and parse an uploaded `.txt` or `.json` operand file via `POST /api/parse-polynomials`.
+ *
+ * @param {File | undefined} file - User-selected or dropped file.
+ */
+async function handleUploadFile(file) {
   if (!file) return;
+  const lowerName = (file.name || "").toLowerCase();
+  if (!lowerName.endsWith(".txt") && !lowerName.endsWith(".json")) {
+    if ($("upload-modal")?.open) $("upload-modal").close();
+    showError("Unsupported file format. Choose a .txt or .json operand file.", { title: "Unsupported file format" });
+    return;
+  }
   try {
     const parsed = await api("parse-polynomials", {
       content: await file.text(), filename: file.name, default_base: base === "binary" ? "binary" : "hex",
@@ -621,10 +673,62 @@ $("file").addEventListener("change", async () => {
     }));
     $("batch").hidden = false;
     loadPair(0);
-    showNotice(parsed.count + (parsed.count === 1 ? " pair loaded." : " pairs loaded."));
-  } catch (error) { showError(error.message, { title: "File upload error" }); }
-  finally { $("file").value = ""; }
+    if ($("upload-modal")?.open) $("upload-modal").close();
+    const pairLabel = parsed.count === 1 ? " pair" : " pairs";
+    showNotice(parsed.count + pairLabel + " loaded.");
+    showFeedbackPopup("File uploaded", "Loaded " + parsed.count + " operand" + pairLabel + " from " + file.name);
+  } catch (error) {
+    if ($("upload-modal")?.open) $("upload-modal").close();
+    showError(error.message, { title: "File upload error" });
+  } finally {
+    $("file").value = "";
+  }
+}
+
+$("upload").addEventListener("click", () => {
+  const modal = $("upload-modal");
+  if (modal && !modal.open) modal.showModal();
 });
+$("upload-modal-close")?.addEventListener("click", () => $("upload-modal").close());
+$("upload-modal")?.addEventListener("click", event => {
+  if (event.target === $("upload-modal")) $("upload-modal").close();
+});
+$("upload-browse")?.addEventListener("click", event => {
+  event.stopPropagation();
+  $("file").click();
+});
+$("upload-dropzone")?.addEventListener("click", event => {
+  if (event.target.closest("#upload-browse")) return;
+  $("file").click();
+});
+$("upload-dropzone")?.addEventListener("keydown", event => {
+  if (event.target !== $("upload-dropzone")) return;
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    $("file").click();
+  }
+});
+$("upload-dropzone")?.addEventListener("dragenter", event => {
+  event.preventDefault();
+  $("upload-dropzone").classList.add("is-dragover");
+});
+$("upload-dropzone")?.addEventListener("dragover", event => {
+  event.preventDefault();
+  $("upload-dropzone").classList.add("is-dragover");
+});
+$("upload-dropzone")?.addEventListener("dragleave", event => {
+  if (!$("upload-dropzone").contains(event.relatedTarget)) {
+    $("upload-dropzone").classList.remove("is-dragover");
+  }
+});
+$("upload-dropzone")?.addEventListener("drop", event => {
+  event.preventDefault();
+  $("upload-dropzone").classList.remove("is-dragover");
+  handleUploadFile(event.dataTransfer?.files?.[0]);
+});
+$("download-sample-txt")?.addEventListener("click", () => downloadSampleFile("gf2m-sample.txt", SAMPLE_TXT_CONTENT, "text/plain"));
+$("download-sample-json")?.addEventListener("click", () => downloadSampleFile("gf2m-sample.json", SAMPLE_JSON_CONTENT, "application/json"));
+$("file").addEventListener("change", () => handleUploadFile($("file").files[0]));
 $("pairs").addEventListener("change", () => {
   try { loadPair(Number($("pairs").value)); }
   catch (error) { showError(error.message, { title: "File pair error" }); }

@@ -269,7 +269,7 @@ def test_calculator_tour_guides_the_preview_bits_and_comparison(live_url: str) -
         page.locator("#presets").get_by_role("button", name="Chapter 4", exact=False).click()
         check(page.locator("#trace-body.tour-highlight")).to_be_visible()
         page.get_by_role("button", name="Multiplier bit 7", exact=True).click()
-        check(page.get_by_text("F9 ⊕ 38 = C1", exact=True)).to_be_visible()
+        check(page.get_by_text("{F9} ⊕ {38} = {C1}", exact=True)).to_be_visible()
         check(page.locator("#trace-body.tour-highlight")).to_be_visible()
 
         next_step.click()
@@ -335,7 +335,7 @@ def test_compact_result_keeps_the_full_copyable_value(live_url: str) -> None:
         check(page.locator("#result-value")).to_have_text("2B79")
         check(
             page.get_by_role("region", name="Current trace step").get_by_text(
-                "0 ⊕ 57 = 57", exact=True
+                "{0} ⊕ {57} = {57}", exact=True
             )
         ).to_be_visible(timeout=2500)
 
@@ -381,7 +381,7 @@ def test_mobile_trace_shows_one_labelled_step(live_url: str) -> None:
         check(trace.get_by_role("button", name="Multiplier bit 7", exact=True)).to_be_in_viewport(
             ratio=0.95, timeout=2500
         )
-        check(card).to_contain_text("F9 ⊕ 38 = C1")
+        check(card).to_contain_text("{F9} ⊕ {38} = {C1}")
         check(trace.get_by_role("region", name="Table 1", exact=False)).to_be_hidden()
         trace.get_by_role("button", name="Classic table", exact=True).click()
         check(trace.get_by_role("region", name="Table 1", exact=False)).to_be_visible()
@@ -634,7 +634,7 @@ def test_milestone6_wave2_trace_visual_diffs_and_compare_mode(live_url: str) -> 
 
         # Return to Step 0 in compare mode: placeholder message appears for Previous step.
         trace.get_by_role("button", name="First step", exact=True).click()
-        check(prev_pane).to_contain_text("Initial state — no previous step")
+        check(prev_pane).to_contain_text("Initial state: no previous step")
 
         # Verify zero horizontal overflow on mobile (390x840) with Compare prev → curr active.
         page.set_viewport_size({"width": 390, "height": 840})
@@ -822,6 +822,230 @@ def test_milestone6_wave3_layout_modulus_card_math_popup_maximize_cascade(live_u
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
         unexpected_console = [msg for msg in console_errors if "400 (Bad Request)" not in msg]
         assert not unexpected_console
+        assert not page_errors
+        browser.close()
+
+
+def test_milestone6_wave4_boundaries_first_changed_toasts_upload_modal_and_dashes(live_url: str) -> None:
+    """Verify Wave 4 playback boundaries, First changed bit jump, toasts, upload modal, hero badge & zero long dashes."""
+    playwright = pytest.importorskip("playwright.sync_api")
+    check = playwright.expect
+    repo_root = Path(__file__).resolve().parents[2]
+    frontend_and_data = sorted(
+        list((repo_root / "frontend").glob("*")) + [repo_root / "data" / "tutorial_slides.json"]
+    )
+    for asset in frontend_and_data:
+        if asset.is_file():
+            text = asset.read_text(encoding="utf-8")
+            assert "\u2014" not in text, f"Found em-dash in {asset}"
+            assert "\u2013" not in text, f"Found en-dash in {asset}"
+
+    with playwright.sync_playwright() as runner:
+        browser = runner.chromium.launch()
+        context = browser.new_context(
+            permissions=["clipboard-read", "clipboard-write"],
+            accept_downloads=True,
+            viewport={"width": 1280, "height": 900},
+        )
+        page = context.new_page()
+        page_errors = []
+        page.on("pageerror", lambda err: page_errors.append(str(err)))
+        page.goto(live_url)
+
+        # 1. Hero badge shows GF(2^m) cleanly without "1 ⊕ 1 = 0".
+        hero_badge = page.locator('[data-lab-view="calculator"] .hero-math')
+        check(hero_badge).to_contain_text("GF(2")
+        check(hero_badge).not_to_contain_text("1 \u2295 1 = 0")
+
+        # 2. Large-field First changed bit jump (B = 100000 hex = x^20, A = 57 hex in GF(2^163)) & boundary states.
+        page.locator("#field").select_option("163")
+        page.get_by_role("button", name="Hex", exact=True).click()
+        page.locator('input[value="multiply"]').check(force=True)
+        page.locator("#poly-a").fill("57")
+        page.locator("#poly-b").fill("100000")
+        page.locator("#calculate").click()
+
+        trace = page.locator("#trace-panel")
+        first_btn = trace.get_by_role("button", name="First step", exact=True)
+        prev_btn = trace.get_by_role("button", name="Previous step", exact=True)
+        next_btn = trace.get_by_role("button", name="Next step", exact=True)
+        last_btn = trace.get_by_role("button", name="Last step", exact=True)
+        jump_btn = trace.locator(".trace-first-changed-btn")
+
+        check(trace.locator(".step-eyebrow")).to_have_text("Multiplier bit 0")
+        check(first_btn).to_be_disabled()
+        check(first_btn).to_have_attribute("aria-disabled", "true")
+        check(prev_btn).to_be_disabled()
+        check(prev_btn).to_have_attribute("aria-disabled", "true")
+        check(next_btn).to_be_enabled()
+        check(last_btn).to_be_enabled()
+        check(jump_btn).to_have_text("First changed bit")
+        check(jump_btn).to_be_enabled()
+
+        jump_btn.click()
+        check(trace.locator(".step-eyebrow")).to_have_text("Multiplier bit 20")
+        check(trace.locator(".trace-progress")).to_have_text("Step 21 of 21")
+        check(trace.get_by_role("button", name="Multiplier bit 20", exact=True)).to_have_attribute("aria-pressed", "true")
+        check(jump_btn).to_be_disabled()
+        check(jump_btn).to_have_attribute("aria-disabled", "true")
+        check(first_btn).to_be_enabled()
+        check(prev_btn).to_be_enabled()
+
+        first_btn.click()
+        check(trace.locator(".trace-progress")).to_have_text("Step 1 of 21")
+        last_btn.click()
+        check(trace.locator(".trace-progress")).to_have_text("Step 21 of 21")
+        check(next_btn).to_be_disabled()
+        check(next_btn).to_have_attribute("aria-disabled", "true")
+        check(last_btn).to_be_disabled()
+        check(last_btn).to_have_attribute("aria-disabled", "true")
+        check(first_btn).to_be_enabled()
+        check(prev_btn).to_be_enabled()
+
+        # 3. Copy & Export confirmation pop-up toast (#feedback-popup).
+        toast = page.locator("#feedback-popup")
+        page.locator("#copy-result").click()
+        check(toast).to_be_visible()
+        check(toast).to_contain_text("Copied to clipboard")
+        toast.get_by_role("button", name="Dismiss notification", exact=True).click()
+        check(toast).to_be_hidden()
+
+        page.locator("#export-format").select_option("md")
+        with page.expect_download() as download:
+            page.locator("#export").click()
+        assert download.value.suggested_filename.endswith(".md")
+        check(toast).to_be_visible()
+        check(toast).to_contain_text("Exported successfully")
+
+        # 4. Upload pop-up modal (#upload-modal) with .txt/.json guide, drag-drop zone, and confirmation toast.
+        page.locator("#upload").click()
+        upload_modal = page.locator("#upload-modal")
+        check(upload_modal).to_be_visible()
+        check(upload_modal.locator("#upload-dropzone")).to_be_visible()
+        check(upload_modal).to_contain_text(".txt Format")
+        check(upload_modal).to_contain_text(".json Format")
+        upload_modal.locator("#file").set_input_files(DEMO_OPERANDS)
+        check(upload_modal).to_be_hidden()
+        check(toast).to_be_visible()
+        check(toast).to_contain_text("File uploaded")
+        check(page.locator('#pairs option[value="1"]')).to_contain_text("Pair 2")
+        check(page.locator("#poly-a")).to_have_value(format(0x57, "041X"))
+
+        # 5. Lesson boundary disabled states (1-step sub-lesson vs. multi-step) + zero overflow on mobile (390x840).
+        page.get_by_role("link", name="Lessons", exact=True).click()
+        l_first = page.locator("#lesson-first")
+        l_prev = page.locator("#lesson-prev")
+        l_play = page.locator("#lesson-play")
+        l_next = page.locator("#lesson-next")
+        l_last = page.locator("#lesson-last")
+
+        # Multi-step sub-lesson (Lesson 1 · 1.1 has 3 steps): start disabled on Step 0, end disabled on Last.
+        check(l_first).to_be_disabled()
+        check(l_prev).to_be_disabled()
+        check(l_play).to_be_enabled()
+        check(l_next).to_be_enabled()
+        l_last.click()
+        check(l_next).to_be_disabled()
+        check(l_last).to_be_disabled()
+        check(l_first).to_be_enabled()
+
+        # Single-step sub-lesson (Lesson 2 · 2.1): all steppers including Play animation are disabled.
+        page.get_by_role("button", name="Lesson 2", exact=False).click()
+        check(l_first).to_be_disabled()
+        check(l_prev).to_be_disabled()
+        check(l_play).to_be_disabled()
+        check(l_next).to_be_disabled()
+        check(l_last).to_be_disabled()
+
+        page.set_viewport_size({"width": 390, "height": 840})
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+        page.get_by_role("link", name="Calculator", exact=True).click()
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+        assert not page_errors
+        browser.close()
+
+
+def test_milestone6_wave5_explicit_reduction_and_clear_step_cards(live_url: str) -> None:
+    """Verify Wave 5 explicit m(x) reduction breakdown, two-block {hex} step cards, formula strip & initial reduction."""
+    playwright = pytest.importorskip("playwright.sync_api")
+    check = playwright.expect
+    with playwright.sync_playwright() as runner:
+        browser = runner.chromium.launch()
+        context = browser.new_context(viewport={"width": 1280, "height": 900})
+        page = context.new_page()
+        page_errors = []
+        page.on("pageerror", lambda err: page_errors.append(str(err)))
+        page.goto(live_url)
+
+        # 1. GF(2^4) {E} × {D} = {9} walkthrough across Steps 2, 3, and 4.
+        page.locator("#field").select_option("4")
+        page.get_by_role("button", name="Hex", exact=True).click()
+        page.locator('input[value="multiply"]').check(force=True)
+        page.locator("#poly-a").fill("E")
+        page.locator("#poly-b").fill("D")
+        page.locator("#calculate").click()
+
+        check(page.locator("#result-value")).to_have_text("9")
+        trace = page.locator("#trace-panel")
+        trace.get_by_role("button", name="Step view", exact=True).click()
+        next_btn = trace.get_by_role("button", name="Next step", exact=True)
+
+        # Step 2 (Multiplier bit 1, Reduced? = Yes): explicit binary XOR with m(x) = 11001.
+        next_btn.click()
+        card = trace.get_by_role("region", name="Current trace step")
+        shift_block = card.locator(".mul-shift-block")
+        sum_block = card.locator(".mul-sum-block")
+        breakdown = shift_block.locator(".reduction-breakdown.is-overflow")
+        check(shift_block).to_contain_text("1. Shift & Reduce")
+        check(breakdown).to_be_visible()
+        check(breakdown).to_contain_text("11100")
+        check(breakdown).to_contain_text("11001")
+        check(breakdown).to_contain_text("0101")
+        check(breakdown).to_contain_text("{5}")
+        check(sum_block).to_contain_text("2. Check Bit")
+        check(sum_block).to_contain_text("Unchanged: Running XOR stays {E}")
+
+        # Step 3 (Multiplier bit 2): Stallings {hex} brace notation ({E} ⊕ {A} = {4}).
+        next_btn.click()
+        check(sum_block.locator(".bit-equation")).to_have_text("{E} ⊕ {A} = {4}")
+
+        # Step 4 (Multiplier bit 3): Live running formula strip ending in {9}.
+        next_btn.click()
+        check(card.locator(".mul-formula-strip")).to_have_text(
+            "Sum = [1]·{E} ⊕ [0]·{5} ⊕ [1]·{A} ⊕ [1]·{D} = {9}"
+        )
+
+        # 2. GF(2^163) cryptographic sparse-tap overflow reduction (x^7 + x^6 + x^3 + 1 with <sup>).
+        page.locator("#field").select_option("163")
+        page.locator("#poly-a").fill("4" + "0" * 40)  # x^162 -> shifts to x^163 on Step 2
+        page.locator("#poly-b").fill("3")
+        page.locator("#calculate").click()
+
+        trace.get_by_role("button", name="Next step", exact=True).click()
+        crypto_breakdown = trace.locator(".mul-shift-block .reduction-breakdown.is-overflow")
+        check(crypto_breakdown).to_be_visible()
+        check(crypto_breakdown).to_contain_text("x7 + x6 + x3 + 1")
+        check(crypto_breakdown).to_contain_text("{C9}")
+        sup_texts = crypto_breakdown.locator("sup").all_inner_texts()
+        assert "7" in sup_texts and "6" in sup_texts and "3" in sup_texts
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+
+        page.set_viewport_size({"width": 390, "height": 840})
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+
+        # 3. Auto-expanded Initial reduction when input has deg >= m (11B in GF(2^8)).
+        page.set_viewport_size({"width": 1280, "height": 900})
+        page.locator("#field").select_option("8")
+        page.locator('input[value="add"]').check(force=True)
+        page.locator("#poly-a").fill("11B")
+        page.locator("#poly-b").fill("57")
+        page.locator("#calculate").click()
+
+        init_panel = trace.locator("details.initial-reduction-panel")
+        check(init_panel).to_be_visible()
+        check(init_panel).to_have_js_property("open", True)
+        check(init_panel.locator(".initial-reduction-steps")).to_contain_text("{11B}")
+        check(init_panel.locator(".initial-reduction-steps")).to_contain_text("m(x)")
         assert not page_errors
         browser.close()
 

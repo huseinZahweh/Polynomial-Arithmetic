@@ -2,7 +2,7 @@
  * @fileoverview Client-side BigInt polynomial parsing, formatting, safe math typography (`<sup>`/`<sub>`),
  * gliding navigation indicator, and elevated pop-up error modal utilities.
  *
- * Original Author: Ali Zahreddine — Milestone 4, Integration & Milestone 6 (Waves 1–3).
+ * Original Author: Ali Zahreddine - Milestone 4, Integration & Milestone 6 (Waves 1-4).
  *
  * Uses JavaScript arbitrary-precision `BigInt` so live input validation, base
  * conversion, polynomial preview, and bit-builder toggling stay exact across all
@@ -66,7 +66,7 @@ export function parseOperand(text, base) {
   const binary = base === "binary";
   digits = digits.replace(binary ? /^0b/i : /^0x/i, "");
   if (!(binary ? /^[01]+$/ : /^[\da-f]+$/i).test(digits)) {
-    throw new Error(binary ? "Use the digits 0 and 1." : "Use hexadecimal digits 0–9 and A–F.");
+    throw new Error(binary ? "Use the digits 0 and 1." : "Use hexadecimal digits 0-9 and A-F.");
   }
   const value = BigInt((binary ? "0b" : "0x") + digits);
   if (value.toString(2).length > 4096) throw new Error("Enter at most 4096 bits.");
@@ -153,7 +153,7 @@ export function element(tag, text, className) {
  *
  * Converts ASCII and Unicode exponents (`x^4`, `2^163`, `x^-1`, `x^(2^i)`, `GF(2^m)`, `⁸`, `⁻¹`)
  * into real `<sup>` nodes, and converts braced/underscored subscripts (`b_{m-1}`, `Z_2`, `b_i`) plus
- * standalone variable indices (`A1`–`A3`, `B1`–`B3`, `T1`–`T3`, `b0`–`b7`, `a0`–`a7`, `₀`–`₉`)
+ * standalone variable indices (`A1`-`A3`, `B1`-`B3`, `T1`-`T3`, `b0`-`b7`, `a0`-`a7`, `₀`-`₉`)
  * into real `<sub>` nodes without corrupting braced or multi-digit hexadecimal constants.
  *
  * Never uses `innerHTML`; strictly constructs nodes with `document.createTextNode` and
@@ -405,4 +405,111 @@ export function showErrorPopup({ title = "Error", message, onViewTrace } = {}) {
 export function closeErrorPopup() {
   const dialog = document.getElementById("error-popup");
   if (dialog?.open) dialog.close();
+}
+
+let feedbackHideTimer = null;
+let feedbackFadeTimer = null;
+
+/**
+ * Copy plain text to the clipboard using `navigator.clipboard.writeText` with a reliable
+ * hidden `<textarea>` + `document.execCommand("copy")` fallback across browser contexts.
+ *
+ * @param {string} text - Plain text string to copy.
+ * @returns {Promise<boolean>} True when the text was placed on the clipboard.
+ */
+export async function copyToClipboard(text) {
+  const str = String(text ?? "");
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(str);
+      return true;
+    } catch {
+      /* Fall back to hidden textarea + execCommand when Clipboard API permission is restricted. */
+    }
+  }
+  const helper = document.createElement("textarea");
+  helper.value = str;
+  helper.setAttribute("readonly", "");
+  helper.style.position = "fixed";
+  helper.style.top = "-9999px";
+  helper.style.left = "-9999px";
+  helper.style.opacity = "0";
+  document.body.append(helper);
+  helper.focus({ preventScroll: true });
+  helper.select();
+  helper.setSelectionRange(0, str.length);
+  let copied = false;
+  try {
+    copied = document.execCommand("copy");
+  } catch {
+    copied = false;
+  } finally {
+    helper.remove();
+  }
+  return copied;
+}
+
+/**
+ * Display a non-blocking bottom-right confirmation toast (`#feedback-popup`) that slides in
+ * smoothly and auto-dismisses after 2800 ms (or immediately when dismissed manually).
+ *
+ * @param {string} title - Bold primary message (e.g. `"Copied to clipboard"`).
+ * @param {string} [detail=""] - Optional secondary detail line (e.g. filename or action label).
+ * @param {"success" | "info" | "warning"} [variant="success"] - Visual status accent variant.
+ */
+export function showFeedbackPopup(title, detail = "", variant = "success") {
+  const toast = document.getElementById("feedback-popup");
+  if (!toast) return;
+
+  if (feedbackHideTimer) {
+    clearTimeout(feedbackHideTimer);
+    feedbackHideTimer = null;
+  }
+  if (feedbackFadeTimer) {
+    clearTimeout(feedbackFadeTimer);
+    feedbackFadeTimer = null;
+  }
+
+  const iconChar = variant === "warning" ? "!" : variant === "info" ? "i" : "✓";
+  const badge = element("span", iconChar, "feedback-popup-icon");
+  badge.setAttribute("aria-hidden", "true");
+
+  const body = element("div", undefined, "feedback-popup-content");
+  body.append(mathElement("strong", title, "feedback-popup-title"));
+  if (detail) {
+    body.append(mathElement("span", detail, "feedback-popup-detail"));
+  }
+
+  const dismissBtn = element("button", "×", "feedback-popup-close");
+  dismissBtn.type = "button";
+  dismissBtn.setAttribute("aria-label", "Dismiss notification");
+  dismissBtn.addEventListener("click", () => {
+    if (feedbackHideTimer) {
+      clearTimeout(feedbackHideTimer);
+      feedbackHideTimer = null;
+    }
+    if (feedbackFadeTimer) {
+      clearTimeout(feedbackFadeTimer);
+      feedbackFadeTimer = null;
+    }
+    toast.classList.remove("is-visible", "is-closing");
+    toast.hidden = true;
+  });
+
+  toast.dataset.variant = variant;
+  toast.replaceChildren(badge, body, dismissBtn);
+  toast.classList.remove("is-closing");
+  toast.hidden = false;
+  toast.classList.add("is-visible");
+
+  feedbackHideTimer = setTimeout(() => {
+    feedbackHideTimer = null;
+    toast.classList.remove("is-visible");
+    toast.classList.add("is-closing");
+    feedbackFadeTimer = setTimeout(() => {
+      feedbackFadeTimer = null;
+      toast.classList.remove("is-closing");
+      toast.hidden = true;
+    }, 220);
+  }, 2800);
 }

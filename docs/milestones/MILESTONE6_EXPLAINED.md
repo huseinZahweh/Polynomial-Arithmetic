@@ -1,7 +1,7 @@
 # Milestone 6 Explained: Interactive Trace Redesign, Standalone Animated Lessons & Refinements
 
 > **Milestone Scope:** UI/UX Refinements, Zero-Horizontal-Scroll Trace Visualizer, Standalone Interactive & Animated `Lessons` Curriculum (`#lessons`), `Tutorial tour` Rename, `Plan/` API Schema Sync, and Extended Playwright E2E Verification  
-> **Primary Contributors:** Team (Lead UI Refinements, Interactive Lessons & E2E Testing: **Ali Zahreddine**)  
+> **Primary Contributor:** **Husein Zahweh**  
 > **Textbook Alignment:** William Stallings, *Cryptography and Network Security: Principles and Practice* (8th Ed.), Chapters 4, 5, 6 (XTS-AES), and 10 (Binary ECC); NIST FIPS 197 & FIPS 186-4
 
 ---
@@ -126,9 +126,40 @@ Wave 3 delivers eight holistic visual and interaction refinements across `fronte
 
 ---
 
-## 6. Verification & Playwright E2E Coverage
+## 6. Wave 4: Playback Boundaries, Instant `First changed bit` Jump, Toasts, Upload Modal & UI Polish
 
-Milestone 6 expands `tests/e2e/test_workbench_e2e.py` with five dedicated Milestone 6 end-to-end browser tests alongside updated core workflow assertions (bringing the total suite to **363 automated tests**: `269` engine + `79` API + `15` Playwright E2E):
+Wave 4 delivers five targeted usability refinements across `frontend/` and `data/tutorial_slides.json`:
+
+1. **Boundary Disabled States (`frontend/traces.js`, `frontend/lessons.js`, `frontend/lab.css`):** `syncPlaybackControls()` (and the Lessons stepper updater) disables `First step` and `Previous` on Step 0, `Next` and `Last step` on the final step, and all steppers + `Play animation` when `totalSteps <= 1` (`disabled = true`, `aria-disabled="true"`, `cursor: not-allowed`, and click/keyboard no-op guards).
+2. **Instant `First changed bit` / `First active step` Jump:** Implemented `findFirstChangedStep()` in `frontend/traces.js` (and `lesson-first-active` in `frontend/lessons.js`) so users working in large fields ($GF(2^{163})$ to $GF(2^{571})$) can jump in one click directly to the first nonzero bit iteration (`b_i = 1`, `added`, or overflow reduction) or active Euclid/Modulo update without waiting for sequential cascade hops, automatically disabling when already on that step.
+3. **Non-Blocking Copy & Export Confirmation Toasts (`#feedback-popup`):** Added `showFeedbackPopup()` and `copyToClipboard()` (with hidden `<textarea>` + `execCommand("copy")` fallback) in `frontend/notation.js`, displaying crisp bottom-right confirmation toasts (`Copied to clipboard`, `Exported successfully`, `File uploaded`) with 2800 ms auto-dismiss and manual close.
+4. **Upload Pop-Up Modal & Format Guide (`#upload-modal`):** Replaced the hidden OS picker trigger with a full modal featuring an interactive drag-and-drop zone, click-to-browse button, live `.txt` and `.json` schema examples matching `POST /api/parse-polynomials`, and one-click `Download sample .txt` / `Download sample .json` buttons.
+5. **Hero Badge Cleanup & Long Dash Removal:** Removed the redundant `1 ⊕ 1 = 0` line from the hero $GF(2^m)$ badge card and eliminated all Unicode em-dashes (`\u2014`) and en-dashes (`\u2013`) across `frontend/` and `data/tutorial_slides.json`.
+
+---
+
+## 7. Wave 5: Explicit $m(x)$ Reduction Math & Shift-and-XOR Step-Card Redesign
+
+Wave 5 makes polynomial overflow reduction and Shift-and-XOR partial-product accumulation self-explanatory for students across both small textbook fields ($m \le 16$) and large cryptographic fields ($m \in \{163 \dots 571\}$):
+
+1. **Explicit $m(x)$ Overflow Reduction Breakdown (`formatStepReductionBreakdown` in `frontend/traces.js`):**
+   - Applies Stallings' reduction identity $x^m \bmod m(x) = m(x) - x^m$ directly inside each Shift-and-XOR step card using client-side `BigInt` bitmasks:
+     - **Step $0$ ($i = 0$):** Displays `Initial term (x^0 · A(x)): {hex} (no shift yet)`.
+     - **No Overflow (`Reduced? = No`):** Shows the left shift (`<< 1`) and confirms no $x^m$ overflow occurred.
+     - **Overflow on Small Fields ($m \le 16$):** Renders a 3-line aligned monospace binary breakdown showing `(prev_val << 1)` ($m+1$ bits), `⊕ m(x)` ($m+1$ bits), and the reduced $m$-bit result alongside `{hex}` (e.g., `11100 ⊕ 11001 = 0101 ({5})` on Step 2 of $\{\text{E}\} \times \{\text{D}\}$ in $GF(2^4)$).
+     - **Overflow on Cryptographic Fields ($m > 16$, e.g. $163 \dots 571$):** Renders a compact zero-scroll 3-line breakdown dropping $x^m$ (`unreduced_shift & ((1 << m) - 1)`), displaying the lower $m(x)$ taps with `<sup>` exponents (`⊕ (x^7 + x^6 + x^3 + 1)` in $GF(2^{163})$), and showing the reduced `{hex}` result.
+   - **Auto-Expanded Initial Reduction ($\deg \ge m$):** Whenever an input operand has degree $\ge m$ (such as `11B` in $GF(2^8)$), `.initial-reduction-panel` (`<details open>`) opens automatically and prints each leading-term cancellation step `before ⊕ (m(x) · x^(d-m) = reducer) = after` with `appendMathText`.
+
+2. **Two-Block Shift-and-XOR Step-Card Redesign (`multiplyStepCard` in `frontend/traces.js`, `frontend/lab.css`):**
+   - **Stallings Brace Notation (`{E}`, `{A}`, `{5}`):** Wraps hexadecimal values in curly braces across step cards, `prev → now` deltas, and XOR equations (`{E} ⊕ {A} = {4}`) so hex digit `{A}` is never mistaken for `Operand A(x)`, while preserving plain raw strings in `<input>` fields, clipboard copies, share links, and downloads.
+   - **Two Logical Sub-Blocks & De-Cluttered Pills:** Groups **1. Shift & Reduce ($x^i \cdot A(x) \bmod m(x)$)** (`Shifted operand A`, `Reduced?`, and `.reduction-breakdown`) separately from **2. Check Bit $b_i$ & Update Running Sum** (`Bit of B`, `Running XOR`, and `.bit-equation`), with a single status pill per sub-block.
+   - **Live Running Formula Strip (`.mul-formula-strip`):** Displays the cumulative partial-product sum on $m \le 8$ (`Sum = [1]·{E} ⊕ [0]·{5} ⊕ [1]·{A} ⊕ [1]·{D} = {9}` with the active step highlighted) and a compact non-wrapping summary (`Included k of i+1 terms so far → Running XOR = {curr}`) on $m > 8$.
+
+---
+
+## 8. Verification & Playwright E2E Coverage
+
+Milestone 6 expands `tests/e2e/test_workbench_e2e.py` with seven dedicated Milestone 6 end-to-end browser tests alongside updated core workflow assertions (bringing the total suite to **365 automated tests**: `269` engine + `79` API + `17` Playwright E2E):
 
 1. `test_milestone6_zero_scroll_trace_modes_and_playback`:
    - Verifies `#tutorial-open` label (**`Tutorial tour`**), $GF(2^{163})$ Inverse Step view default, Step Inspector Square zero overflow, 5-button playback, `Full m-bit` / `Compact values` toggle, `All steps grid`, `Classic table`, and `Expand full view` modal across desktop (`1280x900`) and mobile (`390x840`).
@@ -140,3 +171,7 @@ Milestone 6 expands `tests/e2e/test_workbench_e2e.py` with five dedicated Milest
    - Verifies `"From Step k-1 → Step k"` diff summaries, persistent badges, `was:` deltas, and `Compare prev → curr` side-by-side slides in `#lessons`.
 5. `test_milestone6_wave3_layout_modulus_card_math_popup_maximize_cascade`:
    - Verifies gliding `.sliding-pill` indicators, read-only **Modulus $m(x)$** card on `modulo`/`inverse` + preserved `B(x)` restore, real `<sup>`/`<sub>` DOM elements, `#error-popup` (`Esc` & `OK`), non-empty `.step-knowledge-title` headings, auto-maximized `All steps grid` + `Exit maximized view`, sequential step cascade (`0 → 1 → 2 → 3`), zero console/page errors, and zero horizontal overflow on desktop and mobile (`390x840`).
+6. `test_milestone6_wave4_boundaries_first_changed_toasts_upload_modal_and_dashes`:
+   - Verifies Step 0 and final-step disabled boundary states (`disabled` + `aria-disabled`), instant `First changed bit` jump from Step 0 to Bit 20 in $GF(2^{163})$, `#feedback-popup` toasts on Copy and `.md` Export, `#upload-modal` format guide + upload confirmation, cleaned hero badge (`GF(2^m)` without `1 ⊕ 1 = 0`), zero `\u2014`/`\u2013` characters across `frontend/` and `data/tutorial_slides.json`, and zero horizontal overflow on desktop and mobile (`390x840`).
+7. `test_milestone6_wave5_explicit_reduction_and_clear_step_cards`:
+   - Verifies the $GF(2^4)$ $\{\text{E}\} \times \{\text{D}\} = \{9\}$ walkthrough (`11100`, `11001`, `0101`, `{5}` on Step 2; `{E} ⊕ {A} = {4}` on Step 3; `Sum = [1]·{E} ⊕ [0]·{5} ⊕ [1]·{A} ⊕ [1]·{D} = {9}` on Step 4), $GF(2^{163})$ sparse-tap overflow reduction (`x^7 + x^6 + x^3 + 1` with `<sup>` exponents) with zero horizontal overflow on desktop and mobile (`390x840`), and auto-expanded `Initial reduction` when $\deg \ge m$.
