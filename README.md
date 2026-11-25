@@ -27,7 +27,7 @@ You can also launch the ASGI server directly with Uvicorn:
 
 On macOS or Linux, use `.venv/bin/python` in place of `.\.venv\Scripts\python.exe`.
 
-Open [the web workbench](http://127.0.0.1:8000/workbench/) or [the interactive OpenAPI docs](http://127.0.0.1:8000/docs). The browser workbench and all **10 REST API endpoints** (6 core arithmetic/utility routes + 4 exploration routes) run from the same FastAPI process. You can also use the hosted deployment at [https://finite-field-lab.onrender.com](https://finite-field-lab.onrender.com).
+Open [the web workbench](http://127.0.0.1:8000/workbench/) or [the interactive OpenAPI docs](http://127.0.0.1:8000/docs). The browser workbench and all **12 REST API endpoints** (6 core arithmetic/utility routes + 6 exploration/application routes) run from the same FastAPI process. You can also use the hosted deployment at [https://finite-field-lab.onrender.com](https://finite-field-lab.onrender.com).
 
 ### Run Automated Tests & Benchmarks
 
@@ -49,11 +49,14 @@ Open [the web workbench](http://127.0.0.1:8000/workbench/) or [the interactive O
 
 Click **Tutorial tour** on any view for a context-aware spotlight walkthrough of that tab's controls and results. From the Calculator tour, **Field concepts** opens the 4-slide guided introduction to $GF(2^m)$ arithmetic.
 
-* **Calculator (`#calculator`):** Supports all 13 binary finite fields (default $GF(2^{163})$) in a full-width de-nested layout, dynamic read-only **Modulus $m(x)$** card on `Reduce` and `Inverse`, true `<sup>`/`<sub>` math typography, elevated pop-up error alerts, live **Hex / Binary / Polynomial** conversion with gliding selection indicators, an $m \le 8$ interactive coefficient bit-builder, Chapter 4 & 5 presets, sparse/dense random operands, `.txt`/`.json` batch upload (demo file at [data/demo-operands.json](./data/demo-operands.json)), live algebraic verification badges, Markdown/JSON export, Hex-compressed share links, large-field previews with **Show full value**, and zero-horizontal-scroll step visualizers (educational `.step-knowledge-title` headings, `Step view` Inspector Square, auto-maximized `All steps grid`, `Classic table`, `Compare prev → curr`, `Expand full view` modal, `Compact values` / `Full m-bit` toggle, sequential step cascade, 5-button playback bar, and step scrubber).
-* **Lessons (`#lessons`):** Standalone interactive & animated 7-lesson curriculum teaching $GF(2^m)$ polynomial representation, XOR addition/subtraction, modular reduction, Shift-and-XOR multiplication, Extended Euclidean Algorithm (Stallings Table 4.7), polynomial division, and cryptographic applications (AES, XTS-AES, Binary ECC) with 5-button animation controls, interactive sandboxes, self-check quizzes, and one-click **Open in Calculator** handoffs.
-* **Modulus Explorer (`#modulus`):** Tests irreducibility of any binary polynomial of degree $2 \le d \le 571$ using Frobenius GCD checkpoints and Berlekamp equal-degree splitting, showing two nonzero factor witnesses whose product leaves remainder zero when reducible.
-* **AES S-Box Walkthrough (`#aes`):** Traces any byte `00`–`FF` through Extended Euclid inversion in $GF(2^8)$ and each affine XOR row from [FIPS 197, §5.1.1](https://csrc.nist.gov/pubs/fips/197/final) (e.g., `53` $\rightarrow$ inverse `CA` $\rightarrow$ output `ED`; `00` $\rightarrow$ `63`).
-* **Compare Multiplication (`#compare`):** Runs Shift-and-XOR alongside carry-free multiplication + Euclidean long division on identical operands (with a one-click **Compare this product** transfer from the Calculator) plus a 31-trial untraced median benchmark at $m = 163$ and $m = 571$.
+* **Calculator (`#calculator`):** Supports all 13 binary finite fields (default $GF(2^{163})$) in a full-width de-nested layout, auto-uppercase Hex inputs, Unicode superscript Polynomial inputs (`x⁶ + x⁴ + 1` normalized seamlessly to ASCII `x^k`), non-numeric action placeholders, dynamic read-only **Modulus $m(x)$** card on `Reduce` and `Inverse`, true `<sup>`/`<sub>` math typography, modern top-center floating error alerts, untruncated full-value Results with wrapped/scrollable display, a clear **Compare multiplication methods** shortcut, an $m \le 8$ interactive coefficient bit-builder, Chapter 4 & 5 presets, sparse/dense random operands, `.txt`/`.json` batch upload modal (demo file at [data/demo-operands.json](./data/demo-operands.json)), live algebraic verification badges, Markdown/JSON export, Hex-compressed share links, and streamlined zero-scroll step visualizers (`Step view` default across all 13 fields with built-in side-by-side Previous → Current comparison from Step 1 onward, inline 4-step paginated `All steps grid` with `Show more`, `Classic table` with color highlight legend, automatic playback locking outside `Step view`, step-specific Extended Euclid `Q / T₁ / T₂ / T₃` and Shift-and-XOR `<< 1 / ⊕ m(x)` derivation popups, and a click-to-inspect **Full Value Inspector** popup on truncated large-field cells).
+* **Lessons (`#lessons`):** Clean, self-contained 7-lesson visual study guide teaching $GF(2^m)$ polynomial representation, modulo-2 XOR truth tables (`1.2` and `2.1`), subtraction self-inverses, modular reduction (`{2B79} mod {11B} = {C1}`), Shift-and-XOR multiplication, Extended Euclid (`POLY_DIVMOD` & Stallings Table 4.7), field division, and real-world cryptography (XTS-AES & Binary ECC), navigated cleanly via the top section bar and linear `Previous section` / `Next section` footer controls with interactive sandboxes and self-check quizzes.
+* **Modulus Explorer (`#modulus`):** Tests irreducibility of any binary polynomial of degree $2 \le d \le 571$ (with Unicode superscript Polynomial and auto-uppercase Hex input formatting) using Frobenius GCD checkpoints (`gcd(f, x^(2^i) + x) = 1` with plain-English explanation) and Berlekamp equal-degree splitting, showing two nonzero factor witnesses whose product leaves remainder zero when reducible.
+* **Applications (`#applications`):** Three gliding sub-tabs demonstrating real-world $GF(2^m)$ cryptography directly on our engine:
+  * **XTS-AES $GF(2^{128})$ Tweak Multiplier (Stallings Ch. 6 / IEEE 1619-2007):** Computes $T_j = T_0 \otimes \alpha^j \pmod{x^{128} + x^7 + x^2 + x + 1}$ with random 128-bit tweak generation, block-by-block stepping ($j \to j+1$), and clear overflow highlighting (`b₁₂₇ = 1 → x¹²⁸ overflow → XOR 0x87`).
+  * **Polynomial / Binary ECC ($E_{2^m}(a,b)$) Explorer (Stallings Ch. 10 / NIST FIPS 186-4 & SEC 2):** Supports both **Teaching Curve $GF(2^4)$** and official **NIST B-163 ($GF(2^{163})$)** using classroom Polynomial ECC slide notation (`P = (Xp, Yp)`, `Q = (Xq, Yq)`, `R = (Xr, Yr)`, slope `s`), tagged Point Doubling ($R = 2P$) and Point Addition ($R = P + Q$) steps (`÷ / EEA`, `× Shift-and-XOR`, `⊕ XOR`), automatic green **Verified on curve** badges, Full-Value Inspector popups on 163-bit coordinates, and a live **ECDH Key Exchange** ($K = n_A P_B = n_B P_A$).
+  * **GCM · GHASH ($GF(2^{128})$) Authenticator (Stallings Ch. 12 / NIST SP 800-38D):** Iteratively computes $Y_i = (Y_{i-1} \oplus X_i) \cdot H \pmod{x^{128} + x^7 + x^2 + x + 1}$ across $1$–$8$ 128-bit blocks using full 128-bit XOR and Shift-and-XOR multiplication, with clickable Full-Value Inspector popups and global `Share link` support.
+* **Compare Multiplication (`#compare`):** Runs Shift-and-XOR alongside carry-free multiplication + Euclidean long division on identical operands (with a one-click **Compare multiplication methods** transfer from the Calculator) plus a 31-trial untraced median benchmark at $m = 163$ and $m = 571$.
 
 ### Manual Walkthrough Checklist
 
@@ -78,6 +81,8 @@ $$
 m \in \{163, 233, 239, 283, 409, 571\}
 $$
 
+* **Chapter 12 (Authenticated Encryption — GCM / GHASH):** Universal polynomial hashing over $GF(2^{128})$ modulo $x^{128} + x^7 + x^2 + x + 1$ (NIST SP 800-38D).
+
 ---
 
 ## 4. Team Contributions
@@ -88,13 +93,13 @@ $$
 | **[Milestone 2](./docs/milestones/MILESTONE2_EXPLAINED.md)** | **Hassan Tarhini** | Shift-and-XOR Multiplication Engine with Tables 1 & 2 Traces (`multiply.py`), Core 6-Endpoint FastAPI Controller, Pydantic v2 Schemas, Service Dispatch & CORS (`backend/api/`) |
 | **[Milestone 3](./docs/milestones/MILESTONE3_EXPLAINED.md)** | **Husein Zahweh** | Carry-Free Multiply & Long Division (`poly_ops.py`), Table 4.7 Extended Euclid Inverse (`extended_euclid.py`), Two-Stage Division (`division.py`), Live Self-Verifiers (`verification.py`), Structured Exceptions (`exceptions.py`), Multi-Field Benchmarks (`benchmarks/benchmark_gf2m.py`) |
 | **[Milestones 4 & 5](./docs/milestones/MILESTONE4_5_EXPLAINED.md)** | **Ali Zahreddine** | Educational Web Workbench (`frontend/`), 4 Custom Trace Visualizers, Bit-Builder, Algebraic Parser (`ALGEBRAIC_TO_INT`), Guided Spotlight Tours, 3 Bonus Teaching Explorations (`explorations.py`, `exploration_routes.py`), Unified Integration & Playwright E2E Suite |
-| **[Milestone 6](./docs/milestones/MILESTONE6_EXPLAINED.md)** | **Husein Zahweh** | Zero-Horizontal-Scroll Trace Redesign & Visual Diffs (`Step view` Inspector Square, auto-maximized `All steps grid`, `Classic table`, `Compare prev → curr`, explicit $m(x)$ reduction math, two-block `{hex}` Shift-and-XOR cards with live formula strips, `First changed bit` jump, sequential step cascade), Standalone Animated `Lessons` Page (`lesson-data.js`, `lessons.js`), Full-Width Layout, Read-Only Modulus Card, True `<sup>`/`<sub>` Math, Upload Modal, Pop-Up Alerts/Toasts, Gliding Pills & Extended E2E Tests |
+| **[Milestone 6](./docs/milestones/MILESTONE6_EXPLAINED.md)** | **Husein Zahweh** | Comprehensive UX Simplification & Interactive Breakdown Popups (`Step view` default with built-in Previous → Current across all 13 fields, inline 4-step paginated `All steps grid`, `Classic table` color legend, playback locking outside `Step view`, step-specific EEA `Q / T₁ / T₂ / T₃` & Shift-and-XOR `<< 1 / ⊕ m(x)` derivation popups, Full-Value Inspector popup, top-center error alerts, auto-uppercase Hex & Unicode superscript Polynomial inputs), Self-Contained `Lessons` Study Guide with $\mathbb{Z}_2$ Truth Tables (`lesson-data.js`, `lessons.js`), **Applications** Tab (XTS-AES $GF(2^{128})$ & Binary ECC NIST B-163), Upload Modal, Toasts & Extended E2E Tests |
 
 ---
 
 ## 5. Documentation Hub
 
-* **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md):** System diagram, layer responsibilities, complete 10-endpoint REST API contract, and run/test instructions.
+* **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md):** System diagram, layer responsibilities, complete 12-endpoint REST API contract, and run/test instructions.
 * **[docs/CODE_EXPLAINED.md](./docs/CODE_EXPLAINED.md):** File-by-file, function-by-function technical guide across `backend/`, `frontend/`, `benchmarks/`, and `run.py`.
 * **Milestone Explanations:** [Milestone 1](./docs/milestones/MILESTONE1_EXPLAINED.md) · [Milestone 2](./docs/milestones/MILESTONE2_EXPLAINED.md) · [Milestone 3](./docs/milestones/MILESTONE3_EXPLAINED.md) · [Milestones 4 & 5](./docs/milestones/MILESTONE4_5_EXPLAINED.md) · [Milestone 6](./docs/milestones/MILESTONE6_EXPLAINED.md).
 * **Planning & Research:** [Project Plan](./Plan/README.md) · [Literature Review & Related Findings](./Related_Findings/related_findings_and_literature_review.md).
@@ -123,10 +128,10 @@ Polynomial-Arithmetic/
 │   │   ├── parser.py                 # Batch .txt/.json operand file parser
 │   │   ├── formatter.py              # .md/.json summary exporter & v1 share-token codec
 │   │   ├── tutorial.py               # Tutorial slide loader (reads data/tutorial_slides.json)
-│   │   └── explorations.py           # Irreducibility/Berlekamp, AES S-box, Mul comparison
+│   │   └── explorations.py           # Irreducibility/Berlekamp, XTS-AES GF(2^128), Binary ECC (B-163), Mul comparison
 │   └── api/                          # Unified FastAPI server & service layer
 │       ├── __init__.py
-│       ├── main.py                   # FastAPI entrypoint (6 core + 4 exploration routes + /workbench/)
+│       ├── main.py                   # FastAPI entrypoint (6 core + 5 exploration/application routes + /workbench/)
 │       ├── schemas.py                # Pydantic v2 request/response contracts
 │       ├── services.py               # Operation dispatcher, timing, verification, error mapping
 │       └── exploration_routes.py     # /api/explorations/* FastAPI router
@@ -146,7 +151,7 @@ Polynomial-Arithmetic/
 ├── benchmarks/
 │   ├── __init__.py
 │   └── benchmark_gf2m.py             # Multi-field EEA & division benchmark CLI
-├── tests/                            # Unified root pytest suite (365 tests)
+├── tests/                            # Unified root pytest suite (363 tests)
 │   ├── conftest.py
 │   ├── engine/                       # Pure-Python math, utilities, & exploration unit tests
 │   ├── api/                          # FastAPI endpoint, 8-row matrix, & exploration route tests
@@ -160,7 +165,7 @@ Polynomial-Arithmetic/
 │       ├── MILESTONE3_EXPLAINED.md
 │       ├── MILESTONE4_5_EXPLAINED.md
 │       └── MILESTONE6_EXPLAINED.md
-├── Guidelines/                       # Course project handout & lecture slides (Ch. 4 & 5)
+├── Guidelines/                       # Course project handout & lecture slides (Ch. 4, 5, 6, 10, & 12)
 ├── Plan/                             # Parallel milestone specifications & verification matrix
 ├── Related_Findings/                 # Literature review, standards, & tool comparisons
 ├── deliverables/                     # Project report PDF & demo video

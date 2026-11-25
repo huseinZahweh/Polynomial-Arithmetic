@@ -1,13 +1,14 @@
 /**
- * @fileoverview Client-side BigInt polynomial parsing, formatting, safe math typography (`<sup>`/`<sub>`),
- * gliding navigation indicator, and elevated pop-up error modal utilities.
+ * @fileoverview Client-side BigInt polynomial parsing, uniform ASCII `x^k` & auto-uppercase
+ * input formatting, safe math typography (`<sup>`/`<sub>`), gliding navigation indicator,
+ * top-center floating error alert, Full-Value Inspector popup, and step derivation popup.
  *
  * Original Author: Ali Zahreddine - Milestone 4, Integration & Milestone 6 (Waves 1-4).
  *
  * Uses JavaScript arbitrary-precision `BigInt` so live input validation, base
- * conversion, polynomial preview, and bit-builder toggling stay exact across all
- * supported degrees up to GF(2^571) (Stallings Chapter 4 polynomial basis,
- * Chapter 5 AES byte hex notation, Chapter 6 XTS-AES, and Chapter 10 binary ECC).
+ * conversion, polynomial preview, bit-builder toggling, and interactive step derivations
+ * stay exact across all supported degrees up to GF(2^571) (Stallings Chapter 4 polynomial
+ * basis, Chapter 6 XTS-AES, and Chapter 10 binary ECC).
  */
 
 /**
@@ -15,28 +16,123 @@
  * @type {Record<"hex" | "binary" | "algebraic", {label: string, field: string, example: string}>}
  */
 export const bases = {
-  hex: { label: "Hexadecimal", field: "hex", example: "57" },
-  binary: { label: "Binary", field: "bin", example: "01010111" },
-  algebraic: { label: "Polynomial", field: "poly", example: "x^6 + x^4 + 1" },
+  hex: { label: "Hexadecimal", field: "hex", example: "Enter hexadecimal value" },
+  binary: { label: "Binary", field: "bin", example: "Enter binary value" },
+  algebraic: { label: "Polynomial", field: "poly", example: "Enter polynomial" },
+};
+
+const DIGIT_TO_SUP = {
+  "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴",
+  "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹",
+};
+
+const SUP_TO_DIGIT = {
+  "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4",
+  "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9",
 };
 
 const UNICODE_SUP_MAP = {
-  "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4",
-  "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9",
-  "⁻": "−", "⁺": "+", "ⁱ": "i", "ᵐ": "m", "ⁿ": "n",
+  ...SUP_TO_DIGIT,
+  "⁻": "−", "⁺": "+", "ⁱ": "i", "ᵐ": "m", "ⁿ": "n", "ʲ": "j",
 };
 
 const UNICODE_SUB_MAP = {
   "₀": "0", "₁": "1", "₂": "2", "₃": "3", "₄": "4",
-  "₅": "5", "₆": "6", "₇": "7", "₈": "8", "₉": "9", "ᵢ": "i",
+  "₅": "5", "₆": "6", "₇": "7", "₈": "8", "₉": "9", "ᵢ": "i", "ⱼ": "j",
 };
+
+/**
+ * Convert an ASCII digit string (e.g. `"163"`) into Unicode superscript digits (`"¹⁶³"`).
+ *
+ * @param {string | number} digits - Non-negative integer or ASCII digit string.
+ * @returns {string} Unicode superscript string.
+ */
+export function toSuperscriptDigits(digits) {
+  return String(digits).replace(/[0-9]/g, ch => DIGIT_TO_SUP[ch] ?? ch);
+}
+
+/**
+ * Format a polynomial string for display inside `<input>` boxes using Unicode superscript
+ * exponents (e.g. `"x^6 + x^4 + 1"` -> `"x⁶ + x⁴ + 1"`), normalizing variable `X` to lowercase `x`
+ * and seamlessly promoting digits typed immediately after existing superscript digits.
+ *
+ * @param {string} text - Raw or partially formatted polynomial text.
+ * @returns {string} Display string with raised Unicode exponents.
+ */
+export function formatPolyWithSuperscripts(text) {
+  let out = String(text ?? "").replace(/X/g, "x");
+  out = out.replace(/x\s*\^\s*([0-9]+)/g, (_, digits) => "x" + toSuperscriptDigits(digits));
+  // Promote digits typed directly after superscript digits (e.g. typing "x^163" one key at a time).
+  out = out.replace(/([⁰¹²³⁴⁵⁶⁷⁸⁹]+)([0-9]+)/g, (_, sups, digits) => sups + toSuperscriptDigits(digits));
+  return out;
+}
+
+/**
+ * Normalize a polynomial string containing Unicode superscripts (e.g. `"x⁶ + x⁴ + 1"`)
+ * back into plain ASCII `x^k` notation (`"x^6 + x^4 + 1"`) for parsing, API requests,
+ * exports, and share links.
+ *
+ * @param {string} text - Polynomial input text (ASCII `^` or Unicode superscripts).
+ * @returns {string} Plain ASCII polynomial text with lowercase `x` and `^` exponents.
+ */
+export function normalizeAlgebraicInput(text) {
+  let out = String(text ?? "").replace(/X/g, "x");
+  out = out.replace(/x\s*([⁰¹²³⁴⁵⁶⁷⁸⁹]+)/g, (_, sups) => {
+    const digits = Array.from(sups, ch => SUP_TO_DIGIT[ch] ?? ch).join("");
+    return "x^" + digits;
+  });
+  out = out.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]/g, ch => SUP_TO_DIGIT[ch] ?? ch);
+  return out;
+}
+
+/**
+ * Apply live notation-aware formatting to a text `<input>` element while preserving caret position:
+ *   - `"hex"`: auto-uppercases typed or pasted hex letters (`a-f` -> `A-F`).
+ *   - `"algebraic"`: keeps variable `x` lowercase and normalizes pasted Unicode superscripts (`x¹³⁸`)
+ *     into uniform non-wavy ASCII caret notation (`x^138`).
+ *
+ * @param {HTMLInputElement | null} inputEl - Target text input element.
+ * @param {"hex" | "binary" | "algebraic"} mode - Active notation mode.
+ */
+export function applyInputFormatting(inputEl, mode) {
+  if (!inputEl) return;
+  inputEl.classList.remove("is-algebraic-input");
+  const raw = inputEl.value;
+  let formatted = raw;
+  if (mode === "hex") {
+    formatted = raw.replace(/[a-f]/g, ch => ch.toUpperCase());
+  } else if (mode === "algebraic") {
+    formatted = normalizeAlgebraicInput(raw);
+  }
+  if (formatted === raw) return;
+
+  const isFocused = document.activeElement === inputEl;
+  const selStart = inputEl.selectionStart;
+  const selEnd = inputEl.selectionEnd;
+  inputEl.value = formatted;
+
+  if (isFocused && selStart !== null && selEnd !== null) {
+    try {
+      if (mode === "algebraic") {
+        const nextStart = normalizeAlgebraicInput(raw.slice(0, selStart)).length;
+        const nextEnd = normalizeAlgebraicInput(raw.slice(0, selEnd)).length;
+        inputEl.setSelectionRange(nextStart, nextEnd);
+      } else {
+        inputEl.setSelectionRange(selStart, selEnd);
+      }
+    } catch {
+      /* Ignore selection errors on unsupported input types. */
+    }
+  }
+}
 
 /**
  * Parse a user-entered polynomial string in hex, binary, or algebraic notation into a BigInt.
  *
  * Mirrors the server's strict validation rules (`backend.engine.polyrepr.parse_value`):
- * strips matching `{...}` braces (Stallings Ch. 5 notation) and optional `0x`/`0b` prefixes,
- * cancels duplicate algebraic monomials modulo 2 via XOR, and enforces the 4096-bit cap.
+ * normalizes Unicode superscripts to ASCII `x^k`, strips matching `{...}` braces and optional
+ * `0x`/`0b` prefixes, cancels duplicate algebraic monomials modulo 2 via XOR, and enforces
+ * the 4096-bit cap.
  *
  * Complexity: O(n) time and space in input length `n`.
  *
@@ -47,8 +143,9 @@ const UNICODE_SUB_MAP = {
  */
 export function parseOperand(text, base) {
   if (base === "algebraic") {
+    const normalized = normalizeAlgebraicInput(text);
     let value = 0n;
-    for (const raw of text.toLowerCase().split("+")) {
+    for (const raw of normalized.toLowerCase().split("+")) {
       const term = raw.trim();
       if (term === "0") continue;
       const match = /^x\s*\^\s*([0-9]{1,4})$/.exec(term);
@@ -88,8 +185,6 @@ export function degreeOf(value) {
 /**
  * Strip leading zeros from a hex or binary string while preserving a single `"0"`.
  *
- * Used for compact large-field result previews and concise step equations.
- *
  * @param {string} text - Zero-padded hex or binary representation.
  * @returns {string} Compact digit string without leading padding zeros.
  */
@@ -98,7 +193,7 @@ export function significantDigits(text) {
 }
 
 /**
- * Render a BigInt polynomial bitmask in descending algebraic notation (e.g. `"x^6 + x^4 + 1"`).
+ * Render a BigInt polynomial bitmask in descending ASCII algebraic notation (e.g. `"x^6 + x^4 + 1"`).
  *
  * Complexity: O(m) time and space in bit length `m`.
  *
@@ -116,19 +211,19 @@ export function polynomial(value) {
 }
 
 /**
- * Format a BigInt bitmask in hex, binary, or algebraic notation padded to field degree `m`.
+ * Format a BigInt bitmask for `<input>` boxes in hex, binary, or clean ASCII `x^k` polynomial notation.
  *
  * Complexity: O(max(m, bit_length)) time and space.
  *
  * @param {bigint} value - Non-negative polynomial bitmask.
  * @param {"hex" | "binary" | "algebraic"} base - Target display notation.
- * @param {number} m - Extension field degree used for zero-padding hex (`ceil(m/4)`) or binary (`m`).
+ * @param {number} m - Extension field degree used for binary zero-padding (`m` bits); hex omits leading zeros.
  * @returns {string} Formatted operand string.
  */
 export function formatOperand(value, base, m) {
   if (base === "algebraic") return polynomial(value);
   if (base === "binary") return value.toString(2).padStart(m, "0");
-  return value.toString(16).toUpperCase().padStart(Math.ceil(m / 4), "0");
+  return value.toString(16).toUpperCase();
 }
 
 /**
@@ -151,10 +246,11 @@ export function element(tag, text, className) {
 /**
  * Tokenize a single mathematical expression string into safe DOM text, `<sup>`, and `<sub>` nodes.
  *
- * Converts ASCII and Unicode exponents (`x^4`, `2^163`, `x^-1`, `x^(2^i)`, `GF(2^m)`, `⁸`, `⁻¹`)
- * into real `<sup>` nodes, and converts braced/underscored subscripts (`b_{m-1}`, `Z_2`, `b_i`) plus
- * standalone variable indices (`A1`-`A3`, `B1`-`B3`, `T1`-`T3`, `b0`-`b7`, `a0`-`a7`, `₀`-`₉`)
- * into real `<sub>` nodes without corrupting braced or multi-digit hexadecimal constants.
+ * Converts ASCII and Unicode exponents (`x^4`, `2^163`, `x^-1`, `x^(2^i)`, `α^j`, `GF(2^m)`, `⁸`, `⁻¹`)
+ * into real `<sup>` nodes, and converts braced/underscored subscripts (`b_{m-1}`, `Z_2`, `b_1x`,
+ * `b_i`, `P_A`, `T_j`) plus standalone variable indices (`A1`-`A3`, `B1`-`B3`, `T1`-`T3`, `b0`-`b7`,
+ * `a0`-`a7`, `₀`-`₉`) into real `<sub>` nodes without corrupting adjacent variables (so `b_1x` renders
+ * cleanly as `b<sub>1</sub>x`) or multi-digit hexadecimal constants.
  *
  * Never uses `innerHTML`; strictly constructs nodes with `document.createTextNode` and
  * `document.createElement("sup" | "sub")`.
@@ -167,17 +263,19 @@ export function mathFragment(rawText) {
   const str = String(rawText ?? "");
   if (!str) return frag;
 
-  // Ordered pattern matching parenthesized/braced/simple exponents, unicode scripts, subscripts, and variable indices.
+  // Ordered pattern matching combined sub+sup, parenthesized/braced/simple exponents, unicode scripts, subscripts, and variable indices.
   const tokenRegex = new RegExp([
-    "([A-Za-z0-9)\\]}])\\^\\(([^)]+)\\)",
+    "([A-Za-z])_([A-Za-z0-9]+)\\^(-?\\d+|[imdnkpj])(?![A-Za-z0-9_])",
+    "([A-Za-z0-9)\\]}α])\\^\\(([^)]+)\\)",
     "\\^\\{([^}]+)\\}",
-    "([A-Za-z0-9)\\]}])\\^(-?\\d+|[imdnkp])(?![A-Za-z0-9_])",
-    "([⁻⁺⁰¹²³⁴⁵⁶⁷⁸⁹ⁱᵐⁿ]+)",
+    "([A-Za-z0-9)\\]}α])\\^(-?\\d+|[imdnkpj])(?![A-Za-z0-9_])",
+    "([⁻⁺⁰¹²³⁴⁵⁶⁷⁸⁹ⁱᵐⁿʲ]+)",
     "([A-Za-z])_\\{([^}]+)\\}",
-    "([A-Za-z])_([A-Za-z0-9]+)",
+    "([A-Za-z])_(\\d+)",
+    "([A-Za-z])_([A-Za-z])(?![A-Za-z0-9_])",
     "(?<![A-Za-z0-9_{])([ABT])([123])(?![A-Za-z0-9_}])",
     "(?<![A-Za-z0-9_{])([ab])([0-7])(?![A-Za-z0-9_}])",
-    "([₀₁₂₃₄₅₆₇₈₉ᵢ]+)",
+    "([₀₁₂₃₄₅₆₇₈₉ᵢⱼ]+)",
   ].join("|"), "g");
 
   let lastIndex = 0;
@@ -187,55 +285,69 @@ export function mathFragment(rawText) {
       frag.append(document.createTextNode(str.slice(lastIndex, match.index)));
     }
     if (match[1] !== undefined) {
-      // Base + parenthesized exponent e.g. x^(2^i) or x^(d-m)
+      // Combined subscript + exponent e.g. X_p^2, X_p^-1, x_1^2
       frag.append(document.createTextNode(match[1]));
+      const sub = document.createElement("sub");
+      sub.textContent = match[2];
       const sup = document.createElement("sup");
-      sup.append(mathFragment(match[2].replace(/^-|(?<= )-|\s-(?=[A-Za-z0-9])/g, "−")));
-      frag.append(sup);
-    } else if (match[3] !== undefined) {
-      // Braced exponent e.g. x^{-1} or x^{d-m}
-      const sup = document.createElement("sup");
-      sup.append(mathFragment(match[3].replace(/^-/, "−")));
-      frag.append(sup);
+      sup.textContent = match[3].replace(/^-/, "−");
+      frag.append(sub, sup);
     } else if (match[4] !== undefined) {
-      // Simple exponent e.g. 2^163, x^4, x^-1, {95}^-1
+      // Base + parenthesized exponent e.g. x^(2^i) or x^(d-m)
       frag.append(document.createTextNode(match[4]));
       const sup = document.createElement("sup");
-      sup.textContent = match[5].replace(/^-/, "−");
+      sup.append(mathFragment(match[5].replace(/^-|(?<= )-|\s-(?=[A-Za-z0-9])/g, "−")));
       frag.append(sup);
     } else if (match[6] !== undefined) {
-      // Unicode superscripts e.g. ⁻¹, ⁸, ⁱ, ᵐ
+      // Braced exponent e.g. x^{-1} or x^{d-m}
       const sup = document.createElement("sup");
-      sup.textContent = Array.from(match[6], ch => UNICODE_SUP_MAP[ch] ?? ch).join("");
+      sup.append(mathFragment(match[6].replace(/^-/, "−")));
       frag.append(sup);
     } else if (match[7] !== undefined) {
-      // Braced subscript e.g. b_{m-1} or E_{2^m}
+      // Simple exponent e.g. 2^163, x^4, x^-1, {95}^-1, α^j
       frag.append(document.createTextNode(match[7]));
-      const sub = document.createElement("sub");
-      sub.append(mathFragment(match[8]));
-      frag.append(sub);
+      const sup = document.createElement("sup");
+      sup.textContent = match[8].replace(/^-/, "−");
+      frag.append(sup);
     } else if (match[9] !== undefined) {
-      // Underscored subscript e.g. Z_2, B_i
-      frag.append(document.createTextNode(match[9]));
+      // Unicode superscripts e.g. ⁻¹, ⁸, ⁱ, ᵐ
+      const sup = document.createElement("sup");
+      sup.textContent = Array.from(match[9], ch => UNICODE_SUP_MAP[ch] ?? ch).join("");
+      frag.append(sup);
+    } else if (match[10] !== undefined) {
+      // Braced subscript e.g. b_{m-1} or E_{2^m}
+      frag.append(document.createTextNode(match[10]));
       const sub = document.createElement("sub");
-      sub.textContent = match[10];
+      sub.append(mathFragment(match[11]));
       frag.append(sub);
-    } else if (match[11] !== undefined) {
+    } else if (match[12] !== undefined) {
+      // Numeric underscored subscript e.g. b_1x -> b<sub>1</sub>x, Z_2, b_127, T_0
+      frag.append(document.createTextNode(match[12]));
+      const sub = document.createElement("sub");
+      sub.textContent = match[13];
+      frag.append(sub);
+    } else if (match[14] !== undefined) {
+      // Single-letter underscored subscript e.g. b_i, T_j, P_A, n_B, G_x
+      frag.append(document.createTextNode(match[14]));
+      const sub = document.createElement("sub");
+      sub.textContent = match[15];
+      frag.append(sub);
+    } else if (match[16] !== undefined) {
       // Extended Euclid variables A1..A3, B1..B3, T1..T3
-      frag.append(document.createTextNode(match[11]));
+      frag.append(document.createTextNode(match[16]));
       const sub = document.createElement("sub");
-      sub.textContent = match[12];
+      sub.textContent = match[17];
       frag.append(sub);
-    } else if (match[13] !== undefined) {
+    } else if (match[18] !== undefined) {
       // Bit indices b0..b7, a0..a7
-      frag.append(document.createTextNode(match[13]));
+      frag.append(document.createTextNode(match[18]));
       const sub = document.createElement("sub");
-      sub.textContent = match[14];
+      sub.textContent = match[19];
       frag.append(sub);
-    } else if (match[15] !== undefined) {
+    } else if (match[20] !== undefined) {
       // Unicode subscripts e.g. ₀..₉, ᵢ
       const sub = document.createElement("sub");
-      sub.textContent = Array.from(match[15], ch => UNICODE_SUB_MAP[ch] ?? ch).join("");
+      sub.textContent = Array.from(match[20], ch => UNICODE_SUB_MAP[ch] ?? ch).join("");
       frag.append(sub);
     }
     lastIndex = tokenRegex.lastIndex;
@@ -347,9 +459,20 @@ export function attachSlidingIndicator(container, activeSelector) {
 
   if (typeof ResizeObserver === "function" && !container.dataset.pillObserved) {
     container.dataset.pillObserved = "true";
-    const observer = new ResizeObserver(() => snapGeometry());
+    let lastViewportWidth = window.innerWidth;
+    const observer = new ResizeObserver(() => {
+      if (window.innerWidth !== lastViewportWidth) {
+        lastViewportWidth = window.innerWidth;
+        snapGeometry();
+      } else {
+        syncGeometry();
+      }
+    });
     observer.observe(container);
-    window.addEventListener("resize", snapGeometry);
+    window.addEventListener("resize", () => {
+      lastViewportWidth = window.innerWidth;
+      snapGeometry();
+    });
   }
 
   update();
@@ -357,26 +480,35 @@ export function attachSlidingIndicator(container, activeSelector) {
 }
 
 /**
- * Display any validation, file-upload, exploration, or mathematical error in a prominent
- * top-level `<dialog id="error-popup">` overlay with `<sup>`/`<sub>` typography and optional trace jump.
+ * Display any validation, file-upload, exploration, or mathematical error in the sleek
+ * top-center floating alert card (`#error-popup`) without obscuring operand inputs underneath.
  *
- * @param {{title?: string, message: string, onViewTrace?: () => void}} options - Popup display config.
+ * Supports `<sup>`/`<sub>` typography, top-right `×` close button, optional trace jump,
+ * and `Escape` dismissal.
+ *
+ * @param {{title?: string, message: string, onViewTrace?: () => void}} options - Alert display config.
  */
 export function showErrorPopup({ title = "Error", message, onViewTrace } = {}) {
-  const dialog = document.getElementById("error-popup");
+  const alertBox = document.getElementById("error-popup");
   const titleEl = document.getElementById("error-popup-title");
   const bodyEl = document.getElementById("error-popup-body");
   const traceBtn = document.getElementById("error-popup-trace");
   const okBtn = document.getElementById("error-popup-ok");
-  if (!dialog || !titleEl || !bodyEl || !okBtn) return;
+  const closeBtn = document.getElementById("error-popup-close");
+  if (!alertBox || !titleEl || !bodyEl || !okBtn) return;
 
-  if (!dialog.dataset.bound) {
-    dialog.dataset.bound = "true";
-    okBtn.addEventListener("click", () => dialog.close());
-    dialog.addEventListener("click", event => {
-      if (event.target === dialog) dialog.close();
+  if (!alertBox.dataset.bound) {
+    alertBox.dataset.bound = "true";
+    okBtn.addEventListener("click", () => closeErrorPopup());
+    closeBtn?.addEventListener("click", () => closeErrorPopup());
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && !alertBox.hidden) {
+        const activeDialog = document.querySelector("dialog[open]");
+        if (activeDialog) return;
+        event.preventDefault();
+        closeErrorPopup();
+      }
     });
-    dialog.addEventListener("cancel", () => dialog.close());
   }
 
   setMathText(titleEl, title);
@@ -386,7 +518,7 @@ export function showErrorPopup({ title = "Error", message, onViewTrace } = {}) {
     if (typeof onViewTrace === "function") {
       traceBtn.hidden = false;
       traceBtn.onclick = () => {
-        dialog.close();
+        closeErrorPopup();
         onViewTrace();
       };
     } else {
@@ -395,16 +527,22 @@ export function showErrorPopup({ title = "Error", message, onViewTrace } = {}) {
     }
   }
 
-  if (!dialog.open) dialog.showModal();
-  okBtn.focus({ preventScroll: true });
+  alertBox.hidden = false;
+  alertBox.classList.remove("is-entering");
+  // Trigger slide-down entrance animation cleanly on repeated errors.
+  alertBox.getBoundingClientRect();
+  alertBox.classList.add("is-entering");
 }
 
 /**
- * Programmatically dismiss the pop-up error modal if currently open.
+ * Programmatically dismiss the top-center error alert card if currently visible.
  */
 export function closeErrorPopup() {
-  const dialog = document.getElementById("error-popup");
-  if (dialog?.open) dialog.close();
+  const alertBox = document.getElementById("error-popup");
+  if (alertBox && !alertBox.hidden) {
+    alertBox.hidden = true;
+    alertBox.classList.remove("is-entering");
+  }
 }
 
 let feedbackHideTimer = null;
@@ -512,4 +650,159 @@ export function showFeedbackPopup(title, detail = "", variant = "success") {
       toast.hidden = true;
     }, 220);
   }, 2800);
+}
+
+/**
+ * Bind backdrop-click and close-button handlers once on a `<dialog>` popup.
+ *
+ * @param {HTMLDialogElement} dialog - Target modal dialog element.
+ * @param {string} closeId - Primary close button ID.
+ * @param {string} [secondaryCloseId] - Optional top-right `×` close button ID.
+ */
+function bindDialogClose(dialog, closeId, secondaryCloseId) {
+  if (dialog.dataset.bound) return;
+  dialog.dataset.bound = "true";
+  document.getElementById(closeId)?.addEventListener("click", () => dialog.close());
+  if (secondaryCloseId) {
+    document.getElementById(secondaryCloseId)?.addEventListener("click", () => dialog.close());
+  }
+  dialog.addEventListener("click", event => {
+    if (event.target === dialog) dialog.close();
+  });
+}
+
+/**
+ * Open the Full-Value Inspector modal (`#inspector-popup`) showing the complete untruncated
+ * Hexadecimal, Binary, and Polynomial (`<sup>`) representations of a large `GF(2^m)` element,
+ * with per-format Copy buttons and toast confirmation.
+ *
+ * @param {{title?: string, valueBigInt: bigint, mDegree?: number, subtitle?: string}} options - Value details.
+ */
+export function showInspectorPopup({ title = "Full value", valueBigInt, mDegree = 8, subtitle = "" }) {
+  const dialog = document.getElementById("inspector-popup");
+  const titleEl = document.getElementById("inspector-popup-title");
+  const metaEl = document.getElementById("inspector-popup-meta");
+  const bodyEl = document.getElementById("inspector-popup-body");
+  if (!dialog || !titleEl || !bodyEl) return;
+
+  bindDialogClose(dialog, "inspector-popup-close-btn", "inspector-popup-close");
+
+  const hexStr = valueBigInt.toString(16).toUpperCase();
+  const rawBin = valueBigInt.toString(2);
+  const binStr = rawBin.padStart(Math.max(1, mDegree), "0");
+  const polyStr = polynomial(valueBigInt);
+  const deg = degreeOf(valueBigInt);
+  const bitLen = valueBigInt === 0n ? 0 : rawBin.length;
+
+  setMathText(titleEl, title);
+  if (metaEl) {
+    const metaParts = [];
+    if (subtitle) metaParts.push(subtitle);
+    metaParts.push(bitLen + " significant bits · " + (deg < 0 ? "zero polynomial" : "degree " + deg));
+    setMathText(metaEl, metaParts.join(" · "));
+  }
+
+  bodyEl.replaceChildren();
+  const rows = [
+    { label: "Hexadecimal", text: hexStr, isMath: false },
+    { label: "Binary (" + binStr.length + " bits)", text: binStr, isMath: false },
+    { label: "Polynomial", text: polyStr, isMath: true },
+  ];
+
+  for (const row of rows) {
+    const block = element("section", undefined, "inspector-format-block");
+    const head = element("div", undefined, "inspector-format-head");
+    head.append(element("h3", row.label));
+    const copyBtn = element("button", "Copy", "outline inspector-copy-btn");
+    copyBtn.type = "button";
+    copyBtn.setAttribute("aria-label", "Copy " + row.label);
+    copyBtn.addEventListener("click", async () => {
+      const copied = await copyToClipboard(row.text);
+      if (copied) {
+        showFeedbackPopup("Copied to clipboard", row.label + " copied");
+      }
+    });
+    head.append(copyBtn);
+
+    const valBox = element("div", undefined, "inspector-value-box");
+    if (row.isMath) setMathText(valBox, row.text);
+    else valBox.textContent = row.text;
+
+    block.append(head, valBox);
+    bodyEl.append(block);
+  }
+
+  if (!dialog.open) dialog.showModal();
+  document.getElementById("inspector-popup-close-btn")?.focus({ preventScroll: true });
+}
+
+/**
+ * Open the Step Derivation modal (`#derivation-popup`) showing a step-specific mathematical
+ * breakdown for Extended Euclid (`Q`, `T1`, `T2`, `T3`) or Shift-and-XOR (`<< 1` / `⊕ m(x)`).
+ *
+ * @param {{
+ *   title: string,
+ *   subtitle?: string,
+ *   formula?: string,
+ *   steps?: Array<{heading: string, lines: string[], badge?: string, tone?: string}>,
+ *   result?: {label: string, value: string, detail?: string, isMath?: boolean} | null
+ * }} config - Structured derivation payload.
+ */
+export function showDerivationPopup({ title, subtitle = "", formula = "", steps = [], result = null }) {
+  const dialog = document.getElementById("derivation-popup");
+  const titleEl = document.getElementById("derivation-popup-title");
+  const subEl = document.getElementById("derivation-popup-subtitle");
+  const bodyEl = document.getElementById("derivation-popup-body");
+  if (!dialog || !titleEl || !bodyEl) return;
+
+  bindDialogClose(dialog, "derivation-popup-close-btn", "derivation-popup-close");
+
+  setMathText(titleEl, title);
+  if (subEl) {
+    setMathText(subEl, subtitle);
+    subEl.hidden = !subtitle;
+  }
+
+  bodyEl.replaceChildren();
+  if (formula) {
+    bodyEl.append(mathElement("code", formula, "derivation-formula-banner"));
+  }
+
+  if (steps.length) {
+    const list = element("div", undefined, "derivation-steps-list");
+    for (const item of steps) {
+      const card = element("section", undefined, "derivation-step-item" + (item.tone ? " " + item.tone : ""));
+      const head = element("div", undefined, "derivation-step-head");
+      head.append(mathElement("h3", item.heading));
+      if (item.badge) {
+        head.append(mathElement("span", item.badge, "diff-tag" + (item.tone ? " " + item.tone : "")));
+      }
+      card.append(head);
+      const linesBox = element("div", undefined, "derivation-step-lines");
+      for (const line of item.lines || []) {
+        const lineNode = element("div", undefined, "derivation-line");
+        appendMathText(lineNode, line);
+        linesBox.append(lineNode);
+      }
+      card.append(linesBox);
+      list.append(card);
+    }
+    bodyEl.append(list);
+  }
+
+  if (result) {
+    const resBox = element("section", undefined, "derivation-result-box");
+    resBox.append(mathElement("span", result.label, "derivation-result-label"));
+    const valEl = result.isMath
+      ? mathElement("div", result.value, "derivation-result-val")
+      : element("div", result.value, "derivation-result-val");
+    resBox.append(valEl);
+    if (result.detail) {
+      resBox.append(mathElement("p", result.detail, "derivation-result-detail"));
+    }
+    bodyEl.append(resBox);
+  }
+
+  if (!dialog.open) dialog.showModal();
+  document.getElementById("derivation-popup-close-btn")?.focus({ preventScroll: true });
 }

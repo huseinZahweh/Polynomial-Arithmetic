@@ -20,7 +20,7 @@ Design and build a polished, single-view Educational Web Graphical User Interfac
 3. **Input / Output Format Toggle:**
    * Segmented switch between **Hex**, **Binary**, and **Polynomial** (`algebraic`) with automatic live `BigInt` conversion of existing inputs when toggling bases.
 4. **"Tutorial tour" & "Field concepts" Controls:**
-   * Clicking **"Tutorial tour"** opens the context-aware spotlight walkthrough (`frontend/tour.js`) highlighting controls and results on the active view (`Calculator`, `Lessons`, `Modulus explorer`, `AES S-box`, `Compare multiplication`); clicking **"Field concepts"** opens the 4-slide educational dialog fetched from `GET /api/tutorial` (`data/tutorial_slides.json`).
+   * Clicking **"Tutorial tour"** opens the context-aware spotlight walkthrough (`frontend/tour.js`) highlighting controls and results on the active view (`Calculator`, `Lessons`, `Modulus explorer`, `Applications`, `Compare multiplication`); clicking **"Field concepts"** opens the 4-slide educational dialog fetched from `GET /api/tutorial` (`data/tutorial_slides.json`).
 5. **"Copy calculation link" Button (URL Snapshot Rule):**
    * Copies a shareable URL encoding `(m, operation, base, poly_a, poly_b)` in query parameters and restores full GUI state on load.
    * **Hexadecimal URL Compression Rule:** Always encodes `poly_a` and `poly_b` in **Hexadecimal** inside URL query parameters (even when `base=binary`) so $571$-bit links remain compact, converting back to Binary on page load when `base=binary` is specified.
@@ -41,7 +41,7 @@ Design and build a polished, single-view Educational Web Graphical User Interfac
 4. **Primary Result Display Card:**
    * Displays the result in the selected primary base (**Hexadecimal**, **Binary**, or **Polynomial**) and secondary bases with one-click `Copy result` and `Export (.md/.json)` buttons calling `POST /api/export-calculation` (`{ "calculation", "format", "download": true }`).
    * Displays a green **"Mathematically verified"** badge (for Inverse/Division) and **Performance Metrics Badges** (`elapsed_ms`, `result_bit_length`, `result_hamming_weight`).
-5. **Four Custom Educational Trace Visualizers (Upgraded in Milestone 6 with Zero-Horizontal-Scroll `Step view`, `All steps grid`, `Classic table`, and `Expand full view`):**
+5. **Four Custom Educational Trace Visualizers (Upgraded in Milestone 6 with `Step view`-default Previous → Current comparison, inline 4-step paginated `All steps grid`, `Classic table` color legend, and on-demand breakdown & full-value popups):**
    * **Addition / Subtraction View:** Bit-aligned bitwise $\text{XOR}$ rows showing modulo-$2$ cancellation.
    * **Modulo Reduction View:** Each iterative shift $x^{d-m} \cdot m(x)$ and $\text{XOR}$ step until $\deg(r) < m$.
    * **Multiplication (Shift-and-XOR) View:** Table 1 showing shifted powers $x^i \cdot f(x) \bmod m(x)$ (highlighting $b_{m-1} = 1$ overflow reductions); Table 2 showing selected partial products and cumulative $\text{XOR}$.

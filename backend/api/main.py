@@ -1,10 +1,11 @@
-"""Unified FastAPI application hosting all 10 API endpoints and the web workbench.
+"""Unified FastAPI application hosting all 11 API endpoints and the web workbench.
 
 Original Authors
 ----------------
 * Hassan Tarhini — Milestone 2 (Core 6-endpoint FastAPI backend & CORS setup).
 * Ali Zahreddine — Milestone 4 & Integration (Exploration router mount and
   ``/workbench/`` static frontend hosting).
+* Husein Zahweh — Milestone 6 (Applications: XTS-AES & Binary ECC routes).
 
 Endpoints Served
 ----------------
@@ -16,9 +17,10 @@ Core REST API (6 endpoints):
     POST /api/export-calculation   Render downloadable .md or .json summary reports
     GET  /api/tutorial             Serve the 4-slide tutorial and Ch. 4/5 presets
 
-Teaching Explorations (4 endpoints via :mod:`backend.api.exploration_routes`):
+Teaching Explorations & Applications (5 endpoints via :mod:`backend.api.exploration_routes`):
     POST /api/explorations/modulus
-    POST /api/explorations/aes-sbox
+    POST /api/explorations/xts-tweak
+    POST /api/explorations/binary-ecc
     POST /api/explorations/compare-multiplication
     GET  /api/explorations/multiplication-benchmarks
 

@@ -2,11 +2,11 @@
   Finite Field Lab - Educational Web Workbench (EECE 455 Project-3)
   Original Author: Ali Zahreddine - Milestone 4, Integration & Milestone 6 (Waves 1-4)
   Serves five hash-routed full-width views from a single accessible HTML document:
-    1. #calculator - 13-field GF(2^m) calculator, read-only Modulus card on unary ops, bit builder, presets, zero-scroll traces, upload modal, feedback toasts, export & share links
-    2. #lessons    - Standalone interactive & animated lessons on GF(2^m) arithmetic and number theory
-    3. #modulus    - Binary polynomial irreducibility checker & factor witness lab
-    4. #aes        - FIPS 197 §5.1.1 / Stallings Ch. 5 AES S-box walkthrough
-    5. #compare    - Shift-and-XOR vs. carry-free + long-division comparison & 163/571-bit benchmark
+    1. #calculator   - 13-field GF(2^m) calculator, read-only Modulus card on unary ops, bit builder, presets, step traces with breakdown & full-value popups, upload modal, toasts, export & share links
+    2. #lessons      - Self-contained 7-lesson GF(2^m) visual study guide with truth tables & interactive sandboxes
+    3. #modulus      - Binary polynomial irreducibility checker & factor witness lab
+    4. #applications - Real-world GF(2^m) applications: XTS-AES GF(2^128) tweak multiplier & Binary ECC (GF(2^4) + NIST B-163)
+    5. #compare      - Shift-and-XOR vs. carry-free + long-division comparison & 163/571-bit benchmark
 -->
 <!doctype html>
 <html lang="en">
@@ -14,16 +14,20 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Finite Field Lab</title>
+  <link rel="icon" type="image/png" href="/workbench/gf2m-badge.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="./lab.css">
   <script type="module" src="./lab.js"></script>
 </head>
 <body>
   <header class="masthead">
     <div class="wrap topbar">
-      <a class="brand" href="./"><span class="mark" aria-hidden="true">⊕</span><span>Finite Field Lab<small>EECE 455</small></span></a>
+      <a class="brand" href="./"><span class="brand-badge"><img src="/workbench/gf2m-badge.png" alt="GF(2^m) Finite Field Lab logo" class="brand-badge-img" /></span><span>Finite Field Lab<small>GF(2<sup>m</sup>) Polynomial Arithmetic · EECE 455</small></span></a>
       <nav aria-label="Lab tools">
         <button type="button" id="tutorial-open" class="quiet">Tutorial tour</button>
-        <button type="button" id="share" class="outline">Copy calculation link</button>
+        <button type="button" id="share" class="outline">Share link</button>
       </nav>
     </div>
   </header>
@@ -32,7 +36,7 @@
       <a href="#calculator" data-lab-tab="calculator" aria-current="page">Calculator</a>
       <a href="#lessons" data-lab-tab="lessons">Lessons</a>
       <a href="#modulus" data-lab-tab="modulus">Modulus explorer</a>
-      <a href="#aes" data-lab-tab="aes">AES S-box</a>
+      <a href="#applications" data-lab-tab="applications">Applications</a>
       <a href="#compare" data-lab-tab="compare">Compare multiplication</a>
     </nav>
     <div data-lab-view="calculator">
@@ -92,17 +96,17 @@
           <div class="operands">
             <div class="operand" id="operand-a">
               <label for="poly-a">Operand <i>A(x)</i></label>
-              <input id="poly-a" type="text" spellcheck="false" autocomplete="off" maxlength="65536" aria-describedby="a-meta a-preview">
+              <input id="poly-a" type="text" placeholder="Enter A(x)" spellcheck="false" autocomplete="off" maxlength="65536" aria-describedby="a-meta a-preview">
               <p class="meta" id="a-meta"></p>
-              <p class="poly-preview" id="a-preview"></p>
+              <dl class="equivalents operand-alternatives" id="a-preview" aria-live="polite"></dl>
               <div class="bit-builder" id="a-bits"></div>
             </div>
             <div class="operand" id="operand-b">
               <div id="operand-b-editable">
                 <label for="poly-b">Operand <i>B(x)</i></label>
-                <input id="poly-b" type="text" spellcheck="false" autocomplete="off" maxlength="65536" aria-describedby="b-meta b-preview">
+                <input id="poly-b" type="text" placeholder="Enter B(x)" spellcheck="false" autocomplete="off" maxlength="65536" aria-describedby="b-meta b-preview">
                 <p class="meta" id="b-meta"></p>
-                <p class="poly-preview" id="b-preview"></p>
+                <dl class="equivalents operand-alternatives" id="b-preview" aria-live="polite"></dl>
                 <div class="bit-builder" id="b-bits"></div>
               </div>
               <div id="operand-b-modulus" class="operand-modulus-card" hidden>
@@ -112,7 +116,7 @@
                 </div>
                 <p class="meta modulus-context" id="b-modulus-context"></p>
                 <div class="modulus-readonly-value" id="b-modulus-value" aria-readonly="true" tabindex="0"></div>
-                <p class="poly-preview" id="b-modulus-preview"></p>
+                <dl class="equivalents operand-alternatives" id="b-modulus-preview"></dl>
               </div>
             </div>
           </div>
@@ -150,10 +154,10 @@
         </div>
         <dl id="result-alternatives" class="equivalents"></dl>
         <div class="tools result-actions">
-          <button type="button" class="outline" id="result-expanded" aria-expanded="false" aria-controls="result-value result-alternatives" hidden>Show full value</button>
-          <button type="button" class="outline" id="compare-product" hidden>Compare this product</button>
+          <button type="button" class="outline" id="compare-product" hidden>Compare multiplication methods</button>
           <span id="result-notice" role="status"></span>
         </div>
+        <p id="compare-product-hint" class="meta compare-product-hint" hidden>Compares Shift-and-XOR side-by-side against Carry-Free Multiplication + Euclidean Long Division on these exact operands.</p>
         <p id="verification" class="verification" hidden></p>
         <div id="metrics" class="metrics"></div>
       </section>
@@ -166,6 +170,7 @@
       </section>
     </main>
     </div>
+
     <main class="experiment" data-lab-view="modulus" hidden>
       <header class="hero">
         <div>
@@ -177,12 +182,13 @@
         <h2 id="modulus-form-title">Choose a modulus</h2>
         <form id="modulus-form">
           <div class="experiment-inputs">
-            <label>Polynomial <input type="text" id="custom-modulus" value="x^8 + x^4 + x^3 + x + 1" spellcheck="false" required></label>
-            <label>Input notation <select id="modulus-base"><option value="algebraic">Polynomial</option><option value="hex">Hexadecimal</option><option value="binary">Binary</option></select></label>
+            <label><span class="field-label">Polynomial</span><input type="text" id="custom-modulus" value="" placeholder="Enter modulus m(x)" spellcheck="false" autocomplete="off" required></label>
+            <label><span class="field-label">Input notation</span><select id="modulus-base"><option value="algebraic">Polynomial</option><option value="hex">Hexadecimal</option><option value="binary">Binary</option></select></label>
           </div>
-          <p class="meta">Use a binary polynomial of degree 2 to 571. Type powers as <code>x^8</code>.</p>
+          <p class="meta">Use a binary polynomial of degree 2 to 571 (for example <code>x^8 + x^4 + x^3 + x + 1</code>; pasted superscripts like <code>x<sup>8</sup></code> are accepted automatically).</p>
           <div class="experiment-actions">
-            <button type="submit" class="primary">Test irreducibility</button>
+            <button type="submit" class="primary">Check irreducibility</button>
+            <button type="button" class="outline" id="modulus-random">Random polynomial</button>
             <button type="button" class="outline" id="modulus-current">Use calculator modulus</button>
             <button type="button" class="outline" id="modulus-example">Try reducible x<sup>8</sup> + 1</button>
           </div>
@@ -197,42 +203,106 @@
       </section>
     </main>
 
-    <main class="experiment" data-lab-view="aes" hidden>
+    <main class="experiment" data-lab-view="applications" hidden>
       <header class="hero">
         <div>
-          <h1 tabindex="-1">AES S-box walkthrough</h1>
-          <p>Follow one byte through field inversion and the affine transformation used in SubBytes.</p>
+          <h1 tabindex="-1">Cryptographic applications</h1>
+          <p>See the same GF(2<sup>m</sup>) polynomial arithmetic power XTS-AES disk encryption, NIST binary elliptic curves, and AES-GCM GHASH authentication.</p>
         </div>
+        <div class="hero-math" id="app-hero-badge" aria-hidden="true"><span id="app-hero-field">GF(2<sup>128</sup>)</span><code id="app-hero-std">IEEE 1619</code></div>
       </header>
-      <section class="panel experiment-form" aria-labelledby="aes-form-title">
-        <h2 id="aes-form-title">Enter a byte</h2>
-        <form id="aes-form">
-          <div class="experiment-inputs">
-            <label>Input byte <input type="text" id="aes-byte" value="53" spellcheck="false" required></label>
-            <label>Input notation <select id="aes-base"><option value="hex">Hexadecimal</option><option value="binary">Binary</option></select></label>
+
+      <div class="segments applications-subtabs" id="applications-subtabs" role="tablist" aria-label="Cryptographic application modules">
+        <button type="button" role="tab" id="app-tab-xts" data-app-tab="xts" aria-selected="true" aria-pressed="true" aria-controls="app-panel-xts">XTS-AES · GF(2<sup>128</sup>)</button>
+        <button type="button" role="tab" id="app-tab-ecc" data-app-tab="ecc" aria-selected="false" aria-pressed="false" aria-controls="app-panel-ecc">Binary ECC · E<sub>2<sup>m</sup></sub>(a,b)</button>
+        <button type="button" role="tab" id="app-tab-ghash" data-app-tab="ghash" aria-selected="false" aria-pressed="false" aria-controls="app-panel-ghash">GCM · GHASH (GF(2<sup>128</sup>))</button>
+      </div>
+
+      <section id="app-panel-xts" class="applications-subpanel" role="tabpanel" aria-labelledby="app-tab-xts">
+        <section class="panel experiment-form" aria-labelledby="xts-form-title">
+          <h2 id="xts-form-title">XTS-AES GF(2<sup>128</sup>) Tweak Multiplier</h2>
+          <p class="meta app-intro">IEEE 1619-2007 / Stallings Ch. 6 disk sector encryption masks each 128-bit block using <code>C<sub>j</sub> = E<sub>K<sub>1</sub></sub>(P<sub>j</sub> ⊕ T<sub>j</sub>) ⊕ T<sub>j</sub></code>, advancing the tweak by <code>T<sub>j</sub> = T<sub>0</sub> ⊗ α<sup>j</sup> mod (x<sup>128</sup> + x<sup>7</sup> + x<sup>2</sup> + x + 1)</code>. Whenever the top bit <code>b<sub>127</sub> = 1</code>, shifting left overflows <code>x<sup>128</sup></code> and triggers an XOR with <code>0x87</code>.</p>
+          <form id="xts-form">
+            <div class="experiment-inputs xts-inputs">
+              <label><span class="field-label">Initial 128-bit tweak <i>T</i><sub>0</sub> (hex)</span><input type="text" id="xts-t0" value="" placeholder="Enter 128-bit tweak T0 (hex)" spellcheck="false" autocomplete="off" required></label>
+              <label><span class="field-label">Blocks to generate (1 to 16)</span><input type="number" id="xts-steps" value="" placeholder="1 to 16" min="1" max="16" required></label>
+            </div>
+            <div class="experiment-actions">
+              <button type="submit" class="primary">Compute tweak chain</button>
+              <button type="button" class="outline" id="xts-random">Randomize 128-bit tweak</button>
+              <button type="button" class="outline" id="xts-step-next">Step next block (j → j+1)</button>
+              <button type="button" class="outline" id="xts-reset">Reset</button>
+            </div>
+          </form>
+        </section>
+        <section class="panel" id="xts-results" aria-labelledby="xts-results-title" hidden>
+          <div class="section-head">
+            <h2 id="xts-results-title">Sector tweak sequence</h2>
+            <span id="xts-modulus-badge" class="readonly-badge"></span>
           </div>
-          <div class="experiment-actions">
-            <button type="submit" class="primary">Compute S-box output</button>
-            <button type="button" class="outline" id="aes-example">Try byte 53</button>
-            <button type="button" class="outline" id="aes-zero">Try byte 00</button>
+          <p id="xts-status" class="experiment-status" role="status"></p>
+          <div id="xts-chain" class="xts-chain-list" aria-live="polite"></div>
+        </section>
+      </section>
+
+      <section id="app-panel-ecc" class="applications-subpanel" role="tabpanel" aria-labelledby="app-tab-ecc" hidden>
+        <section class="panel experiment-form" aria-labelledby="ecc-form-title">
+          <h2 id="ecc-form-title">Polynomial / Binary Elliptic Curve (E<sub>2<sup>m</sup></sub>(a,b)) Explorer</h2>
+          <p class="meta app-intro">Stallings Ch. 10 &amp; NIST FIPS 186-4 / SEC 2 non-supersingular binary curves satisfy <code>y<sup>2</sup> + xy = x<sup>3</sup> + ax<sup>2</sup> + b</code> modulo irreducible polynomial <code>m(x)</code> (coefficients <code>a</code> and <code>b</code>, as well as <code>x</code> and <code>y</code>, are polynomials in <code>GF(2<sup>m</sup>)</code>). Every point doubling (<code>R = 2P</code>), point addition (<code>R = P + Q</code>), and ECDH scalar multiplication runs directly on our finite-field engine (<code>⊕</code>, Shift-and-XOR <code>×</code>, and Extended Euclid <code>÷</code>).</p>
+          <form id="ecc-form">
+            <div class="experiment-inputs ecc-inputs">
+              <label><span class="field-label">Curve &amp; field</span><select id="ecc-curve">
+                  <option value="gf2_4">Teaching Curve · GF(2⁴)</option>
+                  <option value="nist_b163" selected>NIST B-163 · GF(2¹⁶³)</option>
+                </select></label>
+              <label><span class="field-label">Alice private key <i>n</i><sub>A</sub> (2 to 25)</span><input type="number" id="ecc-na" value="" placeholder="Enter n_A (2 to 25)" min="2" max="25" required></label>
+              <label><span class="field-label">Bob private key <i>n</i><sub>B</sub> (2 to 25)</span><input type="number" id="ecc-nb" value="" placeholder="Enter n_B (2 to 25)" min="2" max="25" required></label>
+            </div>
+            <div class="experiment-actions">
+              <button type="submit" class="primary">Compute ECC operations &amp; ECDH</button>
+              <button type="button" class="outline" id="ecc-random">Randomize keys</button>
+              <button type="button" class="outline" id="ecc-switch-teaching">Try Teaching GF(2<sup>4</sup>)</button>
+              <button type="button" class="outline" id="ecc-switch-b163">Try NIST B-163</button>
+            </div>
+          </form>
+        </section>
+        <section class="panel" id="ecc-results" aria-labelledby="ecc-results-title" hidden>
+          <div class="section-head">
+            <h2 id="ecc-results-title">Curve parameters &amp; group operations</h2>
+            <span id="ecc-curve-badge" class="readonly-badge"></span>
           </div>
-        </form>
+          <p id="ecc-status" class="experiment-status" role="status"></p>
+          <div id="ecc-curve-info" class="ecc-curve-info"></div>
+          <div id="ecc-ops-grid" class="ecc-ops-grid"></div>
+          <section id="ecc-ecdh-card" class="ecc-ecdh-card" aria-labelledby="ecc-ecdh-title"></section>
+        </section>
       </section>
-      <section class="panel" id="aes-result" aria-labelledby="aes-result-title" hidden>
-        <h2 id="aes-result-title">Byte substitution</h2>
-        <dl id="aes-pipeline" class="byte-pipeline" aria-live="polite"></dl>
-        <p id="aes-inverse-note"></p>
-        <details id="aes-euclid"><summary>Show the Extended Euclid trace</summary>
-          <div class="trace" id="aes-trace"><div class="trace-toolbar" id="aes-trace-tools"></div><div id="aes-trace-body"></div></div>
-        </details>
-      </section>
-      <section class="panel trace" id="aes-affine" aria-labelledby="aes-affine-title" hidden>
-        <div class="section-head trace-section-head">
-          <h2 id="aes-affine-title">Affine transformation</h2>
-          <div class="trace-toolbar" id="aes-affine-tools"></div>
-        </div>
-        <p>XOR the inverse byte with four left rotations and the constant <code>63</code> in hex. Each row shows the byte added and the running XOR.</p>
-        <div id="aes-affine-table"></div>
+
+      <section id="app-panel-ghash" class="applications-subpanel" role="tabpanel" aria-labelledby="app-tab-ghash" hidden>
+        <section class="panel experiment-form" aria-labelledby="ghash-form-title">
+          <h2 id="ghash-form-title">GCM · GHASH Authenticator (GF(2<sup>128</sup>))</h2>
+          <p class="meta app-intro">Stallings Ch. 12 / NIST SP 800-38D Galois/Counter Mode computes a 128-bit authentication tag over ciphertext and AAD blocks as <code>Y<sub>m</sub> = (X<sub>1</sub> · H<sup>m</sup>) ⊕ (X<sub>2</sub> · H<sup>m-1</sup>) ⊕ ... ⊕ (X<sub>m</sub> · H)</code>, evaluated iteratively via <code>Y<sub>i</sub> = (Y<sub>i-1</sub> ⊕ X<sub>i</sub>) · H mod (x<sup>128</sup> + x<sup>7</sup> + x<sup>2</sup> + x + 1)</code> using our full 128-bit XOR and Shift-and-XOR multiplication engine.</p>
+          <form id="ghash-form">
+            <div class="experiment-inputs ghash-inputs">
+              <label><span class="field-label">Hash subkey <i>H</i> (128-bit hex)</span><input type="text" id="ghash-h" value="" placeholder="Enter 128-bit hash key H (hex)" spellcheck="false" autocomplete="off" required></label>
+              <label><span class="field-label">Ciphertext / data blocks <i>X</i><sub>1</sub> ... <i>X</i><sub>k</sub> (1 to 8 blocks, one 128-bit hex block per line)</span><textarea id="ghash-blocks" rows="4" placeholder="Enter 1 to 8 128-bit hex blocks, one per line" spellcheck="false" autocomplete="off" required></textarea></label>
+            </div>
+            <div class="experiment-actions">
+              <button type="submit" class="primary">Compute GHASH tag</button>
+              <button type="button" class="outline" id="ghash-random">Randomize key H &amp; blocks</button>
+              <button type="button" class="outline" id="ghash-reset">Reset</button>
+            </div>
+          </form>
+        </section>
+        <section class="panel trace" id="ghash-results" aria-labelledby="ghash-results-title" hidden>
+          <div class="section-head">
+            <h2 id="ghash-results-title">GHASH authentication tag &amp; block chain</h2>
+            <span id="ghash-modulus-badge" class="readonly-badge"></span>
+          </div>
+          <p id="ghash-status" class="experiment-status" role="status"></p>
+          <div id="ghash-tag-display" class="ghash-tag-summary"></div>
+          <div id="ghash-steps" class="ghash-steps-wrap" aria-live="polite"></div>
+        </section>
       </section>
     </main>
 
@@ -247,12 +317,13 @@
         <h2 id="compare-form-title">Run both methods</h2>
         <form id="compare-form">
           <div class="experiment-inputs compare-inputs">
-            <label>Operand A (hex) <input type="text" id="compare-a" value="57" spellcheck="false" required></label>
-            <label>Operand B (hex) <input type="text" id="compare-b" value="83" spellcheck="false" required></label>
-            <label>Field degree <select id="compare-degree" required></select></label>
+            <label><span class="field-label">Operand A (hex)</span><input type="text" id="compare-a" value="" placeholder="Enter A(x)" spellcheck="false" autocomplete="off" required></label>
+            <label><span class="field-label">Operand B (hex)</span><input type="text" id="compare-b" value="" placeholder="Enter B(x)" spellcheck="false" autocomplete="off" required></label>
+            <label><span class="field-label">Field degree</span><select id="compare-degree" required></select></label>
           </div>
           <div class="experiment-actions">
-            <button type="submit" class="primary">Compare results</button>
+            <button type="submit" class="primary">Compare methods</button>
+            <button type="button" class="outline" id="compare-random">Random operands</button>
             <button type="button" class="outline" id="compare-current">Use calculator operands</button>
           </div>
         </form>
@@ -291,14 +362,14 @@
       <header class="hero">
         <div>
           <h1 tabindex="-1">Polynomial arithmetic lessons</h1>
-          <p>Step through animated GF(2<sup>m</sup>) operations, number theory tools, and cryptographic field examples.</p>
+          <p>Self-contained visual guide to GF(2<sup>m</sup>) polynomial arithmetic, number theory, and real-world cryptographic fields.</p>
         </div>
         <div class="hero-math" aria-hidden="true"><span>7 Lessons</span><code>GF(2<sup>m</sup>)</code></div>
       </header>
       <section class="panel lesson-hub" id="lesson-hub" aria-labelledby="lesson-hub-title">
         <div class="section-head">
           <h2 id="lesson-hub-title">Choose a lesson</h2>
-          <span class="meta">Select any topic below, switch sub-lessons, and animate each step</span>
+          <span class="meta">Select a topic and browse sections with clean visual explanations and worked examples</span>
         </div>
         <div id="lesson-catalog" class="lesson-catalog" role="group" aria-label="Lesson catalog"></div>
       </section>
@@ -308,37 +379,21 @@
             <h2 id="lesson-active-title"></h2>
             <p id="lesson-active-subtitle" class="meta"></p>
           </div>
-          <div id="lesson-subtabs" class="lesson-subtabs" role="group" aria-label="Sub-lessons"></div>
+          <div id="lesson-subtabs" class="lesson-subtabs" role="group" aria-label="Lesson sections"></div>
         </div>
-        <div class="tools lesson-controls" id="lesson-controls" role="group" aria-label="Lesson animation controls">
-          <button type="button" class="outline" id="lesson-first" aria-label="First step">First step</button>
-          <button type="button" class="outline" id="lesson-prev">Previous</button>
-          <button type="button" class="outline" id="lesson-first-active">First active step</button>
-          <button type="button" class="primary" id="lesson-play" aria-pressed="false">Play animation</button>
-          <label class="visually-hidden" for="lesson-speed">Animation speed</label>
-          <select id="lesson-speed" aria-label="Animation speed">
-            <option value="slow">Slow</option>
-            <option value="normal" selected>Normal</option>
-            <option value="fast">Fast</option>
-          </select>
-          <button type="button" class="outline" id="lesson-next">Next</button>
-          <button type="button" class="outline" id="lesson-last" aria-label="Last step">Last step</button>
-          <button type="button" class="outline" id="lesson-compare" aria-pressed="false">Compare prev → curr</button>
-          <span id="lesson-step-progress" class="trace-progress" aria-live="polite"></span>
-        </div>
-        <div id="lesson-step-dots" class="lesson-step-dots" role="group" aria-label="Lesson step timeline"></div>
         <div id="lesson-stage" class="lesson-stage" aria-live="polite"></div>
         <div class="section-head lesson-footer">
-          <div id="lesson-handoff-bar" class="tools lesson-handoff-bar"></div>
+          <span id="lesson-section-counter" class="meta"></span>
           <div class="tools">
-            <button type="button" class="outline" id="lesson-prev-topic">Previous lesson</button>
-            <button type="button" class="outline" id="lesson-next-topic">Next lesson</button>
+            <button type="button" class="outline" id="lesson-prev-topic">Previous section</button>
+            <button type="button" class="primary" id="lesson-next-topic">Next section</button>
           </div>
         </div>
       </section>
     </main>
     <footer>Finite Field Lab <span>·</span> EECE 455 Cryptography and Network Security</footer>
   </div>
+
   <aside id="page-tour" class="page-tour" aria-labelledby="tour-title" hidden>
     <div class="section-head">
       <div class="tour-progress" id="tour-progress"></div>
@@ -356,6 +411,7 @@
       </div>
     </div>
   </aside>
+
   <dialog id="tutorial" class="tutorial" aria-labelledby="slide-title">
     <div class="drawer-head"><span>Field concepts</span><button type="button" id="tutorial-close" class="outline">Close</button></div>
     <div id="tutorial-slide"></div>
@@ -365,31 +421,68 @@
       <button type="button" class="primary" id="slide-next">Next</button>
     </div>
   </dialog>
-  <dialog id="trace-fullscreen" class="trace-fullscreen" aria-labelledby="trace-fullscreen-title">
-    <div class="drawer-head">
-      <span id="trace-fullscreen-title">Calculation steps · Full view</span>
-      <button type="button" id="trace-fullscreen-close" class="outline">Close full view</button>
+
+  <aside id="error-popup" class="error-popup-alert" role="alertdialog" aria-labelledby="error-popup-title" aria-describedby="error-popup-body" hidden>
+    <span class="error-popup-icon" aria-hidden="true">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+    </span>
+    <div class="error-popup-content">
+      <div class="error-popup-head">
+        <h2 id="error-popup-title">Error</h2>
+        <button type="button" id="error-popup-close" class="quiet error-popup-close" aria-label="Close alert">×</button>
+      </div>
+      <p id="error-popup-body" class="error-popup-body" role="alert"></p>
+      <div class="error-popup-actions">
+        <button type="button" id="error-popup-trace" class="outline" hidden>View Step 0 / GCD trace</button>
+        <button type="button" id="error-popup-ok" class="outline">Dismiss</button>
+      </div>
     </div>
-    <div id="trace-fullscreen-body" class="trace"></div>
+  </aside>
+
+  <dialog id="inspector-popup" class="inspector-popup-dialog" aria-labelledby="inspector-popup-title">
+    <div class="popup-modal-head">
+      <div>
+        <h2 id="inspector-popup-title">Full value</h2>
+        <p id="inspector-popup-meta" class="meta"></p>
+      </div>
+      <button type="button" id="inspector-popup-close" class="quiet popup-icon-close" aria-label="Close full value inspector">×</button>
+    </div>
+    <div id="inspector-popup-body" class="inspector-popup-body"></div>
+    <div class="popup-modal-footer">
+      <button type="button" id="inspector-popup-close-btn" class="primary">Close</button>
+    </div>
   </dialog>
-  <dialog id="error-popup" class="error-popup-dialog" aria-labelledby="error-popup-title">
-    <div class="error-popup-head">
-      <span class="error-popup-icon" aria-hidden="true">!</span>
-      <h2 id="error-popup-title">Error</h2>
+
+  <dialog id="derivation-popup" class="derivation-popup-dialog" aria-labelledby="derivation-popup-title">
+    <div class="popup-modal-head">
+      <div>
+        <h2 id="derivation-popup-title">Step calculation</h2>
+        <p id="derivation-popup-subtitle" class="meta"></p>
+      </div>
+      <button type="button" id="derivation-popup-close" class="quiet popup-icon-close" aria-label="Close derivation popup">×</button>
     </div>
-    <p id="error-popup-body" class="error-popup-body" role="alert"></p>
-    <div class="error-popup-actions">
-      <button type="button" id="error-popup-trace" class="outline" hidden>View Step 0 / GCD trace</button>
-      <button type="button" id="error-popup-ok" class="primary">OK / Dismiss</button>
+    <div id="derivation-popup-body" class="derivation-popup-body"></div>
+    <div class="popup-modal-footer">
+      <button type="button" id="derivation-popup-close-btn" class="primary">Close</button>
     </div>
   </dialog>
+
   <dialog id="upload-modal" class="upload-modal-dialog" aria-labelledby="upload-modal-title">
     <div class="upload-modal-head">
       <div>
         <h2 id="upload-modal-title">Upload operand file</h2>
         <p class="upload-modal-subtitle">Import one or more polynomial pairs from a <code>.txt</code> or <code>.json</code> file.</p>
       </div>
-      <button type="button" id="upload-modal-close" class="quiet upload-modal-close" aria-label="Close upload dialog">×</button>
+      <button type="button" id="upload-modal-close" class="quiet upload-modal-close" aria-label="Close upload dialog">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
     </div>
     <div id="upload-dropzone" class="upload-dropzone" tabindex="0" role="button" aria-label="Drag and drop a .txt or .json file here or browse files">
       <div class="upload-dropzone-icon" aria-hidden="true">
@@ -400,10 +493,7 @@
         </svg>
       </div>
       <p class="upload-dropzone-primary">Drag and drop a <code>.txt</code> or <code>.json</code> file here</p>
-      <div class="upload-dropzone-prompt">
-        <span>or</span>
-        <button type="button" id="upload-browse" class="outline">Browse files</button>
-      </div>
+      <p class="upload-dropzone-prompt">Click anywhere here to browse files</p>
       <span class="upload-dropzone-hint">Accepted formats: <code>.txt</code>, <code>.json</code></span>
       <input id="file" type="file" aria-label="Upload operand file" accept=".txt,.json" hidden>
     </div>

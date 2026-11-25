@@ -1,39 +1,461 @@
 /**
- * @fileoverview Interactive trace visualizers, previous-to-current visual diff tracking,
- * informative educational step titles, sequential step cascade, auto-maximized grid,
- * and step-playback controller for GF(2^m) algorithms.
+ * @fileoverview Interactive trace visualizers, built-in Previous-to-Current comparison in
+ * `Step view`, inline 4-step paginated `All steps grid`, `Classic table` with color legend,
+ * playback locking outside `Step view`, Full-Value Inspector popup for truncated large-field
+ * cells, and step-specific BigInt derivation popups for Extended Euclid (`Q`, `T1`, `T2`, `T3`)
+ * and Shift-and-XOR (`<< 1` / `⊕ m(x)`).
  *
  * Original Author: Ali Zahreddine - Milestone 4, Integration & Milestone 6 (Waves 1-4).
  *
- * Renders all course-aligned visualizers plus generic exploration tables across three layout modes
- * (`Step view`, `All steps grid` with auto-maximize, `Classic table`), an optional side-by-side
- * `Compare prev → curr` comparison mode, and an expandable full-viewport modal:
- *   1. Bitwise XOR visualizer (Add / Subtract - Stallings Ch. 4) with `1 ⊕ 1 → 0` cancellation highlights
- *   2. Modulo reduction shift-and-XOR steps (Stallings Ch. 4 & 5) with leading-term elimination diffs
- *   3. Shift-and-XOR multiplication Tables 1 & 2 with linked interactive multiplier-bit highlighting,
- *      sequential step cascade, instant `First changed bit` jump, `prev → now` shift/reduction and accumulator deltas, and arrow keys
- *   4. Extended Euclidean Algorithm Table 4.7 with zero-horizontal-scroll Step Inspector Square
- *      (Triple A carried ← prev B, Triple B updated New T, inline `was:` values, recurrence callout),
- *      true `<sup>`/`<sub>` typography, Hex/Binary/Polynomial cell switcher, Compact values / Full m-bit
- *      toggle, and B3(x) = 1 vs. 0 termination badges
- *   5. Combined two-stage division trace (Stage 1 Table 4.7 + Stage 2 Shift-and-XOR)
+ * Renders all course-aligned visualizers plus generic exploration tables across three layout modes:
+ *   - `Step view` (default across ALL 13 fields `m in {2..8, 163..571}`): single card on Step 0,
+ *     side-by-side Previous -> Current comparison from Step 1 onward (stacking vertically on mobile).
+ *   - `All steps grid`: inline full-width single-column stack loading 4 steps initially with
+ *     incremental `Show more` pagination (+4 steps per click) and locked playback controls.
+ *   - `Classic table`: complete table view with a concise color legend above and locked playback.
  */
 
 import {
   appendMathText,
   attachSlidingIndicator,
   copyToClipboard,
+  degreeOf,
   element,
   mathElement,
   polynomial,
   setMathText,
+  showDerivationPopup,
   showFeedbackPopup,
+  showInspectorPopup,
   significantDigits,
 } from "./notation.js";
 
-const PLAY_SPEED_MS = { slow: 900, normal: 450, fast: 200 };
+const PLAY_SPEED_MS = { slow: 1800, normal: 900, fast: 450 };
 const CASCADE_STEP_MS = 95;
 const MAX_CASCADE_HOPS = 12;
+const GRID_PAGE_SIZE = 4;
+
+/**
+ * Perform exact carry-free multiplication `a(x) * b(x)` over `GF(2)[x]` using `BigInt`,
+ * recording every partial shifted term contributed by set bits of `a(x)`.
+ *
+ * Complexity: O(deg(a)) bit shifts and XORs.
+ *
+ * @param {bigint} a - Multiplier polynomial bitmask (e.g. `Q(x)`).
+ * @param {bigint} b - Multiplicand polynomial bitmask (e.g. `B_k(x)`).
+ * @returns {{product: bigint, terms: Array<{bit: number, shifted: bigint}>}} Exact product and partial terms.
+ */
+function polyMulNoModBigInt(a, b) {
+  let product = 0n;
+  const terms = [];
+  let temp = a;
+  let bit = 0;
+  while (temp > 0n) {
+    if (temp & 1n) {
+      const shifted = b << BigInt(bit);
+      product ^= shifted;
+      terms.push({ bit, shifted });
+    }
+    temp >>= 1n;
+    bit += 1;
+  }
+  return { product, terms };
+}
+
+/**
+ * Perform exact Euclidean polynomial long division (`POLY_DIVMOD`) of `dividend` by `divisor`
+ * over `GF(2)[x]`, recording every degree-alignment shift and XOR cancellation step.
+ *
+ * Complexity: O(deg(dividend) - deg(divisor) + 1) alignment steps.
+ *
+ * @param {bigint} dividend - Dividend polynomial `A3(x)`.
+ * @param {bigint} divisor - Nonzero divisor polynomial `B3(x)`.
+ * @returns {{quotient: bigint, remainder: bigint, steps: Array<{stepNum: number, targetDeg: number, shift: number, before: bigint, shiftedDivisor: bigint, after: bigint}>}} Division result and trace.
+ */
+function polyDivModBigInt(dividend, divisor) {
+  if (divisor === 0n) return { quotient: 0n, remainder: dividend, steps: [] };
+  let rem = dividend;
+  let quot = 0n;
+  const degB = degreeOf(divisor);
+  const steps = [];
+  let stepNum = 1;
+  while (rem !== 0n && degreeOf(rem) >= degB) {
+    const targetDeg = degreeOf(rem);
+    const shift = targetDeg - degB;
+    const shiftedDivisor = divisor << BigInt(shift);
+    const after = rem ^ shiftedDivisor;
+    quot ^= 1n << BigInt(shift);
+    steps.push({ stepNum, targetDeg, shift, before: rem, shiftedDivisor, after });
+    rem = after;
+    stepNum += 1;
+  }
+  return { quotient: quot, remainder: rem, steps };
+}
+
+/**
+ * Format a `BigInt` value cleanly for step derivation popups: shows `{HEX}` and polynomial
+ * form for small fields (`m <= 16`) or full `{HEX}` with degree note for large cryptographic fields.
+ *
+ * @param {bigint} value - Polynomial bitmask.
+ * @param {number} mDeg - Field degree `m`.
+ * @returns {string} Readable mathematical value summary.
+ */
+function formatPopupPoly(value, mDeg) {
+  const hexVal = value.toString(16).toUpperCase();
+  if (mDeg <= 16) {
+    return "{" + hexVal + "}  (" + polynomial(value) + ")";
+  }
+  const deg = degreeOf(value);
+  return "{" + hexVal + "}  (" + (deg < 0 ? "zero" : "deg " + deg) + ")";
+}
+
+/**
+ * Open the step-specific derivation popup for `Q`, `T1`, `T2`, or `T3` on an Extended Euclid row.
+ * Computes the exact carry-free division / multiplication / XOR derivation from the previous row's
+ * Triple `A` and Triple `B` using client-side `BigInt`.
+ *
+ * @param {"Q" | "T1" | "T2" | "T3"} target - Which Extended Euclid value to derive.
+ * @param {object} prevRow - Previous Table 4.7 row (`rowIndex - 1`).
+ * @param {object} currRow - Current Table 4.7 row (`rowIndex`).
+ * @param {number} mDeg - Field degree `m`.
+ */
+function openEuclidDerivationPopup(target, prevRow, currRow, mDeg) {
+  const parseHex = (row, term) => BigInt("0x" + (row.cells[term]?.hex || "0"));
+  const prevA1 = parseHex(prevRow, "A1");
+  const prevA2 = parseHex(prevRow, "A2");
+  const prevA3 = parseHex(prevRow, "A3");
+  const prevB1 = parseHex(prevRow, "B1");
+  const prevB2 = parseHex(prevRow, "B2");
+  const prevB3 = parseHex(prevRow, "B3");
+  const currQ = parseHex(currRow, "Q");
+  const currB1 = parseHex(currRow, "B1");
+  const currB2 = parseHex(currRow, "B2");
+  const currB3 = parseHex(currRow, "B3");
+
+  if (target === "Q") {
+    const div = polyDivModBigInt(prevA3, prevB3);
+    const steps = [];
+    steps.push({
+      heading: "Inputs from Step " + prevRow.step,
+      badge: "POLY_DIVMOD",
+      tone: "diff-carried",
+      lines: [
+        "Dividend A3(x) = " + formatPopupPoly(prevA3, mDeg),
+        "Divisor  B3(x) = " + formatPopupPoly(prevB3, mDeg),
+      ],
+    });
+    if (!div.steps.length) {
+      steps.push({
+        heading: "No alignment needed",
+        badge: "Q = 0",
+        tone: "diff-unchanged",
+        lines: ["deg(A3) < deg(B3), so the quotient Q(x) is 0 and remainder T3(x) = A3(x)."],
+      });
+    } else {
+      const shown = div.steps.length <= 16 ? div.steps : [...div.steps.slice(0, 12), ...div.steps.slice(-3)];
+      const omitted = div.steps.length - shown.length;
+      shown.forEach((s, idx) => {
+        if (omitted > 0 && idx === 12) {
+          steps.push({
+            heading: "Intermediate alignment steps",
+            badge: omitted + " more shifts",
+            tone: "diff-unchanged",
+            lines: [omitted + " intermediate single-term cancellations follow the exact same shift-and-XOR rule."],
+          });
+        }
+        const termStr = s.shift === 0 ? "1" : (s.shift === 1 ? "x" : "x^" + s.shift);
+        steps.push({
+          heading: "Long-division alignment " + s.stepNum + " · Cancel x^" + s.targetDeg,
+          badge: "Add " + termStr + " to Q",
+          tone: "diff-reduced",
+          lines: [
+            "Shift = deg(rem) − deg(B3) = " + s.targetDeg + " − " + degreeOf(prevB3) + " = " + s.shift + "  →  quotient term " + termStr,
+            "Current remainder:  " + formatPopupPoly(s.before, mDeg),
+            "XOR (B3 << " + s.shift + "):     " + formatPopupPoly(s.shiftedDivisor, mDeg),
+            "New remainder:      " + formatPopupPoly(s.after, mDeg),
+          ],
+        });
+      });
+    }
+    showDerivationPopup({
+      title: "Step " + currRow.step + ": How Q(x) is calculated",
+      subtitle: "Carry-free Euclidean polynomial long division A3(x) ÷ B3(x) in GF(2)[x]",
+      formula: "Q(x) = A3(x) div B3(x)   (from Step " + prevRow.step + ")",
+      steps,
+      result: {
+        label: "Quotient Q(x) for Step " + currRow.step,
+        value: formatPopupPoly(currQ, mDeg),
+        detail: "Remainder T3(x) after cancelling all terms down to degree < " + degreeOf(prevB3) + " is {" + div.remainder.toString(16).toUpperCase() + "}.",
+        isMath: true,
+      },
+    });
+    return;
+  }
+
+  if (target === "T1" || target === "T2") {
+    const idxNum = target === "T1" ? "1" : "2";
+    const prevA = target === "T1" ? prevA1 : prevA2;
+    const prevB = target === "T1" ? prevB1 : prevB2;
+    const currT = target === "T1" ? currB1 : currB2;
+    const mul = polyMulNoModBigInt(currQ, prevB);
+
+    const mulLines = [];
+    if (currQ === 0n || prevB === 0n) {
+      mulLines.push("Since " + (currQ === 0n ? "Q(x) = 0" : "B" + idxNum + "(x) = 0") + ", the carry-free product Q(x) · B" + idxNum + "(x) = 0.");
+    } else {
+      const shownTerms = mul.terms.length <= 12 ? mul.terms : [...mul.terms.slice(0, 8), ...mul.terms.slice(-3)];
+      for (const term of shownTerms) {
+        const powerLabel = term.bit === 0 ? "1" : (term.bit === 1 ? "x" : "x^" + term.bit);
+        mulLines.push("Term " + powerLabel + " of Q(x):  B" + idxNum + " << " + term.bit + " = " + formatPopupPoly(term.shifted, mDeg));
+      }
+      if (mul.terms.length > shownTerms.length) {
+        mulLines.push("(" + (mul.terms.length - shownTerms.length) + " additional shifted terms XORed in the same way)");
+      }
+      mulLines.push("XOR of shifted terms  →  Q(x) · B" + idxNum + "(x) = " + formatPopupPoly(mul.product, mDeg));
+    }
+
+    showDerivationPopup({
+      title: "Step " + currRow.step + ": How T" + idxNum + "(x) is calculated",
+      subtitle: "Carry-free product Q(x) · B" + idxNum + "(x) followed by bitwise XOR with previous A" + idxNum + "(x)",
+      formula: "T" + idxNum + "(x) = A" + idxNum + "(x) ⊕ (Q(x) · B" + idxNum + "(x))   (becomes new B" + idxNum + "(x))",
+      steps: [
+        {
+          heading: "1. Read inputs from Step " + prevRow.step,
+          badge: "Inputs",
+          tone: "diff-carried",
+          lines: [
+            "Previous A" + idxNum + "(x) = " + formatPopupPoly(prevA, mDeg),
+            "Previous B" + idxNum + "(x) = " + formatPopupPoly(prevB, mDeg),
+            "Quotient Q(x)  = " + formatPopupPoly(currQ, mDeg),
+          ],
+        },
+        {
+          heading: "2. Carry-free product Q(x) · B" + idxNum + "(x)",
+          badge: "Multiply in GF(2)[x]",
+          tone: "diff-reduced",
+          lines: mulLines,
+        },
+        {
+          heading: "3. XOR with previous A" + idxNum + "(x)",
+          badge: "A" + idxNum + " ⊕ Q·B" + idxNum,
+          tone: "diff-updated",
+          lines: [
+            "A" + idxNum + "(x):         " + formatPopupPoly(prevA, mDeg),
+            "⊕ (Q · B" + idxNum + "):  " + formatPopupPoly(mul.product, mDeg),
+            "= T" + idxNum + "(x):       " + formatPopupPoly(currT, mDeg),
+          ],
+        },
+      ],
+      result: {
+        label: "New B" + idxNum + "(x) = T" + idxNum + "(x) for Step " + currRow.step,
+        value: formatPopupPoly(currT, mDeg),
+        detail: target === "T2"
+          ? "B2(x) tracks the Bézout coefficient of b(x): once B3(x) reaches 1, B2(x) is the multiplicative inverse."
+          : "B1(x) tracks the Bézout coefficient of the modulus m(x) in B1·m ⊕ B2·b = B3.",
+        isMath: true,
+      },
+    });
+    return;
+  }
+
+  // target === "T3"
+  const mul3 = polyMulNoModBigInt(currQ, prevB3);
+  const prodLines = [];
+  if (currQ === 0n) {
+    prodLines.push("Q(x) = 0, so Q(x) · B3(x) = 0.");
+  } else {
+    const shownTerms = mul3.terms.length <= 12 ? mul3.terms : [...mul3.terms.slice(0, 8), ...mul3.terms.slice(-3)];
+    for (const term of shownTerms) {
+      const powerLabel = term.bit === 0 ? "1" : (term.bit === 1 ? "x" : "x^" + term.bit);
+      prodLines.push("Term " + powerLabel + " of Q(x):  B3 << " + term.bit + " = " + formatPopupPoly(term.shifted, mDeg));
+    }
+    if (mul3.terms.length > shownTerms.length) {
+      prodLines.push("(" + (mul3.terms.length - shownTerms.length) + " additional shifted terms XORed in the same way)");
+    }
+    prodLines.push("Aligned multiple Q(x) · B3(x) = " + formatPopupPoly(mul3.product, mDeg));
+  }
+
+  showDerivationPopup({
+    title: "Step " + currRow.step + ": How T3(x) is calculated",
+    subtitle: "Euclidean remainder T3(x) = A3(x) mod B3(x) = A3(x) ⊕ (Q(x) · B3(x))",
+    formula: "T3(x) = A3(x) ⊕ (Q(x) · B3(x))   (becomes new B3(x))",
+    steps: [
+      {
+        heading: "1. Read remainders from Step " + prevRow.step,
+        badge: "Inputs",
+        tone: "diff-carried",
+        lines: [
+          "Previous A3(x) = " + formatPopupPoly(prevA3, mDeg),
+          "Previous B3(x) = " + formatPopupPoly(prevB3, mDeg),
+          "Quotient Q(x)  = " + formatPopupPoly(currQ, mDeg),
+        ],
+      },
+      {
+        heading: "2. Form aligned multiple Q(x) · B3(x)",
+        badge: "Align divisor",
+        tone: "diff-reduced",
+        lines: prodLines,
+      },
+      {
+        heading: "3. Cancel leading terms via XOR",
+        badge: "A3 ⊕ Q·B3",
+        tone: "diff-updated",
+        lines: [
+          "A3(x):         " + formatPopupPoly(prevA3, mDeg),
+          "⊕ (Q · B3):   " + formatPopupPoly(mul3.product, mDeg),
+          "= T3(x):       " + formatPopupPoly(currB3, mDeg),
+        ],
+      },
+    ],
+    result: {
+      label: "New Remainder B3(x) = T3(x) for Step " + currRow.step,
+      value: formatPopupPoly(currB3, mDeg),
+      detail: "Degree strictly drops from " + degreeOf(prevB3) + " down to " + degreeOf(currB3) +
+        (currB3 === 1n ? " (B3 = 1 reached: inverse found in B2!)" : currB3 === 0n ? " (B3 = 0: no inverse exists)" : "."),
+      isMath: true,
+    },
+  });
+}
+
+/**
+ * Open the step-specific Shift-and-XOR visual illustration popup showing the 1-bit left shift (`<< 1`),
+ * highlighting any popped `x^m` overflow bit, and showing the aligned `⊕ m(x)` reduction.
+ *
+ * @param {object} trace - Backend `shift-and-xor` trace object.
+ * @param {number} idx - Zero-based step index.
+ */
+function openShiftXorIllustrationPopup(trace, idx) {
+  const step = trace.steps[idx];
+  const prevStep = idx > 0 ? trace.steps[idx - 1] : null;
+  const mDeg = trace.m ?? trace.m_degree ?? 8;
+  const prevBig = prevStep ? BigInt("0x" + prevStep.partial_hex) : 0n;
+  const currBig = BigInt("0x" + step.partial_hex);
+  const modBig = BigInt("0x" + (trace.reduction_poly_hex || "1"));
+  const toPaddedBin = (val, width) => val.toString(2).padStart(width, "0");
+
+  if (idx === 0) {
+    showDerivationPopup({
+      title: "Step 1 (Bit b_0): Initial Value A(x)",
+      subtitle: "On bit b_0 (i = 0), we start directly with A(x) without shifting left yet.",
+      formula: "Start term = A(x)   (0 shifts applied)",
+      steps: [
+        {
+          heading: "1. Load reduced operand A(x)",
+          badge: "No shift yet",
+          tone: "diff-carried",
+          lines: [
+            "Value: " + formatPopupPoly(currBig, mDeg),
+            ...(mDeg <= 16 ? ["Binary (" + mDeg + " bits): " + toPaddedBin(currBig, mDeg)] : []),
+          ],
+        },
+        {
+          heading: "2. Overflow check",
+          badge: "Degree < " + mDeg,
+          tone: "diff-unchanged",
+          lines: ["Because no left shift occurred on Step 1, bit x^" + mDeg + " is 0 and no ⊕ m(x) reduction is needed."],
+        },
+      ],
+      result: {
+        label: "Shifted value for Step 1",
+        value: formatPopupPoly(currBig, mDeg),
+        detail: "Next step (Step 2) will shift this value left by 1 bit (<< 1).",
+        isMath: true,
+      },
+    });
+    return;
+  }
+
+  const unreduced = prevBig << 1n;
+  const overflowBit = Number((unreduced >> BigInt(mDeg)) & 1n);
+  const mask = (1n << BigInt(mDeg)) - 1n;
+  const lowShifted = unreduced & mask;
+  const lowMod = modBig & mask;
+
+  const steps = [];
+  if (mDeg <= 16) {
+    const prevBin = toPaddedBin(prevBig, mDeg);
+    const shiftedBin = toPaddedBin(unreduced, mDeg + 1);
+    const modBin = toPaddedBin(modBig, mDeg + 1);
+    const outBin = toPaddedBin(currBig, mDeg);
+
+    steps.push({
+      heading: "1. Inspect previous term & shift left by 1 bit (<< 1)",
+      badge: overflowBit ? "MSB was 1 → overflows x^" + mDeg : "MSB was 0 → fits in " + mDeg + " bits",
+      tone: overflowBit ? "diff-reduced" : "diff-carried",
+      lines: [
+        "Previous term:  " + prevBin + "  ({" + prevBig.toString(16).toUpperCase() + "})",
+        "Shift left << 1: [" + shiftedBin[0] + "] " + shiftedBin.slice(1) + "  (popped x^" + mDeg + " bit = " + overflowBit + ")",
+      ],
+    });
+    if (step.reduced) {
+      steps.push({
+        heading: "2. Cancel popped x^" + mDeg + " bit with ⊕ m(x)",
+        badge: "⊕ m(x) reduction",
+        tone: "diff-updated",
+        lines: [
+          "Shifted (" + (mDeg + 1) + "b):   " + shiftedBin,
+          "⊕ m(x)  (" + (mDeg + 1) + "b):   " + modBin + "  (" + polynomial(modBig) + ")",
+          "Reduced (" + mDeg + "b):    " + outBin + "  ({" + currBig.toString(16).toUpperCase() + "})",
+        ],
+      });
+    } else {
+      steps.push({
+        heading: "2. Reduction check",
+        badge: "No ⊕ m(x) needed",
+        tone: "diff-unchanged",
+        lines: ["Because the popped x^" + mDeg + " bit is 0, the degree stays below " + mDeg + " and no XOR with m(x) is performed."],
+      });
+    }
+  } else {
+    steps.push({
+      heading: "1. Shift previous term left by 1 bit (<< 1)",
+      badge: overflowBit ? "Popped x^" + mDeg + " = 1" : "Popped x^" + mDeg + " = 0",
+      tone: overflowBit ? "diff-reduced" : "diff-carried",
+      lines: [
+        "Previous term: {" + prevBig.toString(16).toUpperCase() + "}",
+        "After << 1 (low " + mDeg + " bits): {" + lowShifted.toString(16).toUpperCase() + "}",
+        "Popped x^" + mDeg + " overflow bit = " + overflowBit,
+      ],
+    });
+    if (step.reduced) {
+      steps.push({
+        heading: "2. Fold x^" + mDeg + " overflow using lower taps of m(x)",
+        badge: "⊕ m(x) reduction",
+        tone: "diff-updated",
+        lines: [
+          "Identity: x^" + mDeg + " ≡ " + polynomial(lowMod) + "  ({" + lowMod.toString(16).toUpperCase() + "})",
+          "Low shifted: {" + lowShifted.toString(16).toUpperCase() + "}",
+          "⊕ low m(x):  {" + lowMod.toString(16).toUpperCase() + "}",
+          "= Reduced:   {" + currBig.toString(16).toUpperCase() + "}",
+        ],
+      });
+    } else {
+      steps.push({
+        heading: "2. Reduction check",
+        badge: "No ⊕ m(x) needed",
+        tone: "diff-unchanged",
+        lines: ["Top bit b_" + (mDeg - 1) + " was 0, so shifting left stayed strictly below degree " + mDeg + "."],
+      });
+    }
+  }
+
+  showDerivationPopup({
+    title: "Step " + (idx + 1) + " (Bit b_" + step.i + "): Shift & XOR Illustration",
+    subtitle: "Multiplying the previous term by x (1-bit left shift) modulo m(x) in GF(2^" + mDeg + ")",
+    formula: step.reduced
+      ? "next = (prev << 1) ⊕ m(x)   (x^" + mDeg + " overflow cancelled)"
+      : "next = prev << 1   (no x^" + mDeg + " overflow)",
+    steps,
+    result: {
+      label: "Shifted value for Step " + (idx + 1),
+      value: formatPopupPoly(currBig, mDeg),
+      detail: step.added
+        ? "Bit b_" + step.i + " of B(x) is 1, so this shifted value is XORed into the running sum."
+        : "Bit b_" + step.i + " of B(x) is 0, so this shifted value is skipped for the running sum.",
+      isMath: true,
+    },
+  });
+}
 
 /**
  * Compute an informative one-line educational title for an Extended Euclid Table 4.7 step.
@@ -57,37 +479,33 @@ function euclidKnowledgeTitle(trace, rowIndex, stagePrefix = "") {
   if (row.step === 0) {
     return stagePrefix + "Step 0: Initialize Bézout Triples: A ← m(x), B ← b(x) mod m(x)";
   }
-  const qPoly = row.cells.Q.algebraic;
+  const qPoly = formatCellText(row.cells.Q.algebraic, "algebraic", (trace.m_degree ?? 8) > 8, trace.m_degree ?? 8);
   return stagePrefix + "Step " + row.step + ": Divide A3(x) by B3(x) (Q = " + qPoly + ") & Update Bézout Remainder T3(x)";
 }
 
 /**
- * Compute an informative one-line educational title for a Shift-and-XOR multiplication step.
+ * Compute an intuitive one-line educational title for a Shift-and-XOR multiplication step,
+ * explicitly naming `A(x)`, the 1-bit left shift (`<< 1`), and bit `b_i` of `B(x)`.
  *
  * @param {object} step - Single Shift-and-XOR step entry.
  * @param {string} [stagePrefix=""] - Optional stage prefix (e.g. for two-stage division).
- * @returns {string} Educational title describing shift, overflow reduction, and accumulation.
+ * @param {number} [mDeg=8] - Field degree `m`.
+ * @returns {string} Educational title describing shift, overflow reduction, and bit check.
  */
-function multiplyKnowledgeTitle(step, stagePrefix = "") {
+function multiplyKnowledgeTitle(step, stagePrefix = "", mDeg = 8) {
   if (step.i === 0) {
-    return stagePrefix + "Step 1 (Bit b0): Initialize Shifted Term x^0·A(x) & Check Multiplier Bit b0";
+    const startHex = formatCellText(step.partial_hex, "hex", mDeg > 8, mDeg);
+    return stagePrefix + "Step 1: Start with A(x) = {" + startHex + "} (no shift yet) & Check Bit b_0 of B(x)";
   }
   const n = step.i + 1;
-  const bitLabel = "Bit b_" + step.i + " = " + step.multiplier_bit;
-  if (step.reduced && step.added) {
-    return stagePrefix + "Step " + n + " (" + bitLabel + "): Shift Left (× x), Reduce Overflow x^m ⊕ m(x), & XOR into Sum";
+  if (step.reduced) {
+    return stagePrefix + "Step " + n + ": Shift Previous Term Left by 1 Bit (<< 1), Reduce ⊕ m(x), & Check Bit b_" + step.i + " of B(x)";
   }
-  if (step.reduced && !step.added) {
-    return stagePrefix + "Step " + n + " (" + bitLabel + "): Shift Left (× x) & Reduce Overflow x^m ⊕ m(x) (Skip Sum)";
-  }
-  if (!step.reduced && step.added) {
-    return stagePrefix + "Step " + n + " (" + bitLabel + "): Shift Left (× x, No Overflow) & XOR into Sum";
-  }
-  return stagePrefix + "Step " + n + " (" + bitLabel + "): Shift Left (× x, No Overflow) & Keep Sum Unchanged";
+  return stagePrefix + "Step " + n + ": Shift Previous Term Left by 1 Bit (<< 1) & Check Bit b_" + step.i + " of B(x)";
 }
 
 /**
- * Compute an informative educational title for a Modulo Reduction step.
+ * Compute an informative one-line educational title for a Modulo Reduction step.
  *
  * @param {object} row - Reduction step record `{target_degree, shift}`.
  * @param {number} idx - Zero-based step index.
@@ -95,12 +513,12 @@ function multiplyKnowledgeTitle(step, stagePrefix = "") {
  * @returns {string} Educational step title.
  */
 function reductionKnowledgeTitle(row, idx, stagePrefix = "") {
-  return stagePrefix + "Step " + (idx + 1) + ": Eliminate Leading Term x^" + row.target_degree +
-    " by XORing m(x) · x^" + (row.shift > 0 ? row.shift : 0);
+  return stagePrefix + "Step " + (idx + 1) + ": Cancel Leading Term x^" + row.target_degree +
+    " using m(x) << " + (row.shift > 0 ? row.shift : 0);
 }
 
 /**
- * Compute an informative educational title for a Bitwise XOR column step.
+ * Compute an informative one-line educational title for a Bitwise XOR column step.
  *
  * @param {object} bit - Column record `{exp, a, b, xor}`.
  * @param {string} [stagePrefix=""] - Optional prefix.
@@ -113,13 +531,7 @@ function xorKnowledgeTitle(bit, stagePrefix = "") {
 }
 
 /**
- * Build the shared, color-blind-safe visual diff legend bar used across Traces and Lessons.
- *
- * Every visual state pairs a WCAG AA tinted surface/border with an explicit text label:
- *   - `.diff-carried`: Indigo/Blue (Carried / Shifted)
- *   - `.diff-updated`: Emerald/Green (New / Updated)
- *   - `.diff-reduced`: Amber/Orange (Reduced / Cancelled)
- *   - `.diff-unchanged`: Neutral Muted (Unchanged)
+ * Build the shared, color-blind-safe visual diff legend bar used above step traces.
  *
  * @returns {HTMLElement} Compact `.diff-legend` bar element.
  */
@@ -140,10 +552,28 @@ export function createDiffLegend() {
 }
 
 /**
- * Format a trace value according to the active notation and `compactValues` toggle.
+ * Build a concise, readable color legend placed right above every `Classic table` view.
  *
- * When `compactValues` is enabled on large fields (`m > 8`), trims leading zero padding
- * for hex/binary values and summarizes middle terms of long algebraic polynomials.
+ * @returns {HTMLElement} Compact `.table-color-legend` element.
+ */
+export function createTableColorLegend() {
+  const bar = element("div", undefined, "diff-legend table-color-legend");
+  bar.setAttribute("role", "note");
+  bar.setAttribute("aria-label", "Table color legend");
+  bar.append(element("span", "Table highlights:", "diff-legend-title"));
+  for (const [cls, label] of [
+    ["diff-updated", "Surviving 1 bit / Updated / Inverse found"],
+    ["diff-reduced", "1 ⊕ 1 → 0 cancellation / Overflow reduced"],
+    ["diff-carried", "Carried / Active row"],
+    ["diff-unchanged", "Unchanged"],
+  ]) {
+    bar.append(mathElement("span", label, "diff-legend-item " + cls));
+  }
+  return bar;
+}
+
+/**
+ * Format a trace value according to the active notation and `compactValues` toggle.
  *
  * @param {string | number} rawValue - Raw cell string or number.
  * @param {"hex" | "bin" | "algebraic"} [notation="hex"] - Cell notation.
@@ -164,14 +594,45 @@ function formatCellText(rawValue, notation = "hex", compactValues = false, mDegr
 }
 
 /**
- * Attach click-to-copy behavior and tooltip metadata to a trace value element.
+ * Attach either Full-Value Inspector Popup (for truncated compact values in large fields)
+ * or click-to-copy (for short untruncated cells) to a trace value element.
  *
  * @param {HTMLElement} node - Clickable DOM element displaying a polynomial/hex/binary value.
- * @param {string} fullValue - Complete unshortened value to copy.
+ * @param {{fullValue: string, displayValue?: string, valueBigInt?: bigint | null, mDegree?: number, label?: string}} info - Value metadata.
  */
-function makeCopyableValue(node, fullValue) {
-  node.title = "Click to copy full value: " + fullValue;
+function attachValueInteraction(node, info) {
+  const fullValue = String(info.fullValue ?? "");
+  const displayValue = String(info.displayValue ?? fullValue);
+  const isTruncated = displayValue.includes("…") || displayValue.includes("...");
   node.dataset.fullValue = fullValue;
+
+  if (isTruncated && info.valueBigInt !== undefined && info.valueBigInt !== null) {
+    node.classList.add("trace-inspectable");
+    node.title = "Click to view full value";
+    node.tabIndex = 0;
+    node.setAttribute("role", "button");
+    node.setAttribute("aria-label", "Click to view full value for " + (info.label || "trace cell"));
+    const cue = element("span", "⤢", "inspect-cue");
+    cue.setAttribute("aria-hidden", "true");
+    node.append(cue);
+    const open = () => {
+      showInspectorPopup({
+        title: info.label || "Full value",
+        valueBigInt: info.valueBigInt,
+        mDegree: info.mDegree ?? 163,
+      });
+    };
+    node.addEventListener("click", open);
+    node.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        open();
+      }
+    });
+    return;
+  }
+
+  node.title = "Click to copy full value: " + fullValue;
   node.classList.add("trace-copyable");
   node.addEventListener("click", async () => {
     const copied = await copyToClipboard(fullValue);
@@ -184,23 +645,32 @@ function makeCopyableValue(node, fullValue) {
 }
 
 /**
- * Build a styled diff value box (`<dd>`) with optional color-coded badge, math typography
- * on non-hex values, and inline `was:` / `prev:` sub-row.
+ * Build a styled diff value box (`<dd>`) with optional color-coded badge, math typography,
+ * Full-Value Inspector click behavior on truncated cells, and inline `was:` / `prev:` sub-row.
  *
  * @param {string | number} displayValue - Primary text shown in the cell.
- * @param {object} [meta] - Optional diff metadata `{diffClass?, badge?, prevText?, fullValue?, extraClass?, isMathValue?}`.
+ * @param {object} [meta] - Optional metadata `{diffClass?, badge?, prevText?, fullValue?, valueBigInt?, mDegree?, label?, extraClass?, isMathValue?, scrollable?}`.
  * @returns {HTMLElement} Populated `<dd>` element.
  */
 function buildDiffValueNode(displayValue, meta = {}) {
   const dd = element("dd");
   const fullValue = String(meta.fullValue ?? displayValue);
+  const valInteraction = {
+    fullValue,
+    displayValue: String(displayValue),
+    valueBigInt: meta.valueBigInt ?? null,
+    mDegree: meta.mDegree ?? 8,
+    label: meta.label || "Trace value",
+  };
+
   if (meta.diffClass || meta.badge || meta.prevText) {
     dd.className = "diff-cell-box" + (meta.diffClass ? " " + meta.diffClass : "") + (meta.extraClass ? " " + meta.extraClass : "");
     const head = element("div", undefined, "diff-cell-head");
+    const valClass = "diff-cell-val" + (meta.scrollable ? " value-scroll-wrap" : "");
     const valSpan = meta.isMathValue
-      ? mathElement("span", displayValue, "diff-cell-val")
-      : element("span", String(displayValue), "diff-cell-val");
-    makeCopyableValue(valSpan, fullValue);
+      ? mathElement("span", displayValue, valClass)
+      : element("span", String(displayValue), valClass);
+    attachValueInteraction(valSpan, valInteraction);
     head.append(valSpan);
     if (meta.badge) {
       head.append(mathElement("span", meta.badge, "diff-tag" + (meta.diffClass ? " " + meta.diffClass : "")));
@@ -216,20 +686,22 @@ function buildDiffValueNode(displayValue, meta = {}) {
     if (meta.isMathValue) setMathText(dd, displayValue);
     else dd.textContent = String(displayValue);
     if (meta.extraClass) dd.className = meta.extraClass;
-    makeCopyableValue(dd, fullValue);
+    if (meta.scrollable) dd.classList.add("value-scroll-wrap");
+    attachValueInteraction(dd, valInteraction);
   }
   return dd;
 }
 
 /**
  * Build an accessible trace table inside a labelled region with smart cell wrapping,
- * true `<sup>`/`<sub>` headers and polynomial columns, and optional row/cell diff styling.
+ * true `<sup>`/`<sub>` headers and polynomial columns, optional row/cell diff styling,
+ * and click-to-inspect Full Value Popups on truncated large-field cells.
  *
  * @param {string} title - Section heading and ARIA region label.
  * @param {Array<string | number>} headers - Column header labels.
  * @param {Array<Array<string | number>>} rows - Matrix of cell text values.
  * @param {(row: number, col: number) => boolean} [selected] - Predicate highlighting key cells (`.picked`).
- * @param {{prevRow?: number, currRow?: number, cellClass?: (row: number, col: number) => string, mathCols?: Set<number>, subtitle?: string}} [diffOpts] - Optional decorators.
+ * @param {{prevRow?: number, currRow?: number, cellClass?: (row: number, col: number) => string, cellInspector?: (row: number, col: number) => {fullValue: string, valueBigInt: bigint, mDegree: number, label: string} | null, mathCols?: Set<number>, subtitle?: string}} [diffOpts] - Optional decorators.
  * @returns {HTMLElement} Populated `<section>` containing the table or empty notice.
  */
 export function table(title, headers, rows, selected = () => false, diffOpts = {}) {
@@ -263,11 +735,16 @@ export function table(title, headers, rows, selected = () => false, diffOpts = {
     }
     values.forEach((value, col) => {
       const cell = line.insertCell();
+      const strVal = String(value);
       if (diffOpts.mathCols?.has(col)) setMathText(cell, value);
-      else cell.textContent = value;
+      else cell.textContent = strVal;
       if (selected(row, col)) cell.classList.add("picked");
       const extra = diffOpts.cellClass?.(row, col);
       if (extra) cell.classList.add(extra);
+      const inspectInfo = diffOpts.cellInspector?.(row, col);
+      if (inspectInfo && (strVal.includes("…") || strVal.includes("..."))) {
+        attachValueInteraction(cell, { ...inspectInfo, displayValue: strVal });
+      }
     });
   });
   wrapper.append(grid);
@@ -278,9 +755,9 @@ export function table(title, headers, rows, selected = () => false, diffOpts = {
 /**
  * Render one labelled key-value step card for `Step view` or `All steps grid`,
  * featuring a step eyebrow badge, prominent educational `.step-knowledge-title`,
- * step-change transition banner, and per-row visual diff badges.
+ * optional banner, and per-row visual diff badges.
  *
- * @param {string} eyebrow - Step identifier eyebrow (e.g. `"Multiplier bit 7"`).
+ * @param {string} eyebrow - Step identifier eyebrow.
  * @param {string} knowledgeTitle - Informative educational summary of what the step computes.
  * @param {string[]} labels - Term labels for the `<dl>` list.
  * @param {Array<string | number>} values - Corresponding values aligned with `labels`.
@@ -309,94 +786,93 @@ function stepCard(eyebrow, knowledgeTitle, labels, values, isCurrentRegion = tru
 }
 
 /**
- * Build one modulo reduction step card with leading-term elimination and after-XOR diff badges.
+ * Build one streamlined Modulo Reduction step card showing full untruncated hex values,
+ * no duplicate blue summary banner, no separate `Shift` row, and explicit
+ * `Shifted modulus · m(x) << k` labeling placed between `Before` and `After XOR`.
  *
  * @param {object} trace - Backend `mod_reduce` trace dictionary.
  * @param {number} idx - Zero-based reduction step index.
  * @param {string} heading - Section heading prefix.
- * @param {boolean} compactValues - Whether compact large-field summarization is enabled.
  * @param {boolean} isCurrentRegion - Attach `"Current trace step"` ARIA region label.
  * @param {string} [stagePrefix=""] - Optional stage prefix.
  * @returns {HTMLElement} Rendered modulo reduction step card.
  */
-function reductionStepCard(trace, idx, heading, compactValues, isCurrentRegion, stagePrefix = "") {
-  const labels = ["Highest degree", "Shift", "Before (hex)", "Shifted modulus (hex)", "After XOR (hex)"];
-  const hex = text => formatCellText(text, "hex", compactValues, trace.m_degree);
+function reductionStepCard(trace, idx, heading, isCurrentRegion, stagePrefix = "") {
   const row = trace.steps[idx];
-  const beforeStr = hex(row.before_hex);
-  const reducerStr = hex(row.reducer_hex);
-  const afterStr = hex(row.after_hex);
-  const banner = "Step " + (idx + 1) + ": Cancelled leading term x^" + row.target_degree +
-    " using m(x) << " + row.shift + " → remainder {" + beforeStr + "} → {" + afterStr + "}.";
+  const beforeStr = row.before_hex.toUpperCase();
+  const reducerStr = row.reducer_hex.toUpperCase();
+  const afterStr = row.after_hex.toUpperCase();
+  const shiftLabel = "Shifted modulus · m(x) << " + row.shift;
+  const labels = ["Highest degree", "Before (hex)", shiftLabel, "After XOR (hex)"];
+  const isLong = beforeStr.length > 48;
   const cellMeta = [
     { diffClass: "diff-reduced", badge: "Cancel x^" + row.target_degree },
-    { diffClass: "diff-carried", badge: "m(x) << " + row.shift },
-    { diffClass: "diff-reduced", badge: "Leading term cancelled", fullValue: row.before_hex.toUpperCase() },
-    { diffClass: "diff-carried", badge: "Shifted modulus", fullValue: row.reducer_hex.toUpperCase() },
-    { diffClass: "diff-updated", badge: "Reduced", prevText: "was: " + beforeStr, fullValue: row.after_hex.toUpperCase() },
+    { diffClass: "diff-reduced", badge: "Leading term x^" + row.target_degree, fullValue: beforeStr, scrollable: isLong },
+    { diffClass: "diff-carried", badge: "m(x) << " + row.shift, fullValue: reducerStr, scrollable: isLong },
+    { diffClass: "diff-updated", badge: "After XOR", prevText: "Before ⊕ (m(x) << " + row.shift + ")", fullValue: afterStr, scrollable: isLong },
   ];
   return stepCard(
     heading + " · step " + (idx + 1),
     reductionKnowledgeTitle(row, idx, stagePrefix),
     labels,
-    [row.target_degree, row.shift, beforeStr, reducerStr, afterStr],
+    ["x^" + row.target_degree + " (degree " + row.target_degree + ")", beforeStr, reducerStr, afterStr],
     isCurrentRegion,
-    { banner, cellMeta },
+    { cellMeta },
   );
 }
 
 /**
- * Render modulo reduction steps (`MOD_REDUCE`) in `step`, `grid`, or `table` layout mode.
+ * Render modulo reduction steps (`MOD_REDUCE`) in `step`, `grid`, or `table` layout mode,
+ * always showing full untruncated hex values cleanly wrapped.
  *
  * @param {object} trace - Backend `mod_reduce` trace dictionary.
  * @param {number} limit - Number of steps currently revealed (`Infinity` for all).
  * @param {string} [heading="Modulo reduction"] - Section heading text.
- * @param {"step" | "grid" | "table"} [layoutMode="table"] - Active trace layout mode.
- * @param {boolean} [compactValues=false] - Whether to trim leading zero padding on large fields.
+ * @param {"step" | "grid" | "table"} [layoutMode="step"] - Active trace layout mode.
  * @param {number} [currentStep=0] - Active zero-based step index.
  * @param {boolean} [isCurrentRegion=true] - Whether the step card is the live `"Current trace step"` region.
  * @returns {HTMLElement} Rendered modulo reduction section.
  */
-function reduction(trace, limit, heading = "Modulo reduction", layoutMode = "table", compactValues = false, currentStep = 0, isCurrentRegion = true) {
-  const labels = ["Highest degree", "Shift", "Before (hex)", "Shifted modulus (hex)", "After XOR (hex)"];
-  const hex = text => formatCellText(text, "hex", compactValues, trace.m_degree);
-  const cells = row => [row.target_degree, row.shift, hex(row.before_hex), hex(row.reducer_hex), hex(row.after_hex)];
+function reduction(trace, limit, heading = "Modulo reduction", layoutMode = "step", currentStep = 0, isCurrentRegion = true) {
+  const labels = ["Highest degree", "Before (hex)", "Shifted modulus · m(x) << k (hex)", "After XOR (hex)"];
+  const cells = row => [
+    "x^" + row.target_degree,
+    row.before_hex.toUpperCase(),
+    "m(x) << " + row.shift + ": " + row.reducer_hex.toUpperCase(),
+    row.after_hex.toUpperCase(),
+  ];
 
   let section;
   if (layoutMode === "step" && trace.steps.length) {
     const idx = Math.max(0, Math.min(trace.steps.length - 1, limit === Infinity ? currentStep : limit - 1));
-    section = reductionStepCard(trace, idx, heading, compactValues, isCurrentRegion);
+    section = reductionStepCard(trace, idx, heading, isCurrentRegion);
   } else if (layoutMode === "grid" && trace.steps.length) {
     section = element("section");
     section.append(element("h3", heading));
     const grid = element("div", undefined, "trace-grid-cards");
     trace.steps.slice(0, limit).forEach((_, idx) => {
-      const card = reductionStepCard(trace, idx, heading, compactValues, idx === currentStep && isCurrentRegion);
-      if (idx === currentStep) card.classList.add("is-current");
-      if (idx === currentStep - 1) card.classList.add("diff-prev-card");
+      const card = reductionStepCard(trace, idx, heading, idx === currentStep && isCurrentRegion);
       grid.append(card);
     });
     section.append(grid);
   } else {
     const rows = trace.steps.slice(0, limit);
-    const activeRow = rows[Math.max(0, Math.min(rows.length - 1, currentStep))];
     section = table(
       heading,
       labels,
       rows.map(cells),
       () => false,
       {
-        prevRow: limit !== Infinity && currentStep > 0 ? currentStep - 1 : -1,
-        currRow: limit !== Infinity ? currentStep : -1,
-        cellClass: (r, c) => (c === 2 ? "diff-reduced" : c === 3 ? "diff-carried" : c === 4 ? "diff-updated" : ""),
-        subtitle: activeRow
-          ? reductionKnowledgeTitle(activeRow, Math.max(0, Math.min(rows.length - 1, currentStep)))
+        mathCols: new Set([0]),
+        cellClass: (_, c) => (c === 1 ? "diff-reduced" : c === 2 ? "diff-carried" : c === 3 ? "diff-updated" : ""),
+        subtitle: rows.length
+          ? "Each row aligns m(x) << k under the leading term and XORs to cancel it."
           : "No reduction needed: degree is already below m",
       },
     );
   }
   section.insertBefore(mathElement("p", trace.was_reduced
-    ? "Shift the modulus so its leading term aligns with the remainder, then XOR to cancel that term."
+    ? "Shift the modulus by k = d − m so its leading term aligns with the remainder, then XOR to cancel that term."
     : "The input already has degree below m. No reduction is needed."), section.children[1] || null);
   return section;
 }
@@ -417,8 +893,6 @@ function xorStepCard(trace, idx, isCurrentRegion) {
     : bit.xor === 1
       ? { diffClass: "diff-updated", badge: "Set to 1" }
       : { diffClass: "diff-unchanged", badge: "Unchanged (0)" };
-  const banner = "Column x^" + bit.exp + ": " + bit.a + " ⊕ " + bit.b + " = " + bit.xor +
-    (cancels ? ", matching 1s cancel in GF(2)." : bit.xor === 1 ? ", term survives in result." : ", remains 0.");
   return stepCard(
     "Bitwise XOR · x^" + bit.exp,
     xorKnowledgeTitle(bit),
@@ -426,7 +900,6 @@ function xorStepCard(trace, idx, isCurrentRegion) {
     [bit.a, bit.b, bit.xor],
     isCurrentRegion,
     {
-      banner,
       cellMeta: [
         { diffClass: bit.a ? "diff-carried" : "diff-unchanged" },
         { diffClass: bit.b ? "diff-carried" : "diff-unchanged" },
@@ -457,8 +930,6 @@ function xor(trace, limit, layoutMode, currentStep = 0, isCurrentRegion = true) 
     const grid = element("div", undefined, "trace-grid-cards");
     trace.columns.slice(0, limit).forEach((_, idx) => {
       const card = xorStepCard(trace, idx, idx === currentStep && isCurrentRegion);
-      if (idx === currentStep) card.classList.add("is-current");
-      if (idx === currentStep - 1) card.classList.add("diff-prev-card");
       grid.append(card);
     });
     section.append(grid);
@@ -488,19 +959,12 @@ function xor(trace, limit, layoutMode, currentStep = 0, isCurrentRegion = true) 
 }
 
 /**
- * Format the explicit shift-and-XOR reduction calculation (`FORMAT_STEP_REDUCTION_BREAKDOWN`)
- * for a Shift-and-XOR multiplication step using Stallings' identity `x^m mod m(x) = m(x) - x^m`.
+ * Format the explicit shift-and-XOR calculation lines (`Shift left (<< 1)` and conditional `XOR m(x)`)
+ * shown ABOVE the final shifted value inside Sub-Block 1 of a Shift-and-XOR multiplication card.
  *
- * - For `stepIndex === 0`: explains that `x^0 * A(x)` requires no shift yet.
- * - When `!wasReduced`: shows the left shift (`<< 1`) and notes no `x^m` overflow occurred.
- * - When `wasReduced` and `mDegree <= 16`: returns a 3-line aligned binary XOR breakdown
- *   (`shifted_bin`, `mod_bin`, `result_bin` + `{hex}`).
- * - When `wasReduced` and `mDegree > 16`: returns a 3-line compact sparse-tap breakdown
- *   showing `low_shifted`, `polynomial(low_mod)` lower `m(x)` taps, and `{reduced_hex}`.
- *
- * @param {bigint} prevVal - Previous step's partial value (`x^(i-1) * A(x) mod m(x)`).
- * @param {bigint} currVal - Current step's partial value (`x^i * A(x) mod m(x)`).
- * @param {bigint} modPoly - Irreducible modulus `m(x)` bitmask with bit `mDegree` set.
+ * @param {bigint} prevVal - Previous step's shifted value.
+ * @param {bigint} currVal - Current step's shifted value.
+ * @param {bigint} modPoly - Irreducible modulus `m(x)` bitmask.
  * @param {number} mDegree - Extension field degree `m`.
  * @param {number} stepIndex - Zero-based step index `i`.
  * @param {boolean} wasReduced - True when `prevVal << 1n` overflowed bit `mDegree`.
@@ -514,7 +978,10 @@ export function formatStepReductionBreakdown(prevVal, currVal, modPoly, mDegree,
   if (stepIndex === 0) {
     const initHex = mDegree <= 16 ? toHex(currVal) : compactHex(currVal);
     return {
-      lines: ["Initial term (x^0 · A(x)): {" + initHex + "} (no shift yet)"],
+      lines: [
+        "1. Start with A(x) = {" + initHex + "} (no left shift yet on bit b_0)",
+        "2. Degree < " + mDegree + ", so no ⊕ m(x) reduction needed",
+      ],
       isOverflow: false,
     };
   }
@@ -524,16 +991,16 @@ export function formatStepReductionBreakdown(prevVal, currVal, modPoly, mDegree,
     if (mDegree <= 16) {
       return {
         lines: [
-          "Shift left (× x): " + toPaddedBin(prevVal, mDegree) + " << 1 = " +
-            toPaddedBin(currVal, mDegree) + " ({" + toHex(currVal) + "}, no x^" + mDegree + " overflow)",
+          "1. Shift left (<< 1): " + toPaddedBin(prevVal, mDegree) + " << 1 = " + toPaddedBin(currVal, mDegree),
+          "2. Top bit x^" + mDegree + " is 0 → no ⊕ m(x) reduction needed",
         ],
         isOverflow: false,
       };
     }
     return {
       lines: [
-        "Shift left (× x): {" + compactHex(prevVal) + "} << 1 = {" +
-          compactHex(currVal) + "} (no x^" + mDegree + " overflow)",
+        "1. Shift left (<< 1): {" + compactHex(prevVal) + "} << 1 = {" + compactHex(currVal) + "}",
+        "2. Top bit x^" + mDegree + " is 0 → no ⊕ m(x) reduction needed",
       ],
       isOverflow: false,
     };
@@ -542,12 +1009,10 @@ export function formatStepReductionBreakdown(prevVal, currVal, modPoly, mDegree,
   if (mDegree <= 16) {
     const shiftedBin = toPaddedBin(unreducedShift, mDegree + 1);
     const modBin = toPaddedBin(modPoly, mDegree + 1);
-    const resultBin = toPaddedBin(currVal, mDegree);
     return {
       lines: [
-        "1. Shift left (× x):   " + shiftedBin + "  (overflows x^" + mDegree + ")",
-        "2. XOR m(x):         ⊕ " + modBin,
-        "3. Reduced result:      " + resultBin + "  ({" + toHex(currVal) + "})",
+        "1. Shift left (<< 1): " + shiftedBin + " (overflows x^" + mDegree + ")",
+        "2. XOR m(x):        ⊕ " + modBin + " (cancels x^" + mDegLabel(mDegree) + ")",
       ],
       isOverflow: true,
     };
@@ -558,18 +1023,25 @@ export function formatStepReductionBreakdown(prevVal, currVal, modPoly, mDegree,
   const lowMod = modPoly & mask;
   return {
     lines: [
-      "1. Shift left & drop x^" + mDegree + ": {" + compactHex(lowShifted) + "}",
+      "1. Shift left (<< 1) & pop x^" + mDegree + ": {" + compactHex(lowShifted) + "}",
       "2. XOR lower m(x) taps: ⊕ (" + polynomial(lowMod) + ")",
-      "3. Reduced result: {" + compactHex(currVal) + "}",
     ],
     isOverflow: true,
   };
 }
 
+/** @param {number} m @returns {string} */
+function mDegLabel(m) {
+  return String(m);
+}
+
 /**
- * Build one Shift-and-XOR multiplication step card organized into two student-friendly sub-blocks
- * (**1. Shift & Reduce** and **2. Check Bit & Update Running Sum**), Stallings `{hex}` brace notation,
- * explicit `m(x)` overflow reduction math, de-cluttered status badges, and a live running formula strip.
+ * Build one Shift-and-XOR multiplication step card with:
+ *   - No redundant blue summary banner
+ *   - Clear bit-shift descriptions explicitly naming `A(x)`, `<< 1`, and `b_i` of `B(x)`
+ *   - Calculation steps ALWAYS shown BEFORE the bold final answer in both Sub-Block 1 and Sub-Block 2
+ *   - On-demand `Show Shift & XOR illustration` button opening a step-specific popup
+ *   - Click-to-inspect Full Value Popup on truncated large-field values
  *
  * @param {object} trace - Backend `shift-and-xor` trace dictionary.
  * @param {number} idx - Zero-based multiplier bit step index.
@@ -585,13 +1057,18 @@ function multiplyStepCard(trace, idx, compactValues, isCurrentRegion, stagePrefi
   const shortHex = text => significantDigits(text).toUpperCase();
   const cellHex = text => formatCellText(text, "hex", compactValues, mDeg);
 
-  const priorShort = shortHex(prevStep?.accumulator_hex ?? "0");
-  const partialShort = shortHex(step.partial_hex);
-  const totalShort = shortHex(step.accumulator_hex);
   const partialDisp = cellHex(step.partial_hex);
   const totalDisp = cellHex(step.accumulator_hex);
   const prevPartialDisp = prevStep ? cellHex(prevStep.partial_hex) : null;
   const prevAccDisp = prevStep ? cellHex(prevStep.accumulator_hex) : "0";
+  const partialShort = shortHex(step.partial_hex);
+  const totalShort = shortHex(step.accumulator_hex);
+  const priorShort = shortHex(prevStep?.accumulator_hex ?? "0");
+
+  const prevBig = prevStep ? BigInt("0x" + prevStep.partial_hex) : 0n;
+  const currBig = BigInt("0x" + step.partial_hex);
+  const accBig = BigInt("0x" + step.accumulator_hex);
+  const modBig = BigInt("0x" + (trace.reduction_poly_hex || "1"));
 
   const card = element("section", undefined, "trace-card multiply-step-card");
   if (isCurrentRegion) {
@@ -599,53 +1076,21 @@ function multiplyStepCard(trace, idx, compactValues, isCurrentRegion, stagePrefi
     card.setAttribute("aria-label", "Current trace step");
   }
   card.append(
-    mathElement("span", "Multiplier bit " + step.i, "step-eyebrow"),
-    mathElement("h3", multiplyKnowledgeTitle(step, stagePrefix), "step-knowledge-title"),
+    mathElement("span", "Multiplier bit b_" + step.i + " · Step " + (idx + 1), "step-eyebrow"),
+    mathElement("h3", multiplyKnowledgeTitle(step, stagePrefix, mDeg), "step-knowledge-title"),
   );
 
-  const banner = idx === 0
-    ? "Step 1 (i = 0): Initial A(x) = {" + partialDisp + "}; bit b0 = " + step.multiplier_bit +
-      (step.added ? " → Running XOR set to {" + totalDisp + "}" : " → Running XOR stays {0}")
-    : "Step " + idx + " → Step " + (idx + 1) + " (i = " + step.i + "): " +
-      (step.reduced ? "Shifted + Reduced ⊕ m(x)" : "Shifted left") +
-      "; bit b_" + step.i + " = " + step.multiplier_bit +
-      (step.added
-        ? " → Running XOR updated ({" + prevAccDisp + "} → {" + totalDisp + "})"
-        : " → Running XOR unchanged ({" + totalDisp + "})");
-  card.append(mathElement("p", banner, "diff-banner"));
-
-  // Sub-Block A: 1. Shift & Reduce (x^i · A(x) mod m(x))
+  // --- Sub-Block 1: 1. Shift & Reduce (Steps BEFORE Answer + Illustration Popup) ---
   const shiftDiffClass = idx === 0 ? "diff-unchanged" : step.reduced ? "diff-reduced" : "diff-carried";
-  const shiftBadgeText = idx === 0 ? "Initial A(x)" : step.reduced ? "Reduced ⊕ m(x)" : "Shifted left";
+  const shiftBadgeText = idx === 0 ? "Initial A(x)" : step.reduced ? "Reduced ⊕ m(x)" : "Shifted << 1";
   const shiftBlock = element("div", undefined, "mul-subblock mul-shift-block " + shiftDiffClass);
   const shiftHead = element("div", undefined, "mul-subblock-head");
   shiftHead.append(
-    mathElement("h4", "1. Shift & Reduce (x^" + step.i + " · A(x) mod m(x))", "mul-subblock-title"),
+    mathElement("h4", "1. Shift & Reduce", "mul-subblock-title"),
     mathElement("span", shiftBadgeText, "diff-tag " + shiftDiffClass),
   );
 
-  const shiftDl = element("dl", undefined, "equivalents mul-subblock-dl");
-  const shiftDd = element("dd");
-  const shiftValSpan = element("span", "{" + partialDisp + "}", "diff-cell-val");
-  makeCopyableValue(shiftValSpan, step.partial_hex.toUpperCase());
-  shiftDd.append(shiftValSpan);
-  if (prevStep) {
-    shiftDd.append(element("span", "prev: {" + prevPartialDisp + "} → now: {" + partialDisp + "}", "diff-prev-value"));
-  }
-  const reducedDd = mathElement(
-    "dd",
-    step.reduced ? "Yes (overflowed x^" + mDeg + ")" : "No (degree < " + mDeg + ")",
-  );
-  shiftDl.append(
-    element("dt", "Shifted operand A"),
-    shiftDd,
-    element("dt", "Reduced?"),
-    reducedDd,
-  );
-
-  const prevBig = prevStep ? BigInt("0x" + prevStep.partial_hex) : 0n;
-  const currBig = BigInt("0x" + step.partial_hex);
-  const modBig = BigInt("0x" + (trace.reduction_poly_hex || "1"));
+  // Calculation steps FIRST
   const breakdown = formatStepReductionBreakdown(prevBig, currBig, modBig, mDeg, idx, Boolean(step.reduced));
   const breakdownBox = element(
     "div",
@@ -657,61 +1102,79 @@ function multiplyStepCard(trace, idx, compactValues, isCurrentRegion, stagePrefi
     appendMathText(lineEl, line);
     breakdownBox.append(lineEl);
   }
-  shiftBlock.append(shiftHead, shiftDl, breakdownBox);
 
-  // Sub-Block B: 2. Check Bit b_i & Update Running Sum
+  const illustrateBtn = element("button", "Show Shift & XOR illustration", "outline step-breakdown-btn");
+  illustrateBtn.type = "button";
+  illustrateBtn.addEventListener("click", () => openShiftXorIllustrationPopup(trace, idx));
+
+  // Bold resulting answer LAST
+  const shiftResultBox = element("div", undefined, "mul-step-result");
+  shiftResultBox.append(element("span", "Shifted value", "mul-step-result-label"));
+  const shiftValSpan = element("strong", "{" + partialDisp + "}", "mul-step-result-val");
+  attachValueInteraction(shiftValSpan, {
+    fullValue: step.partial_hex.toUpperCase(),
+    displayValue: partialDisp,
+    valueBigInt: currBig,
+    mDegree: mDeg,
+    label: "Step " + (idx + 1) + " · Shifted value (bit b_" + step.i + ")",
+  });
+  shiftResultBox.append(shiftValSpan);
+  if (prevStep) {
+    shiftResultBox.append(element("span", "prev: {" + prevPartialDisp + "} → now: {" + partialDisp + "}", "diff-prev-value"));
+  }
+
+  shiftBlock.append(shiftHead, breakdownBox, illustrateBtn, shiftResultBox);
+
+  // --- Sub-Block 2: 2. Check Bit b_i & Update Sum (Steps BEFORE Answer) ---
   const sumDiffClass = step.added ? "diff-updated" : "diff-unchanged";
   const sumBadgeText = "b_" + step.i + " = " + step.multiplier_bit + (step.added ? " · Include" : " · Skip");
   const sumBlock = element("div", undefined, "mul-subblock mul-sum-block " + sumDiffClass);
   const sumHead = element("div", undefined, "mul-subblock-head");
   sumHead.append(
-    mathElement("h4", "2. Check Bit b_" + step.i + " & Update Running Sum", "mul-subblock-title"),
+    mathElement("h4", "2. Check Bit b_" + step.i + " & Update Sum", "mul-subblock-title"),
     mathElement("span", sumBadgeText, "diff-tag " + sumDiffClass),
   );
 
-  const sumDl = element("dl", undefined, "equivalents mul-subblock-dl");
-  const bitDd = element(
-    "dd",
-    step.multiplier_bit === 1 ? "1 (include shifted term in sum)" : "0 (skip shifted term)",
+  // Calculation steps FIRST
+  const sumStepsBox = element("div", undefined, "reduction-breakdown");
+  const checkLine = element("div", undefined, "reduction-breakdown-line");
+  appendMathText(
+    checkLine,
+    "1. Check bit b_" + step.i + " of B(x): b_" + step.i + " = " + step.multiplier_bit +
+      (step.multiplier_bit === 1 ? " (include shifted value)" : " (skip shifted value)"),
   );
-  const accDd = element("dd");
-  const accValSpan = element("span", "{" + totalDisp + "}", "diff-cell-val");
-  makeCopyableValue(accValSpan, step.accumulator_hex.toUpperCase());
-  accDd.append(accValSpan);
-  if (idx === 0) {
-    accDd.append(
-      element(
-        "span",
-        step.added ? "prev: {0} → now: {" + totalDisp + "}" : "stays {0}",
-        "diff-prev-value",
-      ),
-    );
-  } else {
-    accDd.append(
-      element(
-        "span",
-        step.added
-          ? "prev: {" + prevAccDisp + "} → now: {" + totalDisp + "}"
-          : "prev: {" + prevAccDisp + "} (unchanged)",
-        "diff-prev-value",
-      ),
-    );
-  }
-  sumDl.append(
-    mathElement("dt", "Bit of B (b_" + step.i + ")"),
-    bitDd,
-    element("dt", "Running XOR"),
-    accDd,
+  const xorLine = element("div", undefined, "reduction-breakdown-line");
+  appendMathText(
+    xorLine,
+    step.added
+      ? "2. XOR into running sum: {" + (mDeg <= 8 ? priorShort : prevAccDisp) + "} ⊕ {" + (mDeg <= 8 ? partialShort : partialDisp) + "} = {" + (mDeg <= 8 ? totalShort : totalDisp) + "}"
+      : "2. Skip because b_" + step.i + " = 0 (running sum stays {" + (mDeg <= 8 ? totalShort : totalDisp) + "})",
+  );
+  sumStepsBox.append(checkLine, xorLine);
+
+  // Bold resulting Running Sum LAST
+  const sumResultBox = element("div", undefined, "mul-step-result");
+  sumResultBox.append(element("span", "Running Sum", "mul-step-result-label"));
+  const accValSpan = element("strong", "{" + totalDisp + "}", "mul-step-result-val");
+  attachValueInteraction(accValSpan, {
+    fullValue: step.accumulator_hex.toUpperCase(),
+    displayValue: totalDisp,
+    valueBigInt: accBig,
+    mDegree: mDeg,
+    label: "Step " + (idx + 1) + " · Running Sum (after bit b_" + step.i + ")",
+  });
+  sumResultBox.append(accValSpan);
+  sumResultBox.append(
+    element(
+      "span",
+      idx === 0
+        ? (step.added ? "prev: {0} → now: {" + totalDisp + "}" : "stays {0}")
+        : (step.added ? "prev: {" + prevAccDisp + "} → now: {" + totalDisp + "}" : "prev: {" + prevAccDisp + "} (unchanged)"),
+      "diff-prev-value",
+    ),
   );
 
-  const equation = element(
-    "p",
-    step.added
-      ? "{" + priorShort + "} ⊕ {" + partialShort + "} = {" + totalShort + "}"
-      : "Unchanged: Running XOR stays {" + totalShort + "}",
-    "bit-equation",
-  );
-  sumBlock.append(sumHead, sumDl, equation);
+  sumBlock.append(sumHead, sumStepsBox, sumResultBox);
 
   // Bottom Live Running Formula Strip
   const formulaStrip = element("div", undefined, "mul-formula-strip");
@@ -737,7 +1200,7 @@ function multiplyStepCard(trace, idx, compactValues, isCurrentRegion, stagePrefi
     }
     formulaStrip.textContent =
       "Included " + includedCount + " of " + (idx + 1) +
-      " terms so far → Running XOR = {" + totalDisp + "}";
+      " terms so far → Running Sum = {" + totalDisp + "}";
   }
 
   const blocksGrid = element("div", undefined, "mul-subblocks-grid");
@@ -747,19 +1210,55 @@ function multiplyStepCard(trace, idx, compactValues, isCurrentRegion, stagePrefi
 }
 
 /**
- * Render the Shift-and-XOR multiplication visualizer with linked multiplier-bit buttons.
- *
- * Clicking or navigating a bit button with Left/Right/Home/End highlights its matching
- * row in Table 1 (`x^i * A mod m`) and, when the bit is `1`, its matching partial-product
- * row in Table 2, while displaying the educational step title, running XOR equation, and diff highlights.
+ * Build the clickable multiplier-bit strip for Shift-and-XOR multiplication.
  *
  * @param {object} trace - Backend `shift-and-xor` trace dictionary.
- * @param {number} limit - Number of steps revealed in tables.
+ * @param {number} current - Currently active bit index.
+ * @param {(index: number) => void} chooseBit - Callback when user clicks/navigates a bit.
+ * @param {boolean} [locked=false] - True when playback is locked outside `Step view`.
+ * @returns {HTMLElement} Wrapper containing heading and `.multiplier-bits` strip.
+ */
+function buildMultiplierBitStrip(trace, current, chooseBit, locked = false) {
+  const wrap = element("div", undefined, "multiplier-bits-wrap");
+  const bits = element("div", undefined, "multiplier-bits" + (locked ? " is-locked" : ""));
+  bits.setAttribute("role", "group");
+  bits.setAttribute("aria-label", "Multiplier bits");
+  for (const [index, step] of trace.steps.entries()) {
+    const button = element("button", undefined, "multiplier-bit");
+    button.type = "button";
+    button.append(element("small", step.i), element("span", step.multiplier_bit));
+    button.setAttribute("aria-label", "Multiplier bit " + step.i);
+    button.setAttribute("aria-description", "Value " + step.multiplier_bit);
+    button.setAttribute("aria-pressed", String(!locked && index === current));
+    button.disabled = locked;
+    button.tabIndex = !locked && index === current ? 0 : -1;
+    if (!locked) button.addEventListener("click", () => chooseBit(index));
+    bits.append(button);
+  }
+  if (!locked) {
+    bits.addEventListener("keydown", event => {
+      const positions = { ArrowLeft: current - 1, ArrowRight: current + 1, Home: 0, End: trace.steps.length - 1 };
+      if (!Object.hasOwn(positions, event.key)) return;
+      const nextIdx = Math.max(0, Math.min(positions[event.key], trace.steps.length - 1));
+      if (nextIdx === current) return;
+      event.preventDefault();
+      chooseBit(nextIdx);
+    });
+  }
+  wrap.append(element("h3", "Multiplier bits of B(x) · low to high"), bits);
+  return wrap;
+}
+
+/**
+ * Render the Shift-and-XOR multiplication visualizer across `step`, `grid`, and `table` layouts.
+ *
+ * @param {object} trace - Backend `shift-and-xor` trace dictionary.
+ * @param {number} limit - Number of steps revealed.
  * @param {number} current - Currently focused multiplier-bit step index.
  * @param {"step" | "grid" | "table"} layoutMode - Active layout mode.
  * @param {boolean} compactValues - Whether compact large-field values are enabled.
- * @param {(index: number) => void} chooseBit - Callback invoked when the user selects a bit.
- * @param {{showBits?: boolean, isCurrentRegion?: boolean, stagePrefix?: string}} [options] - Optional flags for comparison/stages.
+ * @param {(index: number) => void} chooseBit - Callback invoked when user selects a bit.
+ * @param {{showBits?: boolean, isCurrentRegion?: boolean, stagePrefix?: string}} [options] - Optional flags.
  * @returns {HTMLElement} Populated multiplication visualizer `<section>`.
  */
 function multiply(trace, limit, current, layoutMode, compactValues, chooseBit, options = {}) {
@@ -769,41 +1268,13 @@ function multiply(trace, limit, current, layoutMode, compactValues, chooseBit, o
     section.append(element("p", "The multiplier is zero. There are no partial products to add."));
     return section;
   }
+  const mDeg = trace.m ?? trace.m_degree ?? 8;
   const active = trace.steps[current] || trace.steps[0];
-  if (showBits) {
-    const bits = element("div", undefined, "multiplier-bits");
-    bits.setAttribute("role", "group");
-    bits.setAttribute("aria-label", "Multiplier bits");
-    for (const [index, step] of trace.steps.entries()) {
-      const button = element("button", undefined, "multiplier-bit");
-      button.type = "button";
-      button.append(element("small", step.i), element("span", step.multiplier_bit));
-      button.setAttribute("aria-label", "Multiplier bit " + step.i);
-      button.setAttribute("aria-description", "Value " + step.multiplier_bit);
-      button.setAttribute("aria-pressed", index === current);
-      // Roving tabindex keeps keyboard navigation smooth across 163..571 multiplier bits.
-      button.tabIndex = index === current ? 0 : -1;
-      button.addEventListener("click", () => chooseBit(index));
-      bits.append(button);
-    }
-    bits.addEventListener("keydown", event => {
-      const positions = { ArrowLeft: current - 1, ArrowRight: current + 1, Home: 0, End: trace.steps.length - 1 };
-      if (!Object.hasOwn(positions, event.key)) return;
-      const nextIdx = Math.max(0, Math.min(positions[event.key], trace.steps.length - 1));
-      if (nextIdx === current) return;
-      event.preventDefault();
-      chooseBit(nextIdx);
-    });
-    section.append(element("h3", "Multiplier bits · low to high"), bits);
+  if (showBits && layoutMode === "step") {
+    section.append(buildMultiplierBitStrip(trace, current, chooseBit, false));
   }
 
-  const shortHex = text => significantDigits(text).toUpperCase();
-  const cellHex = text => formatCellText(text, "hex", compactValues, trace.m_degree);
-  const prior = shortHex(trace.steps[current - 1]?.accumulator_hex ?? "0");
-  const partial = shortHex(active.partial_hex);
-  const total = shortHex(active.accumulator_hex);
-  const equation = element("p", active.added ? prior + " ⊕ " + partial + " = " + total : "Running XOR stays " + total,
-    "bit-equation");
+  const cellHex = text => formatCellText(text, "hex", compactValues, mDeg);
 
   if (layoutMode === "step") {
     section.append(multiplyStepCard(trace, current, compactValues, isCurrentRegion, stagePrefix));
@@ -814,11 +1285,9 @@ function multiply(trace, limit, current, layoutMode, compactValues, chooseBit, o
     const grid = element("div", undefined, "trace-grid-cards");
     trace.steps.slice(0, limit).forEach((_, idx) => {
       const card = multiplyStepCard(trace, idx, compactValues, idx === current && isCurrentRegion, stagePrefix);
-      if (idx === current) card.classList.add("is-current");
-      if (idx === current - 1) card.classList.add("diff-prev-card");
       grid.append(card);
     });
-    section.append(equation, grid);
+    section.append(grid);
     return section;
   }
 
@@ -826,47 +1295,60 @@ function multiply(trace, limit, current, layoutMode, compactValues, chooseBit, o
   const selected = steps.filter(step => step.added);
   const shiftTable = table(
     "Table 1 · Shifts and reductions",
-    ["i", "x^i A mod m (hex)", "Reduced?", "Polynomial"],
+    ["i", "Shifted A(x) mod m (hex)", "Reduced?", "Polynomial"],
     steps.map(step => [
       step.i,
       cellHex(step.partial_hex),
       step.reduced ? "Yes" : "No",
-      formatCellText(step.partial_poly, "algebraic", compactValues, trace.m_degree),
+      formatCellText(step.partial_poly, "algebraic", compactValues, mDeg),
     ]),
     () => false,
     {
-      prevRow: current > 0 ? current - 1 : -1,
-      currRow: current,
       mathCols: new Set([3]),
-      cellClass: (r, c) => (r === current && c === 1 ? (steps[r]?.reduced ? "diff-reduced" : "diff-carried") : ""),
+      cellClass: (r, c) => (c === 2 && steps[r]?.reduced ? "diff-reduced" : c === 1 ? (steps[r]?.reduced ? "diff-reduced" : "diff-carried") : ""),
+      cellInspector: (r, c) => {
+        if (c !== 1 && c !== 3) return null;
+        const st = steps[r];
+        if (!st) return null;
+        return {
+          fullValue: c === 1 ? st.partial_hex.toUpperCase() : st.partial_poly,
+          valueBigInt: BigInt("0x" + st.partial_hex),
+          mDegree: mDeg,
+          label: "Bit b_" + st.i + " · Shifted A(x) mod m",
+        };
+      },
     },
   );
-  const activeSelectedIdx = selected.indexOf(active);
   const partialTable = table(
     "Table 2 · Selected partial products",
-    ["i", "Bit of B", "Partial product (hex)", "Cumulative XOR (hex)"],
+    ["i", "Bit of B", "Partial product (hex)", "Running Sum (hex)"],
     selected.map(step => [step.i, step.multiplier_bit, cellHex(step.partial_hex), cellHex(step.accumulator_hex)]),
     (_, col) => col === 3,
     {
-      prevRow: activeSelectedIdx > 0 ? activeSelectedIdx - 1 : -1,
-      currRow: activeSelectedIdx,
+      cellClass: (_, col) => (col === 3 ? "diff-updated" : ""),
+      cellInspector: (r, c) => {
+        if (c !== 2 && c !== 3) return null;
+        const st = selected[r];
+        if (!st) return null;
+        const hexStr = c === 2 ? st.partial_hex : st.accumulator_hex;
+        return {
+          fullValue: hexStr.toUpperCase(),
+          valueBigInt: BigInt("0x" + hexStr),
+          mDegree: mDeg,
+          label: "Bit b_" + st.i + (c === 2 ? " · Partial product" : " · Running Sum"),
+        };
+      },
     },
   );
-  section.append(
-    mathElement("h3", multiplyKnowledgeTitle(active, stagePrefix), "step-knowledge-title"),
-    element("p", "Bit " + active.i + " is " + active.multiplier_bit + ". " + (active.added
-      ? "XOR its shifted value into the running result." : "Skip its shifted value.")),
-    equation,
-    shiftTable,
-    partialTable,
-  );
+  section.append(shiftTable, partialTable);
   return section;
 }
 
 /**
- * Build the zero-horizontal-scroll Extended Euclid Step Inspector Square for a single Table 4.7 step,
- * with informative educational title, persistent Previous-to-Current visual diff badges (`← prev B`,
- * `New T`, `Unchanged`), true `<sup>`/`<sub>` typography, and inline `was: <prev>` deltas.
+ * Build the Extended Euclid Step Inspector Square for a single Table 4.7 step,
+ * featuring 4 consistent step-specific derivation buttons (`How Q is calculated`,
+ * `How T1 is calculated`, `How T2 is calculated`, `How T3 is calculated`),
+ * Previous-to-Current diff badges, and Full-Value Inspector popups on truncated cells.
  *
  * @param {object} trace - Backend `extended_euclid_table_4_7` trace dictionary.
  * @param {number} rowIndex - Zero-based index into `trace.table_4_7_rows`.
@@ -888,6 +1370,11 @@ function euclidInspectorSquare(trace, rowIndex, notation, compactValues, isCurre
   const fullCell = (targetRow, term) => {
     const text = targetRow.cells[term][notation];
     return notation === "hex" ? text.toUpperCase() : text;
+  };
+  const bigCell = (targetRow, term) => {
+    const hexRaw = targetRow.cells[term]?.hex;
+    if (!hexRaw || hexRaw === "-") return null;
+    try { return BigInt("0x" + hexRaw); } catch { return null; }
   };
   const displayCell = (targetRow, term) => formatCellText(targetRow.cells[term][notation], notation, compactValues, mDeg);
   const bannerCell = (targetRow, term) => {
@@ -924,9 +1411,16 @@ function euclidInspectorSquare(trace, rowIndex, notation, compactValues, isCurre
   );
   const qBadge = element("span", undefined, "euclid-q-badge");
   qBadge.append(document.createTextNode("Q(x) = "));
-  if (isMathNotation) qBadge.append(mathElement("span", displayCell(row, "Q")));
-  else qBadge.append(document.createTextNode(displayCell(row, "Q")));
-  makeCopyableValue(qBadge, fullCell(row, "Q"));
+  const qDisp = displayCell(row, "Q");
+  if (isMathNotation) qBadge.append(mathElement("span", qDisp));
+  else qBadge.append(document.createTextNode(qDisp));
+  attachValueInteraction(qBadge, {
+    fullValue: fullCell(row, "Q"),
+    displayValue: qDisp,
+    valueBigInt: bigCell(row, "Q"),
+    mDegree: mDeg,
+    label: "Step " + row.step + " · Quotient Q(x)",
+  });
   badges.append(qBadge);
 
   const formulaText = row.step === 0
@@ -934,7 +1428,32 @@ function euclidInspectorSquare(trace, rowIndex, notation, compactValues, isCurre
     : "Q = A3 div B3 · T1 = A1 ⊕ Q·B1 · T2 = A2 ⊕ Q·B2 · T3 = A3 mod B3";
   head.append(titleWrap, badges, mathElement("code", formulaText, "euclid-formula-pill"));
 
-  // Concise 1-line transition banner summarizing Step k-1 → Step k.
+  // Step-specific derivation breakdown buttons (Q, T1, T2, T3)
+  const breakdownBar = element("div", undefined, "euclid-breakdown-bar");
+  breakdownBar.setAttribute("role", "group");
+  breakdownBar.setAttribute("aria-label", "Step " + row.step + " calculation breakdowns");
+  for (const [key, label] of [
+    ["Q", "How Q is calculated"],
+    ["T1", "How T1 is calculated"],
+    ["T2", "How T2 is calculated"],
+    ["T3", "How T3 is calculated"],
+  ]) {
+    const btn = mathElement("button", label, "outline step-breakdown-btn");
+    btn.type = "button";
+    btn.dataset.euclidBreakdown = key;
+    if (!prevRow) {
+      btn.disabled = true;
+      btn.setAttribute("aria-disabled", "true");
+    } else {
+      btn.addEventListener("click", () => openEuclidDerivationPopup(key, prevRow, row, mDeg));
+    }
+    breakdownBar.append(btn);
+  }
+  if (!prevRow) {
+    breakdownBar.append(element("span", "Available from Step 1 onward", "euclid-breakdown-note"));
+  }
+
+  // Concise 1-line transition banner summarizing Step k-1 -> Step k.
   const bannerText = row.step === 0
     ? "Step 0 (Init): A starts at (1, 0, m(x)) and B starts at (0, 1, b(x))."
     : "Step " + (row.step - 1) + " → Step " + row.step + ": B shifted into A; Q = " + bannerCell(row, "Q") +
@@ -943,7 +1462,7 @@ function euclidInspectorSquare(trace, rowIndex, notation, compactValues, isCurre
 
   const triples = element("div", undefined, "euclid-triples-grid");
 
-  // Left card: Triple A = (A1, A2, A3): carried from previous step's B
+  // Left card: Triple A = (A1, A2, A3)
   const cardA = element("div", undefined, "euclid-triple-card is-carried");
   const headA = element("h4", "Triple A(x) ");
   headA.append(mathElement("small", row.step > 0 ? "A ← prev B" : "Modulus m(x)"));
@@ -952,44 +1471,27 @@ function euclidInspectorSquare(trace, rowIndex, notation, compactValues, isCurre
     const dt = mathElement("dt", term + "(x)");
     const currVal = displayCell(row, term);
     const fullVal = fullCell(row, term);
-    let meta = { diffClass: "diff-unchanged", badge: "Init", fullValue: fullVal, isMathValue: isMathNotation };
+    const valBig = bigCell(row, term);
+    const common = { fullValue: fullVal, valueBigInt: valBig, mDegree: mDeg, label: "Step " + row.step + " · " + term + "(x)", isMathValue: isMathNotation };
+    let meta = { ...common, diffClass: "diff-unchanged", badge: "Init" };
     if (prevRow) {
       const sameAsPrevA = row[term] === prevRow[term];
       const prevAVal = displayCell(prevRow, term);
       if (isFinal && !success && term === "A3") {
-        meta = {
-          diffClass: "diff-reduced",
-          badge: "GCD / No Inverse",
-          prevText: sameAsPrevA ? undefined : "was: " + prevAVal,
-          fullValue: fullVal,
-          extraClass: "picked is-gcd",
-          isMathValue: isMathNotation,
-        };
+        meta = { ...common, diffClass: "diff-reduced", badge: "GCD / No Inverse", prevText: sameAsPrevA ? undefined : "was: " + prevAVal, extraClass: "picked is-gcd" };
       } else if (sameAsPrevA) {
-        meta = { diffClass: "diff-unchanged", badge: "Unchanged", fullValue: fullVal, isMathValue: isMathNotation };
+        meta = { ...common, diffClass: "diff-unchanged", badge: "Unchanged" };
       } else {
-        meta = {
-          diffClass: "diff-carried",
-          badge: "← prev B" + term[1],
-          prevText: "was: " + prevAVal,
-          fullValue: fullVal,
-          isMathValue: isMathNotation,
-        };
+        meta = { ...common, diffClass: "diff-carried", badge: "← prev B" + term[1], prevText: "was: " + prevAVal };
       }
     } else if (isFinal && !success && term === "A3") {
-      meta = {
-        diffClass: "diff-reduced",
-        badge: "GCD / No Inverse",
-        fullValue: fullVal,
-        extraClass: "picked is-gcd",
-        isMathValue: isMathNotation,
-      };
+      meta = { ...common, diffClass: "diff-reduced", badge: "GCD / No Inverse", extraClass: "picked is-gcd" };
     }
     dlA.append(dt, buildDiffValueNode(currVal, meta));
   }
   cardA.append(headA, dlA);
 
-  // Right card: Triple B = (B1, B2, B3): newly computed via T = A ⊕ Q·B
+  // Right card: Triple B = (B1, B2, B3)
   const cardB = element(
     "div",
     undefined,
@@ -1002,53 +1504,33 @@ function euclidInspectorSquare(trace, rowIndex, notation, compactValues, isCurre
     const dt = mathElement("dt", term + "(x)");
     const currVal = displayCell(row, term);
     const fullVal = fullCell(row, term);
-    let meta = { diffClass: "diff-unchanged", badge: "Init", fullValue: fullVal, isMathValue: isMathNotation };
+    const valBig = bigCell(row, term);
+    const common = { fullValue: fullVal, valueBigInt: valBig, mDegree: mDeg, label: "Step " + row.step + " · " + term + "(x)", isMathValue: isMathNotation };
+    let meta = { ...common, diffClass: "diff-unchanged", badge: "Init" };
     if (prevRow) {
       const sameAsPrevB = row[term] === prevRow[term];
       const prevBVal = displayCell(prevRow, term);
       if (isFinal && success && term === "B2") {
-        meta = {
-          diffClass: "diff-updated",
-          badge: "Inverse Found",
-          prevText: sameAsPrevB ? undefined : "was: " + prevBVal,
-          fullValue: fullVal,
-          extraClass: "picked",
-          isMathValue: isMathNotation,
-        };
+        meta = { ...common, diffClass: "diff-updated", badge: "Inverse Found", prevText: sameAsPrevB ? undefined : "was: " + prevBVal, extraClass: "picked" };
       } else if (sameAsPrevB) {
-        meta = { diffClass: "diff-unchanged", badge: "Unchanged", fullValue: fullVal, isMathValue: isMathNotation };
+        meta = { ...common, diffClass: "diff-unchanged", badge: "Unchanged" };
       } else {
-        meta = {
-          diffClass: "diff-updated",
-          badge: "New T" + term[1],
-          prevText: "was: " + prevBVal,
-          fullValue: fullVal,
-          isMathValue: isMathNotation,
-        };
+        meta = { ...common, diffClass: "diff-updated", badge: "New T" + term[1], prevText: "was: " + prevBVal };
       }
     } else if (isFinal && success && term === "B2") {
-      meta = {
-        diffClass: "diff-updated",
-        badge: "Inverse Found",
-        fullValue: fullVal,
-        extraClass: "picked",
-        isMathValue: isMathNotation,
-      };
+      meta = { ...common, diffClass: "diff-updated", badge: "Inverse Found", extraClass: "picked" };
     }
     dlB.append(dt, buildDiffValueNode(currVal, meta));
   }
   cardB.append(headB, dlB);
 
   triples.append(cardA, cardB);
-  square.append(head, banner, triples);
+  square.append(head, breakdownBar, banner, triples);
   return square;
 }
 
 /**
  * Render the Stallings Chapter 4 Table 4.7 Extended Euclid trace in `step`, `grid`, or `table` mode.
- *
- * Highlights `B2(x)` (column 6) on the final row when `B3(x) == 1` (inverse found),
- * or `A3(x)` (column 4) when `B3(x) == 0` (no inverse; `A3(x) = gcd(m(x), b(x))`).
  *
  * @param {object} trace - Backend `extended_euclid_table_4_7` trace dictionary.
  * @param {number} limit - Number of Table 4.7 rows revealed.
@@ -1089,8 +1571,6 @@ function euclid(trace, limit, notation, layoutMode, compactValues, currentStep =
     const count = Math.min(rows.length, limit);
     for (let idx = 0; idx < count; idx += 1) {
       const card = euclidInspectorSquare(trace, idx, notation, compactValues, idx === currentStep && isCurrentRegion, stagePrefix);
-      if (idx === currentStep) card.classList.add("is-current");
-      if (idx === currentStep - 1) card.classList.add("diff-prev-card");
       grid.append(card);
     }
     section.append(grid);
@@ -1099,32 +1579,36 @@ function euclid(trace, limit, notation, layoutMode, compactValues, currentStep =
   }
 
   const visibleRows = rows.slice(0, limit);
-  const stepping = limit !== Infinity;
-  const activeIdx = Math.max(0, Math.min(visibleRows.length - 1, stepping ? currentStep : visibleRows.length - 1));
   const tableView = table(
     "Table 4.7 · Extended Euclid",
     ["Step", ...labels],
     visibleRows.map(row => [row.step, ...cells(row)]),
     (row, col) => row === rows.length - 1 && (success ? col === 6 : col === 4),
     {
-      prevRow: stepping && currentStep > 0 ? currentStep - 1 : -1,
-      currRow: stepping ? currentStep : -1,
       mathCols: notation === "algebraic" ? new Set([1, 2, 3, 4, 5, 6, 7]) : undefined,
-      subtitle: rows.length ? euclidKnowledgeTitle(trace, activeIdx, stagePrefix) : undefined,
+      subtitle: rows.length ? "Complete Table 4.7 progression from initialization to termination." : undefined,
       cellClass: (r, c) => {
-        if (!stepping || r !== currentStep || r === 0) return "";
-        const curr = rows[r];
-        const prev = rows[r - 1];
-        if (!curr || !prev) return "";
-        if (c >= 2 && c <= 4) {
-          const term = terms[c - 1];
-          return curr[term] !== prev[term] ? "diff-carried" : "diff-unchanged";
+        if (r === 0 || c === 0) return "";
+        if (r === rows.length - 1 && ((success && c === 6) || (!success && c === 4))) {
+          return success ? "diff-updated" : "diff-reduced";
         }
-        if (c >= 5 && c <= 7) {
-          const term = terms[c - 1];
-          return curr[term] !== prev[term] ? "diff-updated" : "diff-unchanged";
-        }
+        if (c >= 2 && c <= 4) return "diff-carried";
+        if (c >= 5 && c <= 7) return "diff-updated";
         return "";
+      },
+      cellInspector: (r, c) => {
+        if (c === 0) return null;
+        const row = visibleRows[r];
+        const term = terms[c - 1];
+        if (!row || !term) return null;
+        const hexRaw = row.cells[term]?.hex;
+        if (!hexRaw || hexRaw === "-") return null;
+        return {
+          fullValue: notation === "hex" ? hexRaw.toUpperCase() : row.cells[term][notation],
+          valueBigInt: BigInt("0x" + hexRaw),
+          mDegree: mDeg,
+          label: "Step " + row.step + " · " + term + "(x)",
+        };
       },
     },
   );
@@ -1137,13 +1621,13 @@ function euclid(trace, limit, notation, layoutMode, compactValues, currentStep =
 /**
  * Create a stateful trace viewer bound to a panel, body container, and toolbar container.
  *
- * Manages three layout modes (`Step view`, auto-maximized `All steps grid`, `Classic table`)
- * with a gliding active indicator, side-by-side `Compare prev → curr` visual diff mode,
- * uncluttered 2-row toolbar (`First step`, `Previous`, instant `First changed bit` / `First active step`,
- * `Play animation`/`Pause` + speed selector, `Next`, `Last step`, interactive scrubber),
- * boundary disabled states, sequential step cascade (`2 → 3 → 4 → 5`) on non-adjacent jumps,
- * `Compact values` / `Full m-bit` toggle, Table 4.7 notation switching, and the
- * `Expand full view` modal dialog (`#trace-fullscreen`).
+ * - Always defaults to **`Step view`** across ALL 13 field sizes (`m in {2..8, 163..571}`) with
+ *   built-in side-by-side **Previous → Current** comparison from Step 1 onward (single card on Step 0).
+ * - **`All steps grid`** renders an inline full-width single-column stack with 4-step incremental
+ *   `Show more` pagination (never opening a maximized overlay).
+ * - **`Classic table`** renders a concise color legend above every table.
+ * - Playback toolbar controls and step keyboard shortcuts are locked whenever `All steps grid`
+ *   or `Classic table` is active, pausing any running animation until returning to `Step view`.
  *
  * @param {HTMLElement} panel - Outer `<section>` toggled hidden when no trace is active.
  * @param {HTMLElement} body - Container where trace tables or step cards are rendered.
@@ -1151,7 +1635,6 @@ function euclid(trace, limit, notation, layoutMode, compactValues, currentStep =
  * @returns {{show: (newTrace: object | null, newReductions?: object | null) => void}} Controller API.
  */
 export function createTraceView(panel, body, tools) {
-  const narrowScreen = window.matchMedia("(max-width: 600px)");
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   let timer = null;
   let cascadeTimer = null;
@@ -1159,39 +1642,37 @@ export function createTraceView(panel, body, tools) {
   let trace = null;
   let reductions = null;
   let notation = "hex";
-  let current = null;
-  let layoutMode = "table";
+  let current = 0;
+  let layoutMode = "step";
   let compactValues = false;
-  let comparePrev = false;
-  let isMaximized = false;
-  let allRows = true;
+  let gridVisibleCount = GRID_PAGE_SIZE;
   let speed = "normal";
 
+  let playbackRow;
   let stepLabel;
   let scrubber;
+  let speedSelect;
   let firstButton;
   let prevButton;
   let firstChangedButton;
   let playButton;
   let nextButton;
   let lastButton;
-  let exitMaxButton;
   let compactToggleButton;
-  let compareToggleButton;
   let modesIndicator;
   let modePills = {};
 
   /**
-   * Synchronize a button's `disabled` property and `aria-disabled` attribute together.
+   * Synchronize a control's `disabled` property and `aria-disabled` attribute together.
    *
-   * @param {HTMLButtonElement | undefined} btn - Target button element.
+   * @param {HTMLElement | undefined} ctrl - Target button, select, or range input.
    * @param {boolean} isDisabled - Desired disabled state.
    */
-  function setButtonDisabled(btn, isDisabled) {
-    if (!btn) return;
+  function setControlDisabled(ctrl, isDisabled) {
+    if (!ctrl) return;
     const flag = Boolean(isDisabled);
-    btn.disabled = flag;
-    btn.setAttribute("aria-disabled", String(flag));
+    ctrl.disabled = flag;
+    ctrl.setAttribute("aria-disabled", String(flag));
   }
 
   /**
@@ -1231,27 +1712,38 @@ export function createTraceView(panel, body, tools) {
   }
 
   /**
-   * Update playback button boundary disabled states and the `First changed bit` / `First active step`
-   * button label, tooltip, and availability for the current trace step.
+   * Update playback control disabled states, locking and subtly dimming the entire playback row
+   * whenever `All steps grid` or `Classic table` is active.
    */
   function syncPlaybackControls() {
     const count = length();
     const activeStep = current ?? 0;
+    const lockedByMode = layoutMode !== "step";
     const singleOrEmpty = count <= 1;
 
-    if (singleOrEmpty) {
-      setButtonDisabled(firstButton, true);
-      setButtonDisabled(prevButton, true);
-      setButtonDisabled(nextButton, true);
-      setButtonDisabled(lastButton, true);
-      setButtonDisabled(playButton, true);
-    } else {
-      setButtonDisabled(playButton, false);
-      setButtonDisabled(firstButton, activeStep <= 0);
-      setButtonDisabled(prevButton, activeStep <= 0);
-      setButtonDisabled(nextButton, current !== null && activeStep >= count - 1);
-      setButtonDisabled(lastButton, current !== null && activeStep >= count - 1);
+    if (playbackRow) {
+      playbackRow.classList.toggle("is-locked", lockedByMode);
     }
+
+    if (lockedByMode || singleOrEmpty) {
+      setControlDisabled(firstButton, true);
+      setControlDisabled(prevButton, true);
+      setControlDisabled(firstChangedButton, true);
+      setControlDisabled(playButton, true);
+      setControlDisabled(speedSelect, lockedByMode || singleOrEmpty);
+      setControlDisabled(nextButton, true);
+      setControlDisabled(lastButton, true);
+      setControlDisabled(scrubber, true);
+      return;
+    }
+
+    setControlDisabled(playButton, false);
+    setControlDisabled(speedSelect, false);
+    setControlDisabled(scrubber, false);
+    setControlDisabled(firstButton, activeStep <= 0);
+    setControlDisabled(prevButton, activeStep <= 0);
+    setControlDisabled(nextButton, activeStep >= count - 1);
+    setControlDisabled(lastButton, activeStep >= count - 1);
 
     if (firstChangedButton) {
       const targetIdx = findFirstChangedStep(trace);
@@ -1263,7 +1755,7 @@ export function createTraceView(panel, body, tools) {
         : "Jump directly to " + actionLabel + " (Step " + (targetIdx + 1) + ")";
       firstChangedButton.title = tip;
       firstChangedButton.setAttribute("aria-label", tip);
-      setButtonDisabled(firstChangedButton, targetIdx === null || activeStep === targetIdx);
+      setControlDisabled(firstChangedButton, targetIdx === null || activeStep === targetIdx);
     }
   }
 
@@ -1290,26 +1782,6 @@ export function createTraceView(panel, body, tools) {
   }
 
   /**
-   * Toggle panel-level maximized grid workspace (`.is-maximized`).
-   * @param {boolean} flag - True to maximize `#trace-panel` to ~95vw/95vh.
-   */
-  function setMaximized(flag) {
-    isMaximized = Boolean(flag);
-    panel.classList.toggle("is-maximized", isMaximized);
-    if (exitMaxButton) exitMaxButton.hidden = !isMaximized;
-  }
-
-  // Allow pressing Escape to exit maximized trace view without leaving the page.
-  document.addEventListener("keydown", event => {
-    if (event.key !== "Escape" || !isMaximized) return;
-    const activeDialog = document.querySelector("dialog[open]");
-    if (activeDialog) return;
-    event.preventDefault();
-    setMaximized(false);
-    modesIndicator?.update();
-  });
-
-  /**
    * Determine the field degree `m` associated with the active trace.
    * @returns {number} Field degree `m` (defaults to 8 when unspecified).
    */
@@ -1334,9 +1806,10 @@ export function createTraceView(panel, body, tools) {
    * @param {number} stepIdx - Zero-based step index to render.
    * @param {boolean} activeCompactValues - Compact formatting flag.
    * @param {boolean} isCurrentRegion - True for the active step pane, false for the previous snapshot.
+   * @param {boolean} [showBitStrip=false] - Whether to render `.multiplier-bits` inside this pane.
    * @returns {HTMLElement} Rendered step node.
    */
-  function renderSingleStepNode(stepIdx, activeCompactValues, isCurrentRegion) {
+  function renderSingleStepNode(stepIdx, activeCompactValues, isCurrentRegion, showBitStrip = false) {
     if (trace.trace_type === "tabular_steps" && trace.rows.length) {
       const idx = Math.max(0, Math.min(trace.rows.length - 1, stepIdx));
       const prevRow = idx > 0 ? trace.rows[idx - 1] : null;
@@ -1356,14 +1829,14 @@ export function createTraceView(panel, body, tools) {
       );
     }
     if (trace.trace_type === "mod_reduce") {
-      return reduction(trace, stepIdx + 1, "Modulo reduction", "step", activeCompactValues, stepIdx, isCurrentRegion);
+      return reduction(trace, stepIdx + 1, "Modulo reduction", "step", stepIdx, isCurrentRegion);
     }
     if (trace.algorithm === "bitwise-xor") {
       return xor(trace, stepIdx + 1, "step", stepIdx, isCurrentRegion);
     }
     if (trace.algorithm === "shift-and-xor") {
       return multiply(trace, stepIdx + 1, stepIdx, "step", activeCompactValues, selectBit, {
-        showBits: isCurrentRegion,
+        showBits: showBitStrip,
         isCurrentRegion,
       });
     }
@@ -1394,7 +1867,7 @@ export function createTraceView(panel, body, tools) {
         activeCompactValues,
         step => selectBit(inverseSteps + step),
         {
-          showBits: isCurrentRegion,
+          showBits: showBitStrip,
           isCurrentRegion,
           stagePrefix: "Stage 2 (Shift-and-XOR A × B^-1) · ",
         },
@@ -1404,25 +1877,24 @@ export function createTraceView(panel, body, tools) {
   }
 
   /**
-   * Render trace content into a target container (`body` or `#trace-fullscreen-body`).
-   *
-   * @param {HTMLElement} target - Destination container.
-   * @param {"step" | "grid" | "table"} activeLayout - Layout mode to render.
-   * @param {number} limit - Maximum number of rows/steps revealed (`Infinity` for all).
-   * @param {boolean} activeCompactValues - Whether compact large-field values are enabled.
-   * @param {boolean} [allowCompare=true] - Allow side-by-side `Compare prev → curr` in step mode.
+   * Render trace content into the body container for the active layout mode.
    */
-  function populateTraceContainer(target, activeLayout, limit, activeCompactValues, allowCompare = true) {
-    target.replaceChildren();
+  function renderBody() {
+    body.replaceChildren();
     if (!trace) return;
+    const count = length();
     const activeStep = current ?? 0;
 
-    // Show the color-coded visual diff legend whenever stepping or in Step/Grid views.
-    if (length() > 0 && (activeLayout === "step" || activeLayout === "grid" || !allRows)) {
-      target.append(createDiffLegend());
+    // Color legend: Step diff legend in Step/Grid views, concise Table highlight legend in Classic table.
+    if (count > 0) {
+      if (layoutMode === "table") {
+        body.append(createTableColorLegend());
+      } else {
+        body.append(createDiffLegend());
+      }
     }
 
-    // Auto-expand initial-reduction details whenever operands had degree >= m, showing explicit equations.
+    // Auto-expand initial-reduction details whenever operands had degree >= m (full untruncated hex).
     if (reductions && trace.trace_type !== "mod_reduce") {
       for (const [key, row] of Object.entries(reductions)) {
         const details = element("details", undefined, "initial-reduction-panel");
@@ -1433,156 +1905,154 @@ export function createTraceView(panel, body, tools) {
         if (Array.isArray(row.steps) && row.steps.length) {
           const eqList = element("div", undefined, "initial-reduction-steps");
           row.steps.forEach((stepRow, stepIdx) => {
-            const beforeHex = formatCellText(stepRow.before_hex, "hex", activeCompactValues, row.m_degree);
-            const reducerHex = formatCellText(stepRow.reducer_hex, "hex", activeCompactValues, row.m_degree);
-            const afterHex = formatCellText(stepRow.after_hex, "hex", activeCompactValues, row.m_degree);
+            const beforeHex = stepRow.before_hex.toUpperCase();
+            const reducerHex = stepRow.reducer_hex.toUpperCase();
+            const afterHex = stepRow.after_hex.toUpperCase();
             const shiftAmt = stepRow.target_degree - row.m_degree;
             const eqLine = element("p", undefined, "initial-reduction-eq");
             appendMathText(
               eqLine,
               "Step " + (stepIdx + 1) + " (cancel x^" + stepRow.target_degree + "): {" +
-                beforeHex + "} ⊕ (m(x) · x^" + shiftAmt + " = {" + reducerHex + "}) = {" + afterHex + "}",
+                beforeHex + "} ⊕ (m(x) << " + shiftAmt + " = {" + reducerHex + "}) = {" + afterHex + "}",
             );
             eqList.append(eqLine);
           });
           details.append(eqList);
         }
-        details.append(reduction(row, Infinity, "Initial reduction", "table", activeCompactValues, 0));
-        target.append(details);
+        details.append(reduction(row, Infinity, "Initial reduction", "table", 0));
+        body.append(details);
       }
     }
 
-    // Side-by-side Previous vs. Current comparison grid in Step view.
-    if (allowCompare && comparePrev && activeLayout === "step" && length() > 0) {
+    // --- Step view: Single card cleanly on Step 0, side-by-side Previous -> Current from Step 1 onward ---
+    if (layoutMode === "step" && count > 0) {
+      // Place multiplier-bits strip once at top so both Previous and Current cards align cleanly.
+      if (trace.algorithm === "shift-and-xor" && trace.steps.length) {
+        body.append(buildMultiplierBitStrip(trace, activeStep, selectBit, false));
+      } else if (trace.trace_type === "gf2m_division_two_stage") {
+        const invLen = trace.stage_1_inverse.table_4_7_rows.length;
+        if (activeStep >= invLen && trace.stage_2_multiply.steps.length) {
+          body.append(
+            buildMultiplierBitStrip(
+              trace.stage_2_multiply,
+              activeStep - invLen,
+              step => selectBit(invLen + step),
+              false,
+            ),
+          );
+        }
+      }
+
+      if (activeStep === 0) {
+        body.append(renderSingleStepNode(0, compactValues, true, false));
+        return;
+      }
+
       const grid = element("div", undefined, "diff-compare-grid");
 
       const prevPane = element("div", undefined, "diff-compare-pane is-prev");
       prevPane.setAttribute("role", "region");
       prevPane.setAttribute("aria-label", "Previous trace step");
-      prevPane.append(element("div", activeStep > 0 ? "Previous · Step " + activeStep : "Previous step", "diff-compare-pane-head"));
-      if (activeStep === 0) {
-        prevPane.append(element("div", "Initial state: no previous step", "diff-empty-prev"));
-      } else {
-        prevPane.append(renderSingleStepNode(activeStep - 1, activeCompactValues, false));
-      }
+      prevPane.append(element("div", "Previous · Step " + activeStep, "diff-compare-pane-head"));
+      prevPane.append(renderSingleStepNode(activeStep - 1, compactValues, false, false));
 
       const arrow = element("div", "→", "diff-compare-arrow");
       arrow.setAttribute("aria-hidden", "true");
 
       const currPane = element("div", undefined, "diff-compare-pane is-curr");
       currPane.append(element("div", "Current · Step " + (activeStep + 1), "diff-compare-pane-head"));
-      currPane.append(renderSingleStepNode(activeStep, activeCompactValues, true));
+      currPane.append(renderSingleStepNode(activeStep, compactValues, true, false));
 
       grid.append(prevPane, arrow, currPane);
-      target.append(grid);
+      body.append(grid);
       return;
     }
 
+    const limit = layoutMode === "grid" ? Math.min(count, gridVisibleCount) : Infinity;
+
     if (trace.trace_type === "tabular_steps") {
-      let view;
-      if (activeLayout === "step" && trace.rows.length) {
-        view = renderSingleStepNode(activeStep, activeCompactValues, true);
-      } else if (activeLayout === "grid" && trace.rows.length) {
-        view = element("section");
+      if (layoutMode === "grid" && trace.rows.length) {
+        const view = element("section");
         view.append(element("h3", trace.title));
         const grid = element("div", undefined, "trace-grid-cards");
         trace.rows.slice(0, limit).forEach((_, idx) => {
-          const card = renderSingleStepNode(idx, activeCompactValues, idx === activeStep);
-          if (idx === activeStep) card.classList.add("is-current");
-          if (idx === activeStep - 1) card.classList.add("diff-prev-card");
-          grid.append(card);
+          grid.append(renderSingleStepNode(idx, compactValues, idx === 0, false));
         });
         view.append(grid);
+        body.append(view);
       } else {
-        const visible = trace.rows.slice(0, limit);
-        const activeRowIdx = Math.max(0, Math.min(visible.length - 1, activeStep));
-        view = table(trace.title, trace.headers, visible, trace.selected, {
-          prevRow: limit !== Infinity && activeStep > 0 ? activeStep - 1 : -1,
-          currRow: limit !== Infinity ? activeStep : -1,
-          subtitle: visible.length ? trace.title + ": Step " + (activeRowIdx + 1) + ": " + visible[activeRowIdx][0] : undefined,
-        });
+        body.append(table(trace.title, trace.headers, trace.rows, trace.selected, {
+          subtitle: trace.rows.length ? trace.title + " (" + trace.rows.length + " steps)" : undefined,
+        }));
       }
-      target.append(view);
     }
     if (trace.trace_type === "mod_reduce") {
-      target.append(reduction(trace, limit, "Modulo reduction", activeLayout, activeCompactValues, activeStep));
+      body.append(reduction(trace, limit, "Modulo reduction", layoutMode, activeStep));
     }
     if (trace.algorithm === "bitwise-xor") {
-      target.append(
+      body.append(
         mathElement("p", "Add or subtract each pair of bits modulo 2. Two ones cancel."),
-        xor(trace, limit, activeLayout, activeStep),
+        xor(trace, limit, layoutMode, activeStep),
       );
     }
     if (trace.algorithm === "shift-and-xor") {
-      target.append(multiply(trace, limit, activeStep, activeLayout, activeCompactValues, selectBit));
+      body.append(multiply(trace, limit, activeStep, layoutMode, compactValues, selectBit, { showBits: false }));
     }
     if (trace.trace_type === "extended_euclid_table_4_7") {
-      target.append(euclid(trace, limit, notation, activeLayout, activeCompactValues, activeStep));
+      body.append(euclid(trace, limit, notation, layoutMode, compactValues, activeStep));
     }
     if (trace.trace_type === "gf2m_division_two_stage") {
-      // Division combines Stage 1 (Table 4.7 inverse) and Stage 2 (Shift-and-XOR product).
       const inverse = trace.stage_1_inverse;
       const inverseSteps = inverse.table_4_7_rows.length;
-      if (activeLayout === "step") {
-        target.append(renderSingleStepNode(activeStep, activeCompactValues, true));
-      } else {
-        const remaining = limit - inverseSteps;
-        target.append(
-          euclid(
-            inverse,
-            Math.min(limit, inverseSteps),
-            notation,
-            activeLayout,
-            activeCompactValues,
-            Math.min(activeStep, inverseSteps - 1),
-            true,
-            "Stage 1 (Extended Euclid Inverse) · ",
+      const remaining = limit - inverseSteps;
+      body.append(
+        euclid(
+          inverse,
+          Math.min(limit, inverseSteps),
+          notation,
+          layoutMode,
+          compactValues,
+          Math.min(activeStep, inverseSteps - 1),
+          true,
+          "Stage 1 (Extended Euclid Inverse) · ",
+        ),
+      );
+      if (remaining > 0) {
+        const local = Math.max(0, activeStep - inverseSteps);
+        body.append(
+          multiply(
+            trace.stage_2_multiply,
+            remaining,
+            local,
+            layoutMode,
+            compactValues,
+            step => selectBit(inverseSteps + step),
+            { showBits: false, stagePrefix: "Stage 2 (Shift-and-XOR A × B^-1) · " },
           ),
         );
-        if (remaining > 0) {
-          const local = Math.max(0, activeStep - inverseSteps);
-          target.append(
-            multiply(
-              trace.stage_2_multiply,
-              remaining,
-              local,
-              activeLayout,
-              activeCompactValues,
-              step => selectBit(inverseSteps + step),
-              { stagePrefix: "Stage 2 (Shift-and-XOR A × B^-1) · " },
-            ),
-          );
-        }
       }
     }
-  }
 
-  /**
-   * Rebuild the trace DOM for the active `trace`, `current` step, `layoutMode`, and `notation`.
-   */
-  function renderBody() {
-    const limit = allRows && layoutMode !== "step" ? Infinity : (current ?? 0) + 1;
-    populateTraceContainer(body, layoutMode, limit, compactValues, true);
-  }
-
-  /**
-   * Open the full-viewport `<dialog id="trace-fullscreen">` showing the complete classic tables.
-   */
-  function openFullViewModal() {
-    const dialog = document.getElementById("trace-fullscreen");
-    const modalBody = document.getElementById("trace-fullscreen-body");
-    const closeBtn = document.getElementById("trace-fullscreen-close");
-    if (!dialog || !modalBody) return;
-    populateTraceContainer(modalBody, "table", Infinity, false, false);
-    if (closeBtn && !closeBtn.dataset.bound) {
-      closeBtn.dataset.bound = "true";
-      closeBtn.addEventListener("click", () => dialog.close());
+    // Incremental "Show more" pagination button in All steps grid
+    if (layoutMode === "grid" && limit < count) {
+      const pager = element("div", undefined, "trace-grid-pager");
+      const moreBtn = element(
+        "button",
+        "Show more (showing " + limit + " of " + count + ")",
+        "outline trace-show-more-btn",
+      );
+      moreBtn.type = "button";
+      moreBtn.addEventListener("click", () => {
+        gridVisibleCount = Math.min(count, gridVisibleCount + GRID_PAGE_SIZE);
+        render();
+      });
+      pager.append(moreBtn);
+      body.append(pager);
     }
-    if (!dialog.open) dialog.showModal();
   }
 
   /**
-   * Keep the selected multiplier-bit chip and highlighted table rows scrolled into view.
+   * Keep the selected multiplier-bit chip scrolled into view horizontally.
    *
    * @param {number} previousLeft - Previous horizontal scroll offset of `.multiplier-bits`.
    * @returns {HTMLElement | undefined} Currently pressed multiplier-bit button, if present.
@@ -1597,29 +2067,24 @@ export function createTraceView(panel, body, tools) {
     const strip = bits.getBoundingClientRect();
     if (bit.left < strip.left) bits.scrollLeft += bit.left - strip.left;
     else if (bit.right > strip.right) bits.scrollLeft += Math.ceil(bit.right - strip.right);
-
-    for (const row of body.querySelectorAll('.trace-table tr[aria-current="true"]')) {
-      const wrapper = row.closest(".trace-table");
-      const bounds = row.getBoundingClientRect();
-      const top = wrapper.getBoundingClientRect().top;
-      const visibleTop = top + wrapper.querySelector("thead").offsetHeight;
-      const visibleBottom = top + wrapper.clientHeight;
-      if (bounds.top < visibleTop) wrapper.scrollTop += bounds.top - visibleTop;
-      else if (bounds.bottom > visibleBottom) wrapper.scrollTop += bounds.bottom - visibleBottom;
-    }
     return selected;
   }
 
   /**
-   * Update toolbar labels, mode pills, gliding indicator, compare toggle, scrubber, and trace DOM.
+   * Update toolbar labels, mode pills, gliding indicator, scrubber, playback locks, and trace DOM.
    * @returns {HTMLElement | undefined} Active multiplier-bit button, if rendered.
    */
   function render() {
     const previousLeft = body.querySelector(".multiplier-bits")?.scrollLeft ?? 0;
     const count = length();
     if (stepLabel) {
-      const showingAll = allRows && layoutMode !== "step";
-      stepLabel.textContent = showingAll ? "All steps" : "Step " + ((current ?? 0) + 1) + " of " + count;
+      if (layoutMode === "step") {
+        stepLabel.textContent = "Step " + ((current ?? 0) + 1) + " of " + count;
+      } else if (layoutMode === "grid") {
+        stepLabel.textContent = "Showing " + Math.min(count, gridVisibleCount) + " of " + count;
+      } else {
+        stepLabel.textContent = "All " + count + " steps";
+      }
       if (scrubber) {
         scrubber.max = String(Math.max(1, count));
         scrubber.value = String((current ?? 0) + 1);
@@ -1627,9 +2092,6 @@ export function createTraceView(panel, body, tools) {
       if (compactToggleButton) {
         compactToggleButton.textContent = compactValues ? "Full m-bit" : "Compact values";
         compactToggleButton.setAttribute("aria-pressed", String(compactValues));
-      }
-      if (compareToggleButton) {
-        compareToggleButton.setAttribute("aria-pressed", String(comparePrev && layoutMode === "step"));
       }
       for (const [modeKey, pill] of Object.entries(modePills)) {
         pill.setAttribute("aria-pressed", String(layoutMode === modeKey));
@@ -1642,13 +2104,14 @@ export function createTraceView(panel, body, tools) {
   }
 
   /**
-   * Cascade sequentially (`start -> ... -> targetStep`) through intermediate steps so non-adjacent
-   * jumps clearly reveal every intermediate bit shift, XOR accumulation, or Euclid reduction.
+   * Cascade sequentially (`start -> ... -> targetStep`) through intermediate steps in `Step view`
+   * so non-adjacent jumps clearly reveal intermediate state changes.
    *
    * @param {number} targetStep - Destination zero-based step index.
    * @param {{focusBit?: boolean}} [opts={}] - Restore keyboard focus onto the active bit button.
    */
   function cascadeTo(targetStep, { focusBit = false } = {}) {
+    if (layoutMode !== "step") return;
     const count = length();
     if (!count) return;
     const clamped = Math.max(0, Math.min(count - 1, targetStep));
@@ -1657,7 +2120,6 @@ export function createTraceView(panel, body, tools) {
 
     if (Math.abs(clamped - start) <= 1 || reducedMotion.matches) {
       current = clamped;
-      allRows = false;
       const focused = render();
       if (focusBit) focused?.focus({ preventScroll: true });
       return;
@@ -1687,7 +2149,6 @@ export function createTraceView(panel, body, tools) {
         return;
       }
       current = nextStep;
-      allRows = false;
       const focused = render();
       if (focusBit) focused?.focus({ preventScroll: true });
       if (hops.length) {
@@ -1707,55 +2168,46 @@ export function createTraceView(panel, body, tools) {
    * @param {number} step - Zero-based step index.
    */
   function selectBit(step) {
+    if (layoutMode !== "step") return;
     cascadeTo(step, { focusBit: true });
   }
 
   /**
    * Switch between the three layout modes (`"step"`, `"grid"`, `"table"`),
-   * auto-maximizing `#trace-panel` when `"grid"` (`All steps grid`) is activated.
+   * pausing any playback and resetting the 4-step grid pagination when entering `"grid"`.
    *
    * @param {"step" | "grid" | "table"} nextMode - Target layout mode.
-   * @param {boolean} [revealAll] - Whether to reveal all steps (`true` for grid/table by default).
    */
-  function setLayoutMode(nextMode, revealAll = nextMode !== "step") {
+  function setLayoutMode(nextMode) {
     stop();
     layoutMode = nextMode;
-    allRows = revealAll;
-    if (nextMode !== "step") comparePrev = false;
-    if (!allRows && current === null) current = 0;
-    setMaximized(nextMode === "grid");
+    if (nextMode === "grid") {
+      gridVisibleCount = GRID_PAGE_SIZE;
+    }
+    if (current === null) current = 0;
     render();
   }
 
-  narrowScreen.addEventListener("change", event => {
-    if (trace && length()) setLayoutMode(event.matches ? "step" : (traceDegree() > 8 ? "step" : "table"));
-  });
-
   /**
-   * Load a new trace payload into the viewer and rebuild the uncluttered 2-row toolbar.
-   *
-   * Defaults to `"step"` (`Step view`) on narrow screens (`max-width: 600px`) or large
-   * cryptographic fields (`m > 8`), and `"table"` (`Classic table`) on desktop for `m <= 8`.
+   * Load a new trace payload into the viewer and rebuild the clean 2-row toolbar.
+   * Always defaults to `"step"` (`Step view`) across all 13 field sizes (`m in {2..8, 163..571}`).
    *
    * @param {object | null} newTrace - Trace dictionary from the API, or `null` to hide panel.
    * @param {object | null} [newReductions] - Optional map of pre-reduced operands `{a?, b?}`.
    */
   function show(newTrace, newReductions) {
     stop();
-    setMaximized(false);
     trace = newTrace;
     reductions = newReductions;
     const deg = traceDegree();
-    const defaultStepMode = (narrowScreen.matches || deg > 8) && length() > 0;
-    layoutMode = defaultStepMode ? "step" : "table";
+    layoutMode = "step";
     compactValues = deg > 8;
-    comparePrev = false;
-    allRows = !defaultStepMode;
-    current = defaultStepMode ? 0 : null;
+    current = 0;
+    gridVisibleCount = GRID_PAGE_SIZE;
     panel.hidden = !trace;
     tools.replaceChildren();
-    stepLabel = scrubber = firstButton = prevButton = firstChangedButton = playButton = nextButton = lastButton = undefined;
-    exitMaxButton = compactToggleButton = compareToggleButton = modesIndicator = undefined;
+    playbackRow = stepLabel = scrubber = speedSelect = firstButton = prevButton = firstChangedButton = playButton = nextButton = lastButton = undefined;
+    compactToggleButton = modesIndicator = undefined;
     modePills = {};
     if (!trace) { renderBody(); return; }
 
@@ -1763,7 +2215,7 @@ export function createTraceView(panel, body, tools) {
     if (!count) { renderBody(); return; }
 
     const row1 = element("div", undefined, "trace-toolbar-row trace-view-row");
-    const row2 = element("div", undefined, "trace-toolbar-row trace-playback-row");
+    playbackRow = element("div", undefined, "trace-toolbar-row trace-playback-row");
 
     // Row 1.1: Attach Hex/Binary/Polynomial notation switcher whenever Table 4.7 is shown.
     if (trace.table_4_7_rows || trace.stage_1_inverse) {
@@ -1801,60 +2253,32 @@ export function createTraceView(panel, body, tools) {
     modesIndicator = attachSlidingIndicator(modeSegments, '[aria-pressed="true"]');
     row1.append(modeSegments);
 
-    // Row 1.3: Compare prev → curr, Compact values / Full m-bit toggle, Expand full view, Exit maximized view
-    compareToggleButton = element("button", "Compare prev → curr", "outline trace-compare-toggle");
-    compareToggleButton.type = "button";
-    compareToggleButton.setAttribute("aria-pressed", "false");
-    compareToggleButton.addEventListener("click", () => {
-      stop();
-      setMaximized(false);
-      if (layoutMode !== "step") {
-        layoutMode = "step";
-        allRows = false;
-        if (current === null) current = 0;
-        comparePrev = true;
-      } else {
-        comparePrev = !comparePrev;
-      }
-      render();
-    });
-
-    compactToggleButton = element("button", compactValues ? "Full m-bit" : "Compact values", "outline trace-compact-toggle");
-    compactToggleButton.type = "button";
-    compactToggleButton.setAttribute("aria-pressed", String(compactValues));
-    compactToggleButton.addEventListener("click", () => {
-      compactValues = !compactValues;
-      render();
-    });
-
-    const expandButton = element("button", "Expand full view", "outline trace-expand-btn");
-    expandButton.type = "button";
-    expandButton.addEventListener("click", () => openFullViewModal());
-
-    exitMaxButton = element("button", "Exit maximized view", "outline trace-exit-max-btn");
-    exitMaxButton.type = "button";
-    exitMaxButton.hidden = true;
-    exitMaxButton.addEventListener("click", () => {
-      setMaximized(false);
-      modesIndicator?.update();
-    });
-
-    row1.append(compareToggleButton, compactToggleButton, expandButton, exitMaxButton);
+    // Row 1.3: Compact values / Full m-bit toggle (omit for mod_reduce which always shows full values)
+    if (trace.trace_type !== "mod_reduce") {
+      compactToggleButton = element("button", compactValues ? "Full m-bit" : "Compact values", "outline trace-compact-toggle");
+      compactToggleButton.type = "button";
+      compactToggleButton.setAttribute("aria-pressed", String(compactValues));
+      compactToggleButton.addEventListener("click", () => {
+        compactValues = !compactValues;
+        render();
+      });
+      row1.append(compactToggleButton);
+    }
 
     // Row 2: 5-Button Playback Bar + Interactive Step Scrubber + Progress Counter
     stepLabel = element("span", undefined, "trace-progress");
     stepLabel.setAttribute("aria-live", "polite");
 
     function advance(next) {
+      if (layoutMode !== "step") return;
       current = Math.max(0, Math.min(count - 1, next));
-      allRows = false;
       render();
     }
 
     firstButton = element("button", "First step", "quiet");
     firstButton.type = "button";
     firstButton.addEventListener("click", () => {
-      if ((cascadeTarget ?? current ?? 0) <= 0) return;
+      if (layoutMode !== "step" || (cascadeTarget ?? current ?? 0) <= 0) return;
       stop();
       advance(0);
     });
@@ -1864,6 +2288,7 @@ export function createTraceView(panel, body, tools) {
     prevButton.setAttribute("aria-label", "Previous step");
     prevButton.title = "Previous step";
     prevButton.addEventListener("click", () => {
+      if (layoutMode !== "step") return;
       const baseIdx = cascadeTarget ?? (current ?? 0);
       if (baseIdx <= 0) return;
       stop();
@@ -1873,11 +2298,11 @@ export function createTraceView(panel, body, tools) {
     firstChangedButton = element("button", "First changed bit", "outline trace-first-changed-btn");
     firstChangedButton.type = "button";
     firstChangedButton.addEventListener("click", () => {
+      if (layoutMode !== "step") return;
       const targetIdx = findFirstChangedStep(trace);
       if (targetIdx === null || (current ?? 0) === targetIdx) return;
       stop();
       current = targetIdx;
-      allRows = false;
       render();
     });
 
@@ -1885,32 +2310,34 @@ export function createTraceView(panel, body, tools) {
     playButton.type = "button";
     playButton.setAttribute("aria-pressed", "false");
 
-    const speedSelect = element("select", undefined, "trace-speed");
+    speedSelect = element("select", undefined, "trace-speed");
     speedSelect.setAttribute("aria-label", "Trace animation speed");
-    for (const [val, label] of [["slow", "Slow"], ["normal", "Normal"], ["fast", "Fast"]]) {
+    for (const [val, label, ms] of [
+      ["slow", "Slow (1.8s)", 1800],
+      ["normal", "Normal (0.9s)", 900],
+      ["fast", "Fast (0.45s)", 450],
+    ]) {
       const opt = element("option", label);
       opt.value = val;
+      opt.dataset.ms = String(ms);
       if (val === speed) opt.selected = true;
       speedSelect.append(opt);
     }
 
     function startPlayback() {
-      if (count <= 1) return;
+      if (layoutMode !== "step" || count <= 1) return;
       if (timer) {
         stop();
         return;
       }
       stopCascade();
       if (current === null || current >= count - 1) advance(0);
-      else {
-        allRows = false;
-        render();
-      }
+      else render();
       playButton.textContent = "Pause";
       playButton.setAttribute("aria-pressed", "true");
       const intervalMs = PLAY_SPEED_MS[speed] || PLAY_SPEED_MS.normal;
       timer = setInterval(() => {
-        if (current >= count - 1) stop();
+        if (layoutMode !== "step" || current >= count - 1) stop();
         else advance((current ?? 0) + 1);
       }, intervalMs);
     }
@@ -1929,12 +2356,8 @@ export function createTraceView(panel, body, tools) {
     nextButton.setAttribute("aria-label", "Next step");
     nextButton.title = "Next step";
     nextButton.addEventListener("click", () => {
-      const baseIdx = cascadeTarget ?? current;
-      if (baseIdx === null) {
-        stop();
-        advance(0);
-        return;
-      }
+      if (layoutMode !== "step") return;
+      const baseIdx = cascadeTarget ?? (current ?? 0);
       if (baseIdx >= count - 1) return;
       stop();
       advance(baseIdx + 1);
@@ -1943,7 +2366,7 @@ export function createTraceView(panel, body, tools) {
     lastButton = element("button", "Last step", "quiet");
     lastButton.type = "button";
     lastButton.addEventListener("click", () => {
-      if (current !== null && (cascadeTarget ?? current) >= count - 1) return;
+      if (layoutMode !== "step" || (cascadeTarget ?? current ?? 0) >= count - 1) return;
       stop();
       advance(count - 1);
     });
@@ -1955,10 +2378,11 @@ export function createTraceView(panel, body, tools) {
     scrubber.value = String((current ?? 0) + 1);
     scrubber.setAttribute("aria-label", "Trace step scrubber");
     scrubber.addEventListener("input", () => {
+      if (layoutMode !== "step") return;
       cascadeTo(Number(scrubber.value) - 1);
     });
 
-    row2.append(
+    playbackRow.append(
       firstButton,
       prevButton,
       firstChangedButton,
@@ -1969,12 +2393,13 @@ export function createTraceView(panel, body, tools) {
       scrubber,
       stepLabel,
     );
-    tools.append(row1, row2);
+    tools.append(row1, playbackRow);
     render();
   }
 
-  // Enforce step-boundary keyboard no-ops across the trace panel toolbar and cards.
+  // Enforce step-boundary keyboard shortcuts strictly in Step view (locked in Grid & Classic table).
   panel.addEventListener("keydown", event => {
+    if (layoutMode !== "step") return;
     const count = length();
     if (!count || panel.hidden) return;
     const active = document.activeElement;
@@ -1987,28 +2412,24 @@ export function createTraceView(panel, body, tools) {
       event.preventDefault();
       stop();
       current = activeStep - 1;
-      allRows = false;
       render();
     } else if (event.key === "Home") {
       if (activeStep <= 0) return;
       event.preventDefault();
       stop();
       current = 0;
-      allRows = false;
       render();
     } else if (event.key === "ArrowRight") {
-      if (current !== null && activeStep >= count - 1) return;
+      if (activeStep >= count - 1) return;
       event.preventDefault();
       stop();
-      current = current === null ? 0 : activeStep + 1;
-      allRows = false;
+      current = activeStep + 1;
       render();
     } else if (event.key === "End") {
-      if (current !== null && activeStep >= count - 1) return;
+      if (activeStep >= count - 1) return;
       event.preventDefault();
       stop();
       current = count - 1;
-      allRows = false;
       render();
     }
   });

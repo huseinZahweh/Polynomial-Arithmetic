@@ -92,11 +92,13 @@ Live algebraic proof builders:
 ### `backend/engine/tutorial.py` — Hussein Abbas (Milestone 1)
 * **`load_tutorial()`:** Reads `data/tutorial_slides.json` relative to the package root regardless of working directory.
 
-### `backend/engine/explorations.py` — Ali Zahreddine (Milestone 4 & Integration)
-Pure-Python exploration engines:
+### `backend/engine/explorations.py` — Ali Zahreddine (Milestone 4 & Integration) & Husein Zahweh (Milestone 6 Applications)
+Pure-Python exploration and cryptographic application engines:
 * **`_poly_gcd(a, b)` & `_split_square_free(polynomial)`:** Euclidean GCD over $GF(2)[x]$ plus Berlekamp $Q - I$ column elimination (**bonus mathematical extension beyond Stallings Ch. 4**) to split equal-degree square-free products.
 * **`explore_modulus(polynomial)`:** Checks irreducibility for degrees $2 \le d \le 571$ via $\gcd(f, x^{2^i} + x)$ and extracts two nonzero factor witnesses when reducible.
-* **`compute_aes_sbox(byte)`:** Full FIPS 197 §5.1.1 / Stallings Ch. 5 SubBytes (EEA inverse + 4 cyclic left rotations + `0x63` affine XOR).
+* **`compute_xts_tweak(t0_hex, steps=6)`:** Computes the IEEE 1619-2007 / Stallings Ch. 6 XTS-AES $GF(2^{128})$ tweak sequence $T_j = T_0 \otimes \alpha^j \pmod{x^{128} + x^7 + x^2 + x + 1}$, flagging every $b_{127} = 1$ overflow reduction (`⊕ 0x87`).
+* **`ECC_CURVES`, `ecc_is_on_curve`, `ecc_double`, `ecc_add`, `ecc_scalar_mul`, `explore_binary_ecc(curve, n_a, n_b)`:** Binary elliptic curve explorer ($E_{2^m}(a,b)$: $y^2 + xy = x^3 + ax^2 + b$) supporting both Teaching Curve $GF(2^4)$ ($G = (\text{3}, \text{C})$) and official NIST FIPS 186-4 / SEC 2 **NIST B-163** ($GF(2^{163})$), reusing canonical `backend.engine` `add`, `multiply`, `EXTENDED_EUCLID_GF2M`, and `GF2M_DIVIDE` primitives for point doubling ($R = 2P$), point addition ($R = P + Q$), curve membership verification, and ECDH ($K = n_A P_B = n_B P_A$).
+* **`gcm_ghash(h_hex, blocks_hex)`:** NIST SP 800-38D / Stallings Ch. 12 GCM GHASH authenticator over $GF(2^{128})$ modulo $x^{128} + x^7 + x^2 + x + 1$, chaining canonical `add` (XOR) and `multiply` (Shift-and-XOR) across $1$–$8$ 128-bit blocks to compute $Y_i = (Y_{i-1} \oplus X_i) \cdot H \bmod m(x)$ and returning per-block steps, `tag_hex`, `tag_poly`, and `elapsed_ms`.
 * **`compare_multiplication(m, a, b)`:** Runs Shift-and-XOR (`multiply_traced`) alongside `POLY_MUL_NO_MOD` + traced `POLY_DIVMOD`.
 * **`benchmark_multiplication(seed=455, trials=31, degrees=(163, 571))`:** Alternates untraced execution order across 31 trials per method and reports median microseconds.
 
@@ -112,8 +114,8 @@ Defines Pydantic v2 enums (`Operation` with aliases `sub`/`mod`/`mul`/`inv`/`div
 * **`build_field_info` / `field_info` / `element_model`:** Converts engine objects into Pydantic response models.
 * **`_reduce` / `_parse_operand` / `_dispatch` / `calculate(req)`:** Orchestrates strict input parsing (4096-bit cap), initial reduction hex formatting, engine dispatch across all 6 operations, `perf_counter()` timing, live verification badges, and `v1` share-token generation.
 
-### `backend/api/exploration_routes.py` — Ali Zahreddine (Milestone 4 & Integration)
-Defines Pydantic request models (`ModulusRequest`, `SBoxRequest`, `MultiplicationRequest`), strict input validation helper `_parse_input` (HTTP 400 on error), and the four `/api/explorations/*` FastAPI endpoints delegating to `backend.engine.explorations`.
+### `backend/api/exploration_routes.py` — Ali Zahreddine (Milestone 4 & Integration) & Husein Zahweh (Milestone 6 Applications)
+Defines Pydantic request models (`ModulusRequest`, `XTSTweakRequest`, `BinaryECCRequest`, `GCMGHashRequest`, `MultiplicationRequest`), strict input validation helper `_parse_input` (HTTP 400 on error), and the six `/api/explorations/*` FastAPI endpoints delegating to `backend.engine.explorations`.
 
 ### `backend/api/main.py` — Hassan Tarhini (M2) & Ali Zahreddine (Integration)
 Creates the single FastAPI `app`, configures CORS, exposes meta routes (`GET /`, `GET /api/health`) and all 6 core endpoints, includes `explorations_router`, and mounts `frontend/` at `/workbench/`.
@@ -124,49 +126,50 @@ Creates the single FastAPI `app`, configures CORS, exposes meta routes (`GET /`,
 
 Authored by **Ali Zahreddine (Milestones 4 & 5)** with **Milestone 6** refinements by **Husein Zahweh**:
 
+### `frontend/index.html`, `frontend/lab.css` & `frontend/gf2m-badge.png`
+* **Custom Brand Emblem & Favicon (`frontend/gf2m-badge.png`):** Crisp $GF(2^m)$ logo asset served under `/workbench/gf2m-badge.png`, rendered inside the header `.brand-badge` rounded crest (`42px × 42px` desktop, `36px × 36px` mobile) and wired as the browser tab `<link rel="icon">`, paired with the header subtitle **`GF(2ᵐ) Polynomial Arithmetic · EECE 455`** (`<sup>m</sup>`).
+* **Single-Document Five-View Workbench:** Serves `#calculator`, `#lessons`, `#modulus`, `#applications`, and `#compare`, plus the top-center error alert (`#error-popup`), Full-Value Inspector (`#inspector-popup`), Step Derivation (`#derivation-popup`), upload modal (`#upload-modal`), and toast (`#feedback-popup`).
+
 ### `frontend/notation.js`
-* **`bases`:** Notation configuration table (`hex`, `binary`, `algebraic`).
-* **`parseOperand(text, base)` / `formatOperand(value, base, m)` / `polynomial(value)` / `degreeOf(value)`:** Exact client-side `BigInt` parsing and formatting matching the backend's validation and padding rules up to $4096$ bits.
-* **`significantDigits(text)` / `element(tag, text, className)`:** Leading-zero trimmer for large-field previews and safe DOM builder (`textContent` only).
-* **`mathFragment(text)` / `appendMathText(node, text)` / `setMathText(node, text)` / `mathElement(tag, text, className)`:** XSS-safe DOM builders (never `innerHTML`) converting exponents (`GF(2^163)`, `x^4`, `x^-1`, `x^(2^i)`, Unicode superscripts) and indexed variables (`A1`-`A3`, `B1`-`B3`, `T1`-`T3`, `b0`-`b7`, Unicode subscripts) into true `<sup>`/`<sub>` elements while keeping hex literals untouched.
-* **`attachSlidingIndicator(container, activeSelector)`:** Attaches a smooth gliding `.sliding-pill` background/border indicator across navigation strips, segmented bars, operation grids, and step timelines.
-* **`showErrorPopup({ title, message, onViewTrace })` / `closeErrorPopup()`:** Opens/closes the top-level `#error-popup` modal dialog with formatted math typography and optional trace-jump action.
-* **`copyToClipboard(text)` / `showFeedbackPopup(title, detail, variant)`:** Reliable Clipboard API + hidden `<textarea>` fallback copy helper and non-blocking bottom-right confirmation toast (`#feedback-popup`) with 2800 ms auto-dismiss.
+* **`bases`:** Notation configuration table (`hex`, `binary`, `algebraic`) with non-numeric prompt metadata.
+* **`toSuperscriptDigits` / `formatPolyWithSuperscripts` / `normalizeAlgebraicInput` / `applyInputFormatting`:** Live input formatting auto-uppercasing Hex letters (`a-f` → `A-F`) and raising Polynomial exponents to Unicode superscripts (`x^6` → `x⁶`) while preserving caret position, and normalizing Unicode superscripts back to plain ASCII `x^k` before parsing, API requests, exports, or share links.
+* **`parseOperand(text, base)` / `formatOperand(value, base, m)` / `polynomial(value)` / `degreeOf(value)`:** Exact client-side `BigInt` parsing and formatting matching backend validation up to $4096$ bits (omitting leading hex zeros).
+* **`mathFragment(text)` / `appendMathText(node, text)` / `setMathText(node, text)` / `mathElement(tag, text, className)`:** XSS-safe DOM builders (never `innerHTML`) converting exponents (`GF(2^163)`, `x^4`, `x^-1`, `x^(2^i)`, `α^j`, Unicode superscripts) and subscripts (`b_1x` → `b<sub>1</sub>x`, `A1`-`A3`, `B1`-`B3`, `T1`-`T3`, `b_127`, `P_A`) into true `<sup>`/`<sub>` elements.
+* **`attachSlidingIndicator(container, activeSelector)`:** Attaches a smooth slow-gliding `.sliding-pill` highlight across floating navigation strips, segmented bars, operation grids, and sub-tabs.
+* **`showErrorPopup({ title, message, onViewTrace })` / `closeErrorPopup()`:** Controls the sleek top-center floating error alert card (`#error-popup`) with left red accent strip, `×` close button, `Esc` dismissal, and optional trace jump without obscuring operand inputs.
+* **`showInspectorPopup({ title, valueBigInt, mDegree, subtitle })` / `showDerivationPopup({ title, subtitle, formula, steps, result })`:** Dismissible `<dialog>` modals powering the Full-Value Inspector (complete Hex, Binary, and Polynomial with Copy buttons) and step-specific mathematical derivation breakdowns.
+* **`copyToClipboard(text)` / `showFeedbackPopup(title, detail, variant)`:** Reliable clipboard copy helper and non-blocking bottom-right confirmation toast (`#feedback-popup`).
 
 ### `frontend/traces.js`
-* **`createDiffLegend()` / `buildDiffValueNode(displayValue, meta)`:** Shared WCAG AA visual diff legend (`.diff-carried`, `.diff-updated`, `.diff-reduced`, `.diff-unchanged`) and styled diff value box renderer with micro-badges and inline `was:` / `prev → now` deltas.
-* **`euclidKnowledgeTitle` / `multiplyKnowledgeTitle` / `reductionKnowledgeTitle` / `xorKnowledgeTitle`:** Educational step title generators (`.step-knowledge-title`) summarizing the exact mathematical transformation of every step (with Stage 1/Stage 2 prefixes on Division).
-* **`formatStepReductionBreakdown(prevVal, currVal, modPoly, mDegree, stepIndex, wasReduced)`:** Derives explicit $x^m \bmod m(x) = m(x) - x^m$ shift-and-XOR reduction steps (3-line aligned binary XOR for $m \le 16$ and compact sparse-tap polynomial view for $m > 16$).
-* **`formatCellText` / `makeCopyableValue`:** Large-field cell formatter (`Compact values` vs. `Full m-bit`) and click-to-copy value helper with confirmation toast.
-* **`table(title, headers, rows, selected, diffOpts)` / `stepCard(eyebrow, knowledgeTitle, labels, values, isCurrentRegion, options)`:** Accessible wrapped table (supporting `<sup>`/`<sub>` headers, educational subtitles, and previous/current row diff tinting) and diff-aware step card builders.
-* **`multiplyStepCard(trace, idx, compactValues, isCurrentRegion, stagePrefix)`:** Two-block Shift-and-XOR step card (**1. Shift & Reduce** vs. **2. Check Bit $b_i$ & Update Running Sum**) with Stallings `{hex}` brace notation, explicit `.reduction-breakdown`, de-cluttered status badges, and bottom live running formula strip (`.mul-formula-strip`).
-* **`euclidInspectorSquare(trace, rowIndex, notation, compactValues, isCurrentRegion, stagePrefix)`:** Zero-horizontal-scroll **Extended Euclid Step Inspector Square** rendering step eyebrow, educational `.step-knowledge-title`, quotient pill $Q(x)$, step-change transition banner, live recurrence formula callout, and side-by-side **Triple A** (`← prev B1..B3`) and **Triple B** (`New T1..T3`) cards with true `<sub>`/`<sup>` labels, inline `was:` values, and termination badges.
-* **`reduction`, `xor`, `multiply`, `euclid`:** The four custom trace visualizers supporting three layout modes (`Step view`, auto-maximized `All steps grid`, `Classic table`), auto-expanded `.initial-reduction-panel` equations on unreduced inputs ($\deg \ge m$), roving-tabindex multiplier-bit strips with linked Table 1/Table 2 row highlights, and Table 4.7 cell-notation switching.
-* **`createTraceView(panel, body, tools)`:** Stateful controller managing the 3 layout modes with a gliding pill switcher, auto-maximization on `All steps grid` (`Exit maximized view` + `Esc`), boundary disabled states (`syncPlaybackControls`), instant `First changed bit` / `First active step` jump (`findFirstChangedStep`), sequential step cascade (`cascadeTo`) on non-adjacent bit/scrubber jumps, side-by-side `Compare prev → curr` mode, uncluttered 2-row toolbar, `Compact values` / `Full m-bit` toggle, and the `Expand full view` modal dialog (`#trace-fullscreen`).
+* **`polyMulNoModBigInt` / `polyDivModBigInt` / `openEuclidDerivationPopup` / `openShiftXorIllustrationPopup`:** Client-side `BigInt` derivation engines powering the 4 Extended Euclid step breakdown buttons (`How Q / T₁ / T₂ / T₃ is calculated`) and the Shift-and-XOR `Show Shift & XOR illustration` popup for the currently displayed step.
+* **`createDiffLegend()` / `createTableColorLegend()` / `attachValueInteraction` / `buildDiffValueNode`:** WCAG AA step diff legend, `Classic table` color legend, and automatic click-to-inspect **Full Value Inspector** trigger (with subtle expand cue `⤢`) on truncated large-field cells.
+* **`multiplyStepCard`:** Streamlined two-block Shift-and-XOR card (no redundant blue summary banner, intuitive `A(x)` / `<< 1` / bit `bᵢ` descriptions, calculation steps ordered **above** the bold resulting `Shifted value` and `Running Sum`, `Show Shift & XOR illustration` button, and bottom live running formula strip).
+* **`reductionStepCard`:** Full untruncated hex Modulo Reduction card removing the duplicate banner and separate `Shift` row, placing `Shifted modulus · m(x) << k` directly between `Before` and `After XOR`.
+* **`euclidInspectorSquare`:** Zero-horizontal-scroll Table 4.7 Step Inspector Square with 4 consistent breakdown buttons (`Q`, `T₁`, `T₂`, `T₃`, disabled with note on Step 0), carried **Triple A** / updated **Triple B** diff cards, and Full-Value Inspector popups on truncated values.
+* **`createTraceView(panel, body, tools)`:** Always defaults to **`Step view`** across all 13 field sizes (`m in {2..8, 163..571}`) with built-in side-by-side **Previous → Current** comparison from Step 1 onward (single card on Step 0), inline single-column **`All steps grid`** loading 4 steps initially with **`Show more`** (+4 per click), **`Classic table`** with color highlight legend, automatic playback & keyboard locking outside `Step view`, `First changed bit` jump, and sequential cascade.
 
 ### `frontend/lesson-data.js`
-* **`LESSONS`:** Comprehensive 7-lesson curriculum array (21 sub-lessons) aligned with William Stallings Chapters 4, 5, 6 (XTS-AES), and 10 (Binary ECC), containing step titles, `diffSummary` slide-transition descriptions, mathematical formulas, zero-scroll visual specifications (`cards`, `xor-columns`, `reduction-step`, `shift-register`, `mul-walkthrough`, `poly-divmod`, `euclid-step`, `pipeline`), interactive mini-activities, self-check quizzes, and Calculator preset handoffs.
+* **`LESSONS`:** Self-contained 7-lesson curriculum array aligned with William Stallings Chapters 4, 6 (XTS-AES), and 10 (Binary ECC), containing clean 4-row $\mathbb{Z}_2$ truth tables (`1.2` and `2.1`), embedded worked classroom tables (`{2B79} mod {11B} = {C1}`, `{57} × {83} = {C1}`, Stallings Table 4.7 `{83}⁻¹ = {80}`, `{C1} ÷ {83} = {57}`), interactive sandboxes, and self-check quizzes.
 
 ### `frontend/lessons.js`
-* **`renderVisual(visual, prevVisual)`:** Renders animated zero-horizontal-scroll visual stages with true `<sup>`/`<sub>` typography and automatic Previous-to-Current value-level diff highlights (`.diff-carried`, `.diff-updated`, `.diff-reduced`, `.diff-unchanged`), micro-badges, and inline `was:` / `prev → now` deltas.
-* **`buildLessonStepFrame(sub, steps, idx, isPreviousSnapshot)`:** Builds each slide frame with prominent `.step-knowledge-title`, `"From Step k-1 → Step k"` transition banners for active slides, and clean read-only snapshots for comparison mode.
-* **`buildBitSandbox()` / `buildXorActivity()` / `buildQuiz(quiz)`:** Interactive 8-bit polynomial coefficient builder, 4-bit XOR challenge, and instant-feedback multiple-choice check cards.
-* **`setupLessons({ openInCalculator })`:** Initializes the `#lessons` catalog hub, gliding sub-lesson tabs (`#lesson-subtabs`), gliding step dots (`#lesson-step-dots`) with sequential step cascade (`cascadeToStep`), 5-button animation playback controller, `#lesson-compare` (`Compare prev → curr`) side-by-side slide toggle, keyboard shortcuts (`ArrowLeft`, `ArrowRight`, `Home`, `End`, `Space`), deep-link selector `selectLessonById(id)`, and one-click Calculator handoffs.
+* **`renderVisual(visual)` / `buildBitSandbox()` / `buildXorActivity()` / `buildQuiz(quiz)`:** Renders `truth-table`, `worked-table`, `cards`, `xor-columns`, `reduction-step`, `shift-register`, `mul-walkthrough`, `poly-divmod`, and `pipeline` stages in one clean scrollable section card.
+* **`setupLessons()`:** Manages the `#lessons` catalog hub, gliding top section bar (`#lesson-subtabs`), and linear **`Previous section`** / **`Next section`** footer navigation across all sections of the 7-lesson curriculum (no playback toolbar, no Calculator handoff buttons).
 
 ### `frontend/tour.js`
-* **`calculatorSteps` & `walkthroughs`:** Step registries for all five views (`calculator`, `lessons`, `modulus`, `aes`, `compare`).
-* **`setupPageTour()`:** Floating **`Tutorial tour`** spotlight walkthrough controller rendering `<sup>`/`<sub>` math tooltips, dynamic fallback targets, `Escape` dismissal, and live re-highlighting on `lab:calculation-result` events.
+* **`calculatorSteps` & `walkthroughs`:** Spotlight walkthrough registries for all five views (`calculator`, `lessons`, `modulus`, `applications`, `compare`), including explicit Calculator guidance for Full-Value Inspector and step breakdown popups.
+* **`setupPageTour()`:** Floating **`Tutorial tour`** controller rendering `<sup>`/`<sub>` math tooltips, dynamic fallback targets, `Escape` dismissal, and live re-highlighting on `lab:calculation-result`.
 
 ### `frontend/explorations.js`
-* **`bindExperiment` / `setupNavigation(closeTour, onLessonRoute)`:** Hash router (`#calculator`, `#lessons`, `#lessons/<id>`, `#modulus`, `#aes`, `#compare`) with gliding `.lab-nav` pill indicator, pop-up error routing (`showErrorPopup`), and busy-locked async form wrapper.
-* **`setupModulus`, `setupAES`, `setupComparison`, `setupExplorations`:** UI controllers for the three exploration tabs, including `<sup>`/`<sub>` status formatting, the `Compare this product` transfer queue, and the 163/571-bit benchmark table.
+* **`bindExperiment` / `setupNavigation`:** Hash router (`#calculator`, `#lessons`, `#lessons/<id>`, `#modulus`, `#applications`, `#compare`) with floating gliding `.lab-nav` pill indicator and top-center error routing.
+* **`setupModulus`:** Modulus irreducibility lab with Unicode superscript Polynomial & auto-uppercase Hex input formatting, factor witnesses, and plain-English GCD checkpoint explanation.
+* **`setupApplications`:** Gliding 3-sub-tab controller for **XTS-AES $GF(2^{128})$ Tweak Multiplier** (`POST /api/explorations/xts-tweak`, randomize, step next block, overflow `XOR 0x87` highlights), **Polynomial / Binary ECC Explorer** (`POST /api/explorations/binary-ecc`, Teaching $GF(2^4)$ & NIST B-163 aligned with classroom slide notation `P = (Xp, Yp)`, `Q = (Xq, Yq)`, `R = (Xr, Yr)`, slope `s`, tagged steps, verified badges, Full-Value Inspector on 163-bit coordinates, and ECDH card), and **GCM · GHASH ($GF(2^{128})$) Authenticator** (`POST /api/explorations/gcm-ghash`, full 128-bit XOR & Shift-and-XOR block table, Full-Value Inspector popups, and `?app=ghash&h=...&blocks=...#applications` share links).
+* **`setupComparison` & `setupExplorations`:** Side-by-side multiplication comparison lab (`Compare multiplication methods` transfer queue, auto-uppercase hex inputs) and 163/571-bit benchmark table.
 
 ### `frontend/lab.js`
 * **`api(path, data, download)`:** Shared `fetch()` client preserving HTTP 400 `.payload` (`gcd` + `trace`).
-* **`renderBits` / `renderOperands` / `changeNotation`:** Interactive $m \le 8$ coefficient checkboxes (`x⁷`–`1`), live validation previews with `<sup>`, dynamic read-only **Modulus $m(x)$** card on `modulo`/`inverse` (preserving typed `B(x)` across switches), pop-up error modal alerts, gliding notation & operation indicators, and lossless base conversion.
-* **`renderResult` / `previewValue` / `calculate`:** Compact large-field previews with `Show full value`, full-value clipboard copy, verification/metric badges, and revision-guarded async requests.
-* **`makeShareURL` / `readShareURL`:** Hexadecimal-compressed query-string serialization and restoration.
-* **`presetButton` / `renderSlide` / `loadPair` / `setupLessons` / `init`:** Textbook preset launchers, 4-slide concepts modal, batch upload pair selector, Lesson-to-Calculator handoff bridge, and parallel startup initialization.
+* **`renderBits` / `renderOperands` / `changeNotation`:** Live `applyInputFormatting` (auto-uppercase Hex, Unicode superscript Polynomial), non-numeric placeholders (`Enter A(x)`, `Enter B(x)`), interactive $m \le 8$ checkboxes, read-only **Modulus $m(x)$** card on `modulo`/`inverse`, and lossless base conversion.
+* **`renderResult` / `calculate`:** Displays full untruncated Hex, Binary, and Polynomial results (wrapped/scrollable for large fields), `Compare multiplication methods` + helper note, untouched timing/bit/Hamming metric badges, and Unicode-normalized API payloads.
+* **`makeShareURL` / `readShareURL` / `handleUploadFile` / `init`:** Hex-compressed share links, drag-and-drop upload modal (`#upload-modal`), textbook presets, and parallel startup initialization.
 
 ---
 

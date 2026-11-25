@@ -3,7 +3,7 @@
 **Project:** EECE 455 — Project-3: Polynomial Arithmetic in $GF(2^m)$  
 **Assigned Owner:** Ali Zahreddine (Milestone 4 GUI & Bonus Explorations; Milestone 5 End-to-End Integration with the full team)  
 **Unified Code Locations:** [frontend/](../../frontend/index.html), [backend/engine/explorations.py](../../backend/engine/explorations.py), [backend/api/exploration_routes.py](../../backend/api/exploration_routes.py), [backend/api/main.py](../../backend/api/main.py), [run.py](../../run.py), and [tests/e2e/test_workbench_e2e.py](../../tests/e2e/test_workbench_e2e.py)  
-**Textbook References:** William Stallings, *Cryptography and Network Security*, **Chapter 4** (Finite Fields), **Chapter 5** (AES S-Box), **Chapter 6** (XTS-AES over $GF(2^{128})$), and **Chapter 10** (Binary ECC over $GF(2^{163}) \dots GF(2^{571})$).
+**Textbook References:** William Stallings, *Cryptography and Network Security*, **Chapter 4** (Finite Fields), **Chapter 5** (AES $GF(2^8)$ arithmetic), **Chapter 6** (XTS-AES over $GF(2^{128})$), **Chapter 10** (Binary ECC over $GF(2^{163}) \dots GF(2^{571})$), and **Chapter 12** (GCM / GHASH over $GF(2^{128})$).
 
 ---
 
@@ -41,22 +41,24 @@ The frontend is a zero-build, accessible ES-module web application hosted direct
 
 ### 1.4 Guided Spotlight Tours & Field Concepts Modal (`frontend/tour.js`)
 
-Clicking **Tutorial** launches a context-aware spotlight walkthrough tailored to whichever tab is open (Calculator, Modulus explorer, AES S-box, or Compare multiplication). Each step highlights the target control, falls back gracefully to the action button if a result panel is not yet visible, and updates live when calculations complete. From the Calculator tour, **Field concepts** opens the 4-slide `<dialog>` modal served by `GET /api/tutorial`.
+Clicking **Tutorial tour** launches a context-aware spotlight walkthrough tailored to whichever tab is open (Calculator, Lessons, Modulus explorer, Applications, or Compare multiplication). Each step highlights the target control, falls back gracefully to the action button if a result panel is not yet visible, and updates live when calculations complete. From the Calculator tour, **Field concepts** opens the 4-slide `<dialog>` modal served by `GET /api/tutorial`.
 
 ---
 
-## 2. Three Bonus Interactive Teaching Explorations
+## 2. Interactive Teaching Explorations & Real-World Applications
 
 Built in [backend/engine/explorations.py](../../backend/engine/explorations.py), exposed by [backend/api/exploration_routes.py](../../backend/api/exploration_routes.py), and rendered by [frontend/explorations.js](../../frontend/explorations.js):
 
 1. **Modulus Explorer (`#modulus` / `POST /api/explorations/modulus`):**
    * Checks irreducibility of any binary polynomial of degree $2 \le d \le 571$ by computing Frobenius GCD checkpoints $\gcd(f(x), x^{2^i} + x)$ for $1 \le i \le \lfloor d / 2 \rfloor$.
    * When $f(x)$ is reducible, extracts and verifies two nonzero factors $a(x), b(x)$ whose product equals $f(x)$ (remainder $0$). When all irreducible factors have equal degree so the first nontrivial GCD equals $f(x)$ itself, splits $f(x)$ via Berlekamp's $GF(2)$ linear kernel (**bonus mathematical extension beyond Stallings Chapter 4**).
-2. **AES S-Box Walkthrough (`#aes` / `POST /api/explorations/aes-sbox`):**
-   * Traces any byte `00`–`FF` through FIPS 197 §5.1.1 / Stallings Chapter 5 SubBytes: Extended Euclid inversion in $GF(2^8)$ modulo `0x11B` (mapping `00` $\rightarrow$ `00`) followed by the four cyclic left rotations and `0x63` affine XOR steps (e.g. `53` $\rightarrow$ inverse `CA` $\rightarrow$ output `ED`; `00` $\rightarrow$ `63`).
+2. **Applications (`#applications` — upgraded in Milestone 6 from the initial byte-level walkthrough to full multi-standard $GF(2^m)$ demos):**
+   * **XTS-AES $GF(2^{128})$ Tweak Multiplier (`POST /api/explorations/xts-tweak`):** Demonstrates IEEE 1619-2007 / Stallings Chapter 6 sector tweak shifts modulo $x^{128} + x^7 + x^2 + x + 1$ (`XOR 0x87` on $b_{127} = 1$).
+   * **Polynomial / Binary ECC ($E_{2^m}(a,b)$) Explorer (`POST /api/explorations/binary-ecc`):** Demonstrates Stallings Chapter 10 & NIST FIPS 186-4 / SEC 2 point doubling ($R = 2P$), point addition ($R = P + Q$) in classroom slide notation (`Xp`, `Yp`, `s`, `Xr`, `Yr`), curve membership verification, and ECDH key exchange on both Teaching Curve $GF(2^4)$ and official **NIST B-163** ($GF(2^{163})$).
+   * **GCM · GHASH ($GF(2^{128})$) Authenticator (`POST /api/explorations/gcm-ghash`):** Demonstrates NIST SP 800-38D / Stallings Chapter 12 authenticated encryption hashing $Y_i = (Y_{i-1} \oplus X_i) \cdot H \pmod{x^{128} + x^7 + x^2 + x + 1}$ across $1$–$8$ 128-bit blocks using canonical XOR and Shift-and-XOR multiplication.
 3. **Compare Multiplication (`#compare` / `POST /api/explorations/compare-multiplication` & `GET /api/explorations/multiplication-benchmarks`):**
    * Runs interleaved Shift-and-XOR alongside deferred carry-free multiplication (`POLY_MUL_NO_MOD`) + Euclidean long division (`POLY_DIVMOD`) on identical operands, displaying both traces side-by-side.
-   * **Compare this product** in the calculator transfers the active degree and operands directly into `#compare`.
+   * **Compare multiplication methods** in the calculator transfers the active degree and operands directly into `#compare`.
    * **Run benchmark** executes 31 untraced trials per method on seeded full-width operands at $m = 163$ and $m = 571$, confirming exact agreement and reporting median microsecond timings.
 
 ---

@@ -5,15 +5,17 @@
  *
  * Orchestrates all six core REST endpoints (`/api/fields`, `/api/calculate`,
  * `/api/random-polynomials`, `/api/parse-polynomials`, `/api/export-calculation`,
- * `/api/tutorial`), live BigInt operand validation and notation switching, the dynamic
- * read-only Modulus m(x) card on unary ops (`modulo`, `inverse`), true HTML `<sup>`/`<sub>`
- * math typography, pop-up error alerts (`#error-popup`), confirmation toasts (`#feedback-popup`),
- * drag-and-drop upload modal (`#upload-modal`), gliding navigation indicators,
- * `m <= 8` coefficient bit-builder, Hex-compressed shareable URLs, classroom presets,
- * standalone animated Lessons bridge, and the 4-slide concepts modal.
+ * `/api/tutorial`), live BigInt operand validation with auto-uppercase Hex and Unicode
+ * superscript Polynomial formatting, the dynamic read-only Modulus m(x) card on unary ops
+ * (`modulo`, `inverse`), untruncated full-value results, top-center floating error alerts
+ * (`#error-popup`), confirmation toasts (`#feedback-popup`), drag-and-drop upload modal
+ * (`#upload-modal`), gliding navigation indicators, `m <= 8` coefficient bit-builder,
+ * Hex-compressed shareable URLs, classroom presets, self-contained Lessons view,
+ * real-world Applications view, and the 4-slide concepts modal.
  */
 
 import {
+  applyInputFormatting,
   attachSlidingIndicator,
   bases,
   closeErrorPopup,
@@ -22,12 +24,13 @@ import {
   element,
   formatOperand,
   mathElement,
+  normalizeAlgebraicInput,
   parseOperand,
   polynomial,
   setMathText,
   showErrorPopup,
   showFeedbackPopup,
-  significantDigits,
+  showInspectorPopup,
 } from "./notation.js";
 import { createTraceView } from "./traces.js";
 import { setupPageTour } from "./tour.js";
@@ -43,7 +46,6 @@ const traceView = createTraceView($("trace-panel"), $("trace-body"), $("trace-to
 
 let base = "hex";
 let result;
-let showFullResult = false;
 // Monotonic revision counter discards stale async API responses when inputs change mid-flight.
 let revision = 0;
 let slides = [];
@@ -96,11 +98,11 @@ async function api(path, data, download = false) {
 }
 
 /**
- * Display any validation, upload, or mathematical error in the prominent pop-up modal,
- * or dismiss the popup when called with an empty message.
+ * Display any validation, upload, or mathematical error in the top-center floating alert card,
+ * or dismiss the alert when called with an empty message.
  *
  * @param {string} [message=""] - Error message; empty string closes `#error-popup`.
- * @param {{title?: string, onViewTrace?: () => void}} [options={}] - Optional dialog heading and trace shortcut.
+ * @param {{title?: string, onViewTrace?: () => void}} [options={}] - Optional alert heading and trace shortcut.
  */
 function showError(message = "", options = {}) {
   if (!message) {
@@ -128,7 +130,6 @@ function showNotice(message = "") {
 function clearCalculation() {
   revision += 1;
   result = undefined;
-  showFullResult = false;
   $("result").hidden = true;
   $("result-notice").textContent = "";
   traceView.show(null);
@@ -195,6 +196,56 @@ function renderBits(key, value, valid) {
 }
 
 /**
+ * Render the two non-selected notations underneath an operand input (or locked Modulus card),
+ * showing `-` placeholders when empty and click-to-inspect popups for very long representations.
+ *
+ * @param {HTMLElement} container - Target `<dl>` preview container (`#a-preview`, `#b-preview`, or `#b-modulus-preview`).
+ * @param {bigint | null} value - Parsed polynomial integer, or `null` when empty/invalid.
+ * @param {number} degree - Active field degree `m`.
+ * @param {string} titleLabel - Modal heading when user inspects a truncated preview value.
+ */
+function renderOperandAlternatives(container, value, degree, titleLabel) {
+  container.replaceChildren();
+  for (const [otherKey, info] of Object.entries(bases)) {
+    if (otherKey === base) continue;
+    container.append(element("dt", info.label));
+    if (value === null) {
+      container.append(element("dd", "-", "is-empty"));
+      continue;
+    }
+    const rawText = otherKey === "algebraic"
+      ? polynomial(value)
+      : formatOperand(value, otherKey, degree);
+    const maxLen = otherKey === "algebraic" ? 84 : 72;
+    if (rawText.length <= maxLen) {
+      container.append(otherKey === "algebraic" ? mathElement("dd", rawText) : element("dd", rawText));
+      continue;
+    }
+    const compact = otherKey === "algebraic"
+      ? rawText.slice(0, 68) + "…"
+      : rawText.slice(0, 32) + "…" + rawText.slice(-16);
+    const btn = element("button", compact, "trace-inspectable");
+    btn.type = "button";
+    btn.title = "Click to view full value";
+    btn.setAttribute("aria-label", "Click to view full value of " + titleLabel + " (" + info.label + ")");
+    const cue = element("span", "⤢", "inspect-cue");
+    cue.setAttribute("aria-hidden", "true");
+    btn.append(cue);
+    btn.addEventListener("click", () => {
+      showInspectorPopup({
+        title: titleLabel,
+        valueBigInt: value,
+        mDegree: degree,
+        subtitle: "GF(2^" + degree + ") · " + info.label,
+      });
+    });
+    const dd = element("dd");
+    dd.append(btn);
+    container.append(dd);
+  }
+}
+
+/**
  * Synchronize the second operand card (`#operand-b`):
  *   - On `modulo` (`Reduce`) or `inverse`, switches cleanly to a read-only **Modulus m(x)**
  *     display synced to the active field degree `m` and `base`, while preserving the user's
@@ -225,16 +276,15 @@ function renderOperands() {
       );
 
       if (field) {
+        const modVal = BigInt("0x" + field.reduction_poly_hex);
         if (base === "algebraic") {
           setMathText($("b-modulus-value"), field.reduction_poly);
-          $("b-modulus-preview").textContent = "Hex: " + field.reduction_poly_hex.toUpperCase();
         } else if (base === "binary") {
           $("b-modulus-value").textContent = field.reduction_poly_bin;
-          setMathText($("b-modulus-preview"), field.reduction_poly);
         } else {
           $("b-modulus-value").textContent = field.reduction_poly_hex.toUpperCase();
-          setMathText($("b-modulus-preview"), field.reduction_poly);
         }
+        renderOperandAlternatives($("b-modulus-preview"), modVal, degree, "Modulus m(x)");
       }
       continue;
     }
@@ -245,25 +295,27 @@ function renderOperands() {
       $("operand-b-modulus").hidden = true;
     }
 
-    input.placeholder = bases[base].example;
+    input.placeholder = key === "a" ? "Enter A(x)" : "Enter B(x)";
     input.removeAttribute("aria-invalid");
-    $(key + "-preview").textContent = "";
     $(key + "-meta").textContent = "";
     let value = 0n;
-    let valid = true;
+    let valid = false;
     if (input.value.trim()) {
       try {
         value = readOperand(key);
+        valid = true;
         const deg = degreeOf(value);
         $(key + "-meta").textContent = (deg + 1) + " bits · " + (deg < 0 ? "zero polynomial" : "degree " + deg);
-        setMathText($(key + "-preview"), polynomial(value));
+        renderOperandAlternatives($(key + "-preview"), value, degree, "Operand " + key.toUpperCase() + "(x)");
       } catch (error) {
-        valid = false;
         input.setAttribute("aria-invalid", "true");
         $(key + "-meta").textContent = error.message;
+        renderOperandAlternatives($(key + "-preview"), null, degree, "Operand " + key.toUpperCase() + "(x)");
       }
+    } else {
+      renderOperandAlternatives($(key + "-preview"), null, degree, "Operand " + key.toUpperCase() + "(x)");
     }
-    renderBits(key, value, valid);
+    renderBits(key, value, valid || !input.value.trim());
   }
 }
 
@@ -309,11 +361,11 @@ function changeNotation(nextBase) {
 }
 
 /**
- * Extract one formatted representation (`hex`, `bin`, or `poly`) from a server `ElementReprModel`.
+ * Extract one full untruncated representation (`hex`, `bin`, or `poly`) from a server `ElementReprModel`.
  *
  * @param {{hex: string, bin: string, poly: string}} value - Server element object.
  * @param {"hex" | "binary" | "algebraic"} notation - Requested display notation.
- * @returns {string} Display-ready value (uppercase for hex).
+ * @returns {string} Full untruncated display value (uppercase for hex).
  */
 function display(value, notation) {
   const text = value[bases[notation].field];
@@ -321,45 +373,28 @@ function display(value, notation) {
 }
 
 /**
- * Shorten 163..571-bit result strings into compact previews unless `Show full value` is toggled.
- *
- * @param {string} text - Full formatted value.
- * @param {"hex" | "binary" | "algebraic"} notation - Value notation.
- * @returns {string} Compact preview string (or full string for `m <= 8`).
- */
-function previewValue(text, notation) {
-  if (result.field.m <= 8) return text;
-  if (notation === "algebraic") {
-    const terms = text.split(" + ");
-    return terms.length > 4 ? terms.slice(0, 2).join(" + ") + " + … + " + terms.at(-1) : text;
-  }
-  const significant = significantDigits(text);
-  return significant.length > 24 ? significant.slice(0, 14) + "…" + significant.slice(-8) : significant;
-}
-
-/**
- * Render the primary result card, secondary notations (with `<sup>` on Polynomials),
- * verification badge, and timing metrics.
+ * Render the primary result card with full untruncated Hex, Binary, and Polynomial values
+ * (using cleanly wrapped vertically scrollable containers for large fields), clear multiplication
+ * comparison shortcut + helper note, verification badge, and untouched timing/bit/Hamming metrics.
  */
 function renderResult() {
   $("result").hidden = false;
   const full = Object.fromEntries(Object.keys(bases).map(key => [key, display(result.result, key)]));
-  const preview = Object.fromEntries(Object.keys(bases).map(key => [key, previewValue(full[key], key)]));
-  const values = showFullResult ? full : preview;
-  const expansion = $("result-expanded");
-  expansion.hidden = Object.keys(bases).every(key => full[key] === preview[key]);
-  expansion.textContent = showFullResult ? "Show preview" : "Show full value";
-  expansion.setAttribute("aria-expanded", showFullResult);
-  $("compare-product").hidden = result.operation !== "multiply";
-  $("result-base").textContent = bases[base].label + (values[base] !== full[base] ? " preview" : "");
+  const isMultiply = result.operation === "multiply";
+  $("compare-product").hidden = !isMultiply;
+  $("compare-product-hint").hidden = !isMultiply;
+  $("result-base").textContent = bases[base].label;
 
-  if (base === "algebraic") setMathText($("result-value"), values[base]);
-  else $("result-value").textContent = values[base];
+  const resultValEl = $("result-value");
+  resultValEl.classList.toggle("result-scroll-val", full[base].length > 72);
+  if (base === "algebraic") setMathText(resultValEl, full[base]);
+  else resultValEl.textContent = full[base];
 
   $("result-alternatives").replaceChildren();
   for (const [key, info] of Object.entries(bases)) {
     if (key !== base) {
-      const dd = key === "algebraic" ? mathElement("dd", values[key]) : element("dd", values[key]);
+      const dd = key === "algebraic" ? mathElement("dd", full[key]) : element("dd", full[key]);
+      if (full[key].length > 72) dd.classList.add("result-scroll-val");
       $("result-alternatives").append(element("dt", info.label), dd);
     }
   }
@@ -380,6 +415,7 @@ function renderResult() {
 
 /**
  * Submit the current operands and operation to `POST /api/calculate` and render result + trace.
+ * Normalizes Unicode superscript polynomial inputs to plain ASCII `x^k` before API dispatch.
  *
  * @param {{reveal?: boolean}} [options] - When `reveal` is `true`, scrolls and focuses the result panel.
  */
@@ -391,9 +427,13 @@ async function calculate({ reveal = false } = {}) {
     if (!unary()) readOperand("b");
     $("calculate").disabled = true;
     showNotice("Calculating…");
+    const rawA = operandInput("a").value;
+    const rawB = operandInput("b").value;
+    const apiA = base === "algebraic" ? normalizeAlgebraicInput(rawA) : rawA;
+    const apiB = unary() ? null : (base === "algebraic" ? normalizeAlgebraicInput(rawB) : rawB);
     const data = await api("calculate", {
       m: activeDegree(), operation: activeOperation(), input_base: base, output_base: base,
-      a: operandInput("a").value, b: unary() ? null : operandInput("b").value,
+      a: apiA, b: apiB,
     });
     if (revision !== request) return;
     result = data;
@@ -440,58 +480,93 @@ async function copyText(text, feedback, notice = $("notice")) {
 }
 
 /**
- * Build a shareable URL encoding `(m, operation, base, poly_a, poly_b)`.
- *
- * **Hexadecimal URL Compression Rule:** Operands are always serialized in lowercase
- * hexadecimal inside query parameters, even when `base=binary`, so 571-bit share links
- * remain compact (~143 chars instead of 571 chars) and convert back to `base` on load.
- *
- * @returns {string} Full shareable URL string.
- * @throws {Error} When required operands cannot be parsed.
+ * Determine the currently visible top-level workbench view (`calculator`, `lessons`, `modulus`, `applications`, `compare`).
+ * @returns {string} Active view name.
  */
-function makeShareURL() {
-  const url = new URL(location.pathname, location.origin);
-  const query = { m: activeDegree(), operation: activeOperation(), base, poly_a: readOperand("a").toString(16) };
-  if (!unary()) {
-    query.poly_b = readOperand("b").toString(16);
-  }
-  url.search = new URLSearchParams(query);
-  return url.href;
+function activeViewName() {
+  return document.querySelector("[data-lab-view]:not([hidden])")?.dataset.labView || "calculator";
 }
 
 /**
- * Restore calculator state from URL query parameters, converting hex operands into `base`.
- * Falls back to `configDefaults()` when no `?m=` parameter is present.
+ * Build a shareable URL encoding the exact state of whichever of the 5 workbench tabs is currently active.
  *
- * @throws {Error} If query parameters name an unsupported field, operation, base, or invalid hex.
+ * - **`#calculator`:** Hex-compressed query params (`m`, `operation`, `base`, `poly_a`, optional `poly_b`).
+ * - **`#lessons`:** Active `lesson` and `section` (`?lesson=1&section=1.2#lessons`).
+ * - **`#modulus`:** Polynomial `mod` and `mod_base` (`hex`/`bin`/`poly`).
+ * - **`#applications`:** Active `app` (`xts`, `ecc`, or `ghash`) plus sub-tab parameters (`t0`/`steps`, `curve`/`na`/`nb`, or `h`/`blocks`).
+ * - **`#compare`:** Hex-compressed `m`, `a`, `b`.
+ *
+ * @returns {{url: string, label: string}} Full shareable URL and toast context label.
+ * @throws {Error} When required calculator operands cannot be parsed.
+ */
+function makeShareURL() {
+  const view = activeViewName();
+  const url = new URL(location.pathname, location.origin);
+  url.hash = view;
+
+  if (view === "calculator") {
+    const query = { m: activeDegree(), operation: activeOperation(), base, poly_a: readOperand("a").toString(16) };
+    if (!unary()) {
+      query.poly_b = readOperand("b").toString(16);
+    }
+    url.search = new URLSearchParams(query);
+    return { url: url.href, label: "Calculator share link copied" };
+  }
+
+  if (view === "lessons") {
+    const state = lessonsController.getShareState();
+    url.search = new URLSearchParams(state);
+    return { url: url.href, label: "Lessons (Section " + state.section + ") share link copied" };
+  }
+
+  const expState = explorationsController.getShareState(view);
+  if (expState) {
+    url.search = new URLSearchParams(expState.params);
+    return { url: url.href, label: expState.label + " share link copied" };
+  }
+
+  return { url: url.href, label: "Workbench link copied" };
+}
+
+/**
+ * Restore calculator state from URL query parameters when `#calculator` (or no hash) is loaded,
+ * converting hex operands into `base`. Falls back to `configDefaults()` otherwise.
+ *
+ * @returns {boolean} `true` when calculator query parameters were present and restored.
+ * @throws {Error} If calculator query parameters name an unsupported field, operation, base, or invalid hex.
  */
 function readShareURL() {
+  const hashView = window.location.hash.slice(1).split("/")[0] || "calculator";
   const query = new URLSearchParams(location.search);
-  if (!query.has("m")) return configDefaults();
+  if (hashView !== "calculator" || !query.has("m")) {
+    configDefaults();
+    return false;
+  }
   const degree = Number(query.get("m"));
-  const operation = query.get("operation");
+  const operation = query.get("operation") || query.get("op");
   const notation = query.get("base");
   if (!fields.has(degree) || !operations.has(operation) || !Object.hasOwn(bases, notation)) throw new Error("This calculation link is invalid.");
   $("field").value = degree;
   selectOperation(operation);
   base = notation;
   for (const key of operands) {
-    const hex = query.get("poly_" + key);
+    const hex = query.get("poly_" + key) ?? query.get(key);
     if (hex !== null) {
       operandInput(key).value = formatOperand(parseOperand(hex, "hex"), base, degree);
     }
   }
+  return true;
 }
 
 /**
- * Apply the Project-3 default state: primary field `GF(2^163)`, hex mode, multiply `{57} × {83}`.
+ * Apply the Project-3 clean empty initial state: primary field `GF(2^163)`, hex mode, multiply, blank operands.
  */
 function configDefaults() {
   $("field").value = "163";
   base = "hex";
   selectOperation("multiply");
-  operandInput("a").value = "57";
-  operandInput("b").value = "83";
+  operandInput("a").value = "";
+  operandInput("b").value = "";
 }
 
 /**
@@ -563,26 +638,31 @@ function loadPair(index) {
 // --- Event wiring ------------------------------------------------------------
 $("calculator").addEventListener("submit", event => { event.preventDefault(); calculate({ reveal: true }); });
 $("field").addEventListener("change", () => { clearCalculation(); renderField(); renderOperands(); });
-for (const input of document.querySelectorAll("input[name=operation], #poly-a, #poly-b")) {
+for (const input of document.querySelectorAll("input[name=operation]")) {
   input.addEventListener("input", () => {
     clearCalculation();
     renderOperands();
     operationsIndicator.update();
   });
 }
+for (const input of [$("poly-a"), $("poly-b")]) {
+  input.addEventListener("input", () => {
+    applyInputFormatting(input, base);
+    clearCalculation();
+    renderOperands();
+  });
+}
 for (const button of document.querySelectorAll("[data-base]")) {
   button.addEventListener("click", () => changeNotation(button.dataset.base));
 }
 $("share").addEventListener("click", () => {
-  try { copyText(makeShareURL(), "Share link copied to clipboard"); }
-  catch (error) { showError(error.message, { title: "Share link error" }); }
+  try {
+    const { url, label } = makeShareURL();
+    copyText(url, label);
+  } catch (error) { showError(error.message, { title: "Share link error" }); }
 });
 $("copy-result").addEventListener("click", () => copyText(display(result.result, base), "Result copied to clipboard", $("result-notice")));
 $("back-to-inputs").addEventListener("click", () => operandInput("a").focus());
-$("result-expanded").addEventListener("click", () => {
-  showFullResult = !showFullResult;
-  renderResult();
-});
 $("export").addEventListener("click", async () => {
   const format = $("export-format").value;
   const filename = "gf2m-calculation." + format;
@@ -603,7 +683,9 @@ $("random").addEventListener("click", async () => {
     const pair = await api("random-polynomials", { m: activeDegree(), density: $("density").value });
     if (savedRevision !== revision) return;
     clearCalculation();
-    for (const key of operands) operandInput(key).value = display(pair[key], base);
+    for (const key of operands) {
+      operandInput(key).value = formatOperand(BigInt("0x" + pair[key].hex), base, activeDegree());
+    }
     renderOperands();
     showNotice("Random operands generated.");
   } catch (error) { showError(error.message, { title: "Random operand error" }); }
@@ -693,12 +775,7 @@ $("upload-modal-close")?.addEventListener("click", () => $("upload-modal").close
 $("upload-modal")?.addEventListener("click", event => {
   if (event.target === $("upload-modal")) $("upload-modal").close();
 });
-$("upload-browse")?.addEventListener("click", event => {
-  event.stopPropagation();
-  $("file").click();
-});
-$("upload-dropzone")?.addEventListener("click", event => {
-  if (event.target.closest("#upload-browse")) return;
+$("upload-dropzone")?.addEventListener("click", () => {
   $("file").click();
 });
 $("upload-dropzone")?.addEventListener("keydown", event => {
@@ -733,27 +810,9 @@ $("pairs").addEventListener("change", () => {
   try { loadPair(Number($("pairs").value)); }
   catch (error) { showError(error.message, { title: "File pair error" }); }
 });
-const lessonsController = setupLessons({
-  openInCalculator(preset) {
-    window.location.hash = "calculator";
-    if (fields.has(preset.m)) $("field").value = String(preset.m);
-    base = preset.base || "hex";
-    selectOperation(preset.operation);
-    for (const key of operands) {
-      const raw = preset[key];
-      if (raw) {
-        operandInput(key).value = formatOperand(parseOperand(raw, preset.base || "hex"), base, preset.m);
-      } else if (key !== "b" || !unary()) {
-        operandInput(key).value = "";
-      }
-    }
-    renderField();
-    renderNotation();
-    renderOperands();
-    calculate({ reveal: true });
-  },
-});
-const loadExperimentFields = setupExplorations(api, {
+
+const lessonsController = setupLessons();
+const explorationsController = setupExplorations(api, {
   closeTour: setupPageTour(),
   currentField: () => fields.get(activeDegree()),
   currentOperands: () => ({
@@ -762,6 +821,7 @@ const loadExperimentFields = setupExplorations(api, {
   onLessonRoute: slug => lessonsController.selectLessonById(slug),
   onError: (msg, title = "Exploration error") => showError(msg, { title }),
 });
+
 $("concepts-open").addEventListener("click", () => {
   if (slides.length) {
     slideIndex = 0;
@@ -785,22 +845,33 @@ async function init() {
     const [catalog, tutorial] = await Promise.all([api("fields"), api("tutorial")]);
     for (const field of catalog.fields) {
       fields.set(field.m, field);
-      const option = element("option", field.m + " bits" + (field.m === 163 ? " · project field" : ""));
+      const option = element("option", field.m + " bits");
       option.value = field.m;
       $("field").append(option);
     }
-    loadExperimentFields(catalog.fields);
+    explorationsController.loadFields(catalog.fields);
     slides = tutorial.slides;
     $("presets").replaceChildren(...slides.flatMap(slide => slide.presets || []).map(presetButton));
     let invalidLink;
-    try { readShareURL(); }
+    let restoredCalc = false;
+    try { restoredCalc = Boolean(readShareURL()); }
     catch (error) { configDefaults(); invalidLink = error.message; }
     renderField();
     renderNotation();
     renderOperands();
     operationsIndicator.update();
+
+    // Restore shared URL state for non-calculator views (#lessons, #modulus, #applications, #compare).
+    const urlParams = new URLSearchParams(location.search);
+    const initialView = activeViewName();
+    if (initialView === "lessons") {
+      lessonsController.restoreShareState(urlParams);
+    } else if (initialView !== "calculator") {
+      explorationsController.restoreFromURL(initialView, urlParams);
+    }
+
     if (invalidLink) showError(invalidLink, { title: "Invalid calculation link" });
-    else await calculate();
+    else if (restoredCalc) await calculate();
   } catch (error) { showError(error.message, { title: "Initialization error" }); }
 }
 

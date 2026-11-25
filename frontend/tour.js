@@ -5,7 +5,7 @@
  * Original Author: Ali Zahreddine - Milestone 4, Integration & Milestone 6 (Waves 1-4).
  *
  * Provides contextual guided tours for all five lab views (Calculator, Lessons, Modulus
- * explorer, AES S-box, Compare multiplication), dynamically falling back to the triggering
+ * explorer, Applications, Compare multiplication), dynamically falling back to the triggering
  * action button whenever a step's result section has not yet been calculated, and
  * automatically re-highlighting newly rendered results on `lab:calculation-result` events.
  */
@@ -19,29 +19,28 @@ import { setMathText } from "./notation.js";
  */
 const calculatorSteps = [
   [".setting", "Choose a field",
-    "Field degree sets how many bits fit in one element. Watch the banner and the modulus update. Use Hex, Binary, or Polynomial to change notation without changing the operand values."],
+    "Field degree sets how many bits fit in one element. Watch the banner and the modulus update. Use Hex, Binary, or Polynomial to change notation without changing operand values."],
   [".operands", "Enter the operands",
-    "Type values into A(x) and B(x), or view the locked Modulus m(x) card on Reduce and Inverse. Each input previews the polynomial, bit length, and degree. In fields up to eight bits, click the checkboxes to turn individual coefficients on or off."],
+    "Type values into A(x) and B(x), or view the locked Modulus m(x) card on Reduce and Inverse. Hex inputs auto-uppercase, Polynomial inputs use clean x^k notation (accepting pasted superscripts like x^6), and the two non-selected notations update live below. In fields up to eight bits, click the checkboxes to toggle individual coefficients."],
   [".calculator .section-head", "Generate or upload operands",
     "Choose Sparse or Dense and click Random operands to fill both inputs. Upload accepts .txt or .json files. When a file contains several pairs, choose one from the pair list."],
   [".operations", "Pick an operation",
     "Add and Subtract both use XOR. Reduce takes A modulo the field polynomial. Multiply uses both operands, Inverse gives A^-1, and Divide gives A ÷ B."],
   [".action", "Run the calculation",
-    "Click Calculate to run the selected operation. The result and tables appear below. Validation or zero-inverse errors open a prominent pop-up alert dialog."],
+    "Click Calculate to run the selected operation. Validation or zero-inverse errors appear in a sleek top-center alert without obscuring your inputs."],
   [".examples", "Try a textbook example",
     "Chapter 4 loads and multiplies 57 and 83 in the 8-bit field. Chapter 5 loads and inverts 95. Both examples calculate immediately."],
-  ["#result", "Read, copy, or export the answer",
-    "Calculate brings the result into view. For large fields, Show full value expands the preview. Copy result always copies the complete value in the selected notation. Use Back to inputs to edit the operands or Export to download the calculation."],
-  ["#trace-panel", "Follow the calculation",
-    "Use First step, Previous, Play animation, Next, and Last step to follow the calculation. Color-coded badges highlight carried, updated, and reduced values, and Compare prev → curr places the previous step beside the current step. Switch between Step view, All steps grid (auto-maximizes), and Classic table, toggle Compact values, or click Expand full view."],
-  ["#trace-body", "See which partial product a bit selects",
-    "Select a bit of B to highlight its shifted row and any selected partial product. In Chapter 4, bit 7 selects 38 and the running XOR becomes C1. The arrow keys also move between bits.",
-    ["#presets", "Load the Chapter 4 example to see the multiplier bits."], ".multiplier-bits"],
-  ["#compare-product", "Compare this product",
-    "Click Compare this product to run both multiplication methods with the same field and original operands. The comparison view has its own Tutorial tour.",
+  ["#result", "Read, copy, or export the full answer",
+    "Calculate displays the complete untruncated result across Hex, Binary, and Polynomial notations with verification and performance badges. Use Copy result, Back to inputs, or Export to Markdown/JSON."],
+  ["#trace-panel", "Step through or inspect all steps",
+    "Every calculation opens in Step view with built-in Previous → Current comparison from Step 1 onward. Switch to All steps grid (inline 4-step pagination with Show more) or Classic table (with a color highlight legend). Playback controls lock automatically outside Step view."],
+  ["#trace-body", "Open Full-Value & Step Breakdown Popups",
+    "In large fields (GF(2^163) to GF(2^571)), click any truncated value marked with an expand icon to open the Full Value Inspector popup with Hex, Binary, Polynomial, and a Copy button. Inside Extended Euclid steps click How Q / T1 / T2 / T3 is calculated, or click Show Shift & XOR illustration in multiplication steps."],
+  ["#compare-product", "Compare multiplication methods",
+    "Click Compare multiplication methods to run Shift-and-XOR side-by-side against Carry-Free Multiplication + Euclidean Long Division on the exact same field and operands.",
     ["#presets", "Load the Chapter 4 example to show the comparison shortcut."]],
-  ["#share", "Reopen an exact calculation",
-    "Copy calculation link puts the field, operation, notation, and operands into a URL. Open it in another tab to recreate the calculation. A localhost link works on the computer running the lab."],
+  ["#share", "Share a link to any page",
+    "Share link encodes your active page and parameters into a compact URL. Open it in another tab to restore the exact calculation, lesson section, modulus check, application demo, or comparison."],
 ];
 
 /**
@@ -59,60 +58,57 @@ const walkthroughs = {
     fallback: ["#lesson-hub", "Select a lesson from the catalog."],
     steps: [
       ["#lesson-hub", "Choose a lesson topic",
-        "Pick from 7 interactive lessons covering GF(2^m) foundations, XOR addition/subtraction, modular reduction, Shift-and-XOR multiplication, Extended Euclid (Table 4.7), division, and cryptographic standards."],
-      ["#lesson-subtabs", "Explore prerequisites and sub-lessons",
-        "Each lesson breaks down the underlying number theory and helper tools before walking through full textbook examples."],
-      ["#lesson-controls", "Step, animate, or compare slides",
-        "Use First step, Previous, First changed bit / First active step, Play animation (Slow, Normal, or Fast), Next, and Last step, or press Left/Right arrow keys, to watch each state change. Toggle Compare prev → curr to inspect the previous slide beside the current slide."],
-      ["#lesson-stage", "Inspect the zero-scroll visual stage",
-        "Follow the informative step titles, highlighted bit columns, shift registers, Table 4.7 Triple A/B transfers, interactive sandboxes, and self-check quizzes."],
-      ["#lesson-handoff-bar", "Open any lesson example in the Calculator",
-        "Click the handoff button to load the lesson's exact field, operation, and operands directly into the Calculator and inspect its live trace."],
+        "Pick from 7 self-contained visual lessons covering GF(2^m) foundations, modulo-2 XOR addition and subtraction, modular reduction, Shift-and-XOR multiplication, Extended Euclid (Table 4.7), division, and cryptographic standards."],
+      ["#lesson-subtabs", "Jump between lesson sections",
+        "Use the top section navigation bar to jump directly to any topic within the opened lesson."],
+      ["#lesson-stage", "Read visual explanations & interactive checks",
+        "Every section renders cleanly in one scrollable card with Z_2 truth tables, worked classroom examples, interactive bit sandboxes, and quick self-check quizzes."],
+      [".lesson-footer", "Move linearly through the curriculum",
+        "Use Previous section and Next section at the bottom to step seamlessly through every section across all 7 lessons."],
     ],
   },
   modulus: {
     name: "Modulus walkthrough",
-    fallback: ["#modulus-form button[type=submit]", "Click Test irreducibility to see the result."],
+    fallback: ["#modulus-form button[type=submit]", "Click Check irreducibility to see the result."],
     steps: [
       ["#modulus-form", "Choose a polynomial",
-        "The field modulus is a polynomial with binary coefficients. Test the prefilled AES modulus, enter another polynomial, or use the calculator's current modulus."],
+        "Enter a binary polynomial in clean x^k notation (pasted superscripts like x^8 and lowercase hex auto-normalize), generate a Random polynomial, load the calculator's current modulus, or test reducible x^8 + 1."],
       ["#modulus-result", "Read the irreducibility result",
         "An irreducible polynomial of degree m defines GF(2^m). A reducible polynomial has smaller factors, so some nonzero values have no inverse."],
       ["#modulus-witness .witness", "See two nonzero factors multiply to zero",
         "Each factor is nonzero. Their product equals the modulus and leaves remainder zero.",
         ["#modulus-example", "Click Try reducible x^8 + 1 to reveal the factors."]],
-      ["#modulus-result details", "Read the GCD checks",
-        "Each row tests for common factors with x^(2^i) + x. A GCD other than 1 signals a factor at that checkpoint. If every GCD is 1 through half the modulus degree, the polynomial is irreducible."],
+      ["#modulus-result details", "Read the GCD checkpoints",
+        "Each row tests gcd(f(x), x^(2^i) + x) = 1 to confirm f(x) has no irreducible factors of degree i. Checking up to floor(deg(f)/2) guarantees irreducibility."],
     ],
   },
-  aes: {
-    name: "AES S-box walkthrough",
-    fallback: ["#aes-form button[type=submit]", "Click Compute S-box output to see this stage."],
+  applications: {
+    name: "Applications walkthrough",
+    fallback: ["#xts-form button[type=submit]", "Click Compute tweak chain to see the XTS-AES blocks."],
     steps: [
-      ["#aes-form", "Choose a byte",
-        "Enter one byte in hex or binary. Use Try byte 53 for a worked example, or Try byte 00 to see the special AES zero case."],
-      ["#aes-result", "Follow the byte through both stages",
-        "Read the input, its field inverse, and the substituted byte. For 53 in hex, the inverse is CA and the final output is ED."],
-      ["#aes-euclid", "See how Extended Euclid finds the inverse",
-        "Follow the quotients until B3 becomes 1. At that point B2 holds the inverse. AES uses zero directly in this stage when the input is 00.",
-        ["#aes-example", "Click Try byte 53 to generate a nonzero inverse trace."]],
-      ["#aes-affine", "Build the output with XOR",
-        "Start with the inverse byte, XOR its four left rotations, then XOR 63 in hex. The final running XOR is the S-box output. In Step view, use Next for each XOR or Classic table for all rows."],
+      ["#applications-subtabs", "Switch between XTS-AES, Binary ECC, and GCM / GHASH",
+        "Explore three real-world standards built on GF(2^m): XTS-AES disk encryption over GF(2^128), Polynomial / Binary Elliptic Curve Cryptography over GF(2^4) and NIST B-163, and AES-GCM GHASH authentication over GF(2^128)."],
+      ["#xts-form", "Configure the 128-bit XTS-AES tweak",
+        "Enter or randomize a 128-bit hex tweak T_0, compute a block chain, or click Step next block (j → j+1) to watch T_j = T_0 ⊗ α^j advance block by block.",
+        ["#app-tab-xts", "Select the XTS-AES sub-tab to inspect the 128-bit tweak multiplier."]],
+      ["#xts-results", "Spot x^128 overflows and explore ECC & GHASH",
+        "Whenever top bit b_127 = 1 before shifting left, the overflow bit triggers XOR with 0x87 (x^7 + x^2 + x + 1). Switch to Binary ECC to trace NIST B-163 point doubling, addition, and ECDH, or GCM · GHASH to chain full 128-bit XOR and Shift-and-XOR block authentication.",
+        ["#xts-form button[type=submit]", "Click Compute tweak chain to display the 128-bit sector tweaks."]],
     ],
   },
   compare: {
     name: "Multiplication walkthrough",
-    fallback: ["#compare-form button[type=submit]", "Click Compare results to run both methods."],
+    fallback: ["#compare-form button[type=submit]", "Click Compare methods to run both methods."],
     steps: [
       ["#compare-form", "Give both methods the same inputs",
-        "Enter two hex operands and select a field degree. The starting example uses 57 and 83 in the 8-bit field. Compare this product in the calculator brings its field and operands here and runs both methods."],
+        "Enter two hex operands (or click Random operands / Use calculator operands) and select a field degree. Compare multiplication methods in the calculator brings its exact field and operands here and runs both methods."],
       ["#compare-results", "Compare the remainders",
-        "Shift and XOR reduces during multiplication. Carry-free multiplication forms the raw product first, then uses long division. Both give C1 for the starting example."],
+        "Shift and XOR reduces during multiplication. Carry-free multiplication forms the raw product first, then uses long division. Both give identical remainders."],
       ["#compare-shift-body", "Follow the multiplier bits",
-        "Select a bit to inspect its shift, partial product, and running XOR. On small screens, Step view shows these values one bit at a time. Select Classic table to see the matching rows together.",
+        "Step through each shift and XOR or switch to All steps grid or Classic table to compare rows.",
         ["#compare-form button[type=submit]", "Compare a product with a nonzero multiplier to see the bit steps."], ".multiplier-bits"],
       ["#compare-division-body", "Follow the long-division steps",
-        "The raw product is 2B79 in the starting example. Each row shifts the modulus and XORs it to cancel the leading term. The final After XOR value is the same remainder produced by shift and XOR."],
+        "Carry-free multiplication forms the raw product first, and each long-division step shifts the modulus and XORs it to cancel the leading term until the remainder matches Shift and XOR."],
       ["#compare-benchmark", "Benchmark both methods",
         "Click Run benchmark to compare median times at 163 and 571 bits. Both methods receive the same seeded operands at each degree, with trace generation left out of the timing."],
     ],
@@ -177,7 +173,7 @@ export function setupPageTour() {
 
   trigger.addEventListener("click", () => {
     const view = document.querySelector("[data-lab-view]:not([hidden])").dataset.labView;
-    tour = walkthroughs[view];
+    tour = walkthroughs[view] || walkthroughs.calculator;
     concepts.hidden = view !== "calculator";
     index = 0;
     panel.hidden = false;
@@ -202,16 +198,13 @@ export function setupPageTour() {
     if (!panel.hidden && !event.target.closest("[data-lab-view]").hidden) showStep(false);
   });
   document.addEventListener("keydown", event => {
-    const fullscreen = document.getElementById("trace-fullscreen");
     const errPopup = document.getElementById("error-popup");
-    const maximizedTrace = document.querySelector(".panel.trace.is-maximized");
+    const openDialog = document.querySelector("dialog[open]");
     if (
       event.key === "Escape" &&
       !panel.hidden &&
-      !document.getElementById("tutorial")?.open &&
-      !fullscreen?.open &&
-      !errPopup?.open &&
-      !maximizedTrace
+      !openDialog &&
+      errPopup?.hidden !== false
     ) {
       close();
     }

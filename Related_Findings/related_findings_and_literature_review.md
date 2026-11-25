@@ -7,7 +7,12 @@ This document surveys the mathematical methodologies, cryptographic standards, r
 ## 1. Course Textbook & Core Algorithmic Foundation
 
 ### 1.1 William Stallings, *Cryptography and Network Security*
-*   **Source Material:** Course lecture slides and textbook chapters including Chapter 4 (Finite Fields), Chapter 5 (Advanced Encryption Standard), Chapter 6 (Block Cipher Operation — XTS-AES over $GF(2^{128})$ arithmetic), and Chapter 10 (Elliptic Curve Cryptography over $GF(2^m)$ curves).
+*   **Source Material:** Course lecture slides and textbook chapters archived in `Guidelines/`:
+    *   `Guidelines/ch04.pdf` — **Chapter 4 (Finite Fields):** $GF(2^m)$ polynomial arithmetic, Shift-and-XOR multiplication, and Table 4.7 Extended Euclid.
+    *   `Guidelines/ch05v2.pdf` — **Chapter 5 (Advanced Encryption Standard):** AES $GF(2^8)$ arithmetic modulo $x^8 + x^4 + x^3 + x + 1$ (`0x11B`).
+    *   `Guidelines/ch06.pdf` — **Chapter 6 (Block Cipher Operation):** XTS-AES tweak multiplication over $GF(2^{128})$ modulo $x^{128} + x^7 + x^2 + x + 1$ (IEEE 1619-2007).
+    *   `Guidelines/ch10.pdf` — **Chapter 10 (Elliptic Curve Cryptography):** Non-supersingular binary elliptic curves $E_{2^m}(a, b): y^2 + xy = x^3 + ax^2 + b$, Polynomial ECC point addition/doubling, and standard NIST/SEC fields $m \in \{163, 233, 239, 283, 409, 571\}$.
+    *   `Guidelines/ch12.pdf` — **Chapter 12 (Authenticated Encryption):** AES-GCM / GHASH polynomial authentication over $GF(2^{128})$ modulo $x^{128} + x^7 + x^2 + x + 1$ (NIST SP 800-38D).
 *   **Methodologies Used:**
     *   **Bit-String Polynomial Representation:** Represents a polynomial of degree $< m$ over $\mathbb{Z}_2$ as an $m$-bit integer or bit-array.
     *   **Bitwise XOR Addition/Subtraction:** Executes in $O(m)$ bit operations using bitwise XOR $\oplus$.

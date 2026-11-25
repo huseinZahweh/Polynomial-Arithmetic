@@ -1,177 +1,73 @@
-# Milestone 6 Explained: Interactive Trace Redesign, Standalone Animated Lessons & Refinements
+# Milestone 6 Explained: UX Simplification, Interactive Breakdown Popups, Self-Contained Lessons & Real-World Applications
 
-> **Milestone Scope:** UI/UX Refinements, Zero-Horizontal-Scroll Trace Visualizer, Standalone Interactive & Animated `Lessons` Curriculum (`#lessons`), `Tutorial tour` Rename, `Plan/` API Schema Sync, and Extended Playwright E2E Verification  
+> **Milestone Scope:** Comprehensive Calculator UX Simplification & On-Demand Derivation/Inspector Popups, Self-Contained Visual `Lessons` Overhaul (`#lessons`), Modulus Explorer Polish (`#modulus`), Real-World `Applications` Tab (`#applications`: XTS-AES $GF(2^{128})$ + Binary ECC NIST B-163), `Tutorial tour` Updates, Documentation Sync, and Expanded Automated Verification  
 > **Primary Contributor:** **Husein Zahweh**  
-> **Textbook Alignment:** William Stallings, *Cryptography and Network Security: Principles and Practice* (8th Ed.), Chapters 4, 5, 6 (XTS-AES), and 10 (Binary ECC); NIST FIPS 197 & FIPS 186-4
+> **Textbook & Standards Alignment:** William Stallings, *Cryptography and Network Security: Principles and Practice* (8th Ed.), Chapters 4, 5, 6 (XTS-AES), 10 (Binary ECC), and 12 (GCM / GHASH); IEEE 1619-2007; NIST FIPS 186-4 & SECG SEC 2; NIST SP 800-38D
 
 ---
 
 ## 1. Pedagogical & Architectural Goals
 
-Following the Milestone 5 end-to-end unification of the $GF(2^m)$ mathematical engine, FastAPI service layer, and zero-build web workbench, **Milestone 6** addresses four high-impact classroom and usability goals prior to final report, presentation slides, and demo video delivery:
+Following Milestone 5 unification of the $GF(2^m)$ mathematical engine, FastAPI service layer, and zero-build web workbench, **Milestone 6** systematically refines usability, mathematical transparency, and cryptographic relevance across all five top-level tabs (`Calculator`, `Lessons`, `Modulus explorer`, `Applications`, `Compare multiplication`):
 
-1. **Zero-Horizontal-Scroll Trace Visualization (`frontend/traces.js`, `frontend/lab.css`):**
-   - In cryptographic binary fields ($m \in \{163, 233, 239, 283, 409, 571\}$), a single element occupies up to $143$ hexadecimal digits, $571$ binary bits, or dozens of polynomial terms.
-   - Standard 8-column Extended Euclidean Algorithm (Stallings Table 4.7: $\text{Step}, Q, A_1, A_2, A_3, B_1, B_2, B_3$) and Shift-and-XOR tables previously required extensive horizontal scrolling on large fields.
-   - Milestone 6 introduces a **Three-Mode Layout Switcher** (`Step view`, `All steps grid`, `Classic table`), an interactive **Extended Euclid Step Inspector Square** pairing **Triple A** $(A_1, A_2, A_3)$ and **Triple B** $(B_1, B_2, B_3)$, a **`Compact values` vs. `Full m-bit`** toggle pill, a **5-button playback bar + step scrubber**, and an **`Expand full view`** modal dialog (`#trace-fullscreen`).
+1. **Streamlined Calculator Inputs, Full Results & Top-Center Alerts (`frontend/lab.js`, `frontend/notation.js`, `frontend/lab.css`):**
+   - Auto-uppercases typed/pasted Hex characters (`a-f` $\rightarrow$ `A-F`) in real time while preserving caret position, and formats Polynomial exponents inside `<input>` boxes using Unicode superscripts (`x⁶ + x⁴ + x² + x + 1`) while transparently normalizing back to plain ASCII `x^k` for parsing, API requests, exports, and share links.
+   - Replaces numeric placeholders with clear action prompts (`Enter A(x)`, `Enter B(x)`, `Enter modulus m(x)`).
+   - Displays full untruncated Hex, Binary, and Polynomial outputs directly on the **Result** card (inside wrapped, vertically scrollable containers for large fields) while keeping timing, bit-width, and Hamming-weight badges intact, and renames the comparison shortcut to **`Compare multiplication methods`** with an explicit helper note.
+   - Replaces the centered error modal with a sleek **top-center floating alert card** (`#error-popup`) anchored near the top middle of the viewport with left red accent strip, `×` close button, `Esc` dismissal, and inline `View Step 0 / GCD trace` action without obscuring operand inputs underneath.
 
-2. **Standalone Interactive & Animated `Lessons` Curriculum (`#lessons`):**
-   - While the header spotlight tour (`Tutorial tour`) guides users around the active page's UI controls, students also benefit from a dedicated, self-paced curriculum that visually teaches **how and why** each $GF(2^m)$ operation and number-theory tool works step by step.
-   - Milestone 6 adds a standalone top-level **`Lessons`** tab (`#lessons`) implemented in `frontend/lesson-data.js` and `frontend/lessons.js` covering 7 complete lessons (21 sub-lessons), with 5-button animation controls, interactive sandboxes, self-check quizzes, and one-click **"Open in Calculator"** handoffs.
+2. **Unified `Step view` Default, Paginated `All steps grid`, `Classic table` Legend & Playback Locking (`frontend/traces.js`):**
+   - Defaults to **`Step view`** across **all 13 field sizes** ($m \in \{2 \dots 8, 163 \dots 571\}$), with side-by-side **Previous → Current** comparison built in from Step 1 onward (single card cleanly on Step 0; stacked vertically on narrow mobile screens).
+   - Removes redundant comparison-toggle, fullscreen-dialog, and maximized-overlay modes so every trace mode stays clean and predictable.
+   - Reworks **`All steps grid`** as a clean inline single-column vertical stack loading **4 steps initially** with **`Show more (showing 4 of N)`** incremental pagination (+4 steps per click).
+   - Adds a readable color highlight legend (`.table-color-legend`) right above every **`Classic table`** view.
+   - Automatically pauses playback and locks/dims all playback controls (`First step`, `Previous`, `First changed bit`, `Play animation`, speed selector, `Next`, `Last step`, step scrubber, and arrow/Home/End step keys) whenever **`All steps grid`** or **`Classic table`** is active.
 
-3. **Clear Terminology (`Tutorial tour` vs. `Lessons`):**
-   - Renames the top-right spotlight walkthrough trigger from `Tutorial` to **`Tutorial tour`** across all five views (`#calculator`, `#lessons`, `#modulus`, `#aes`, `#compare`) and adds a 5-step guided tour for the new `Lessons` page in `frontend/tour.js`.
+3. **On-Demand Interactive Breakdown & Full-Value Popups (`frontend/traces.js`, `frontend/notation.js`):**
+   - **Extended Euclid (`Q`, `T₁`, `T₂`, `T₃`) Derivation Popups:** Every Table 4.7 step card includes four consistent buttons (`How Q is calculated`, `How T₁ is calculated`, `How T₂ is calculated`, `How T₃ is calculated`, disabled on Step 0 with `Available from Step 1 onward`). Clicking any button computes the exact client-side `BigInt` derivation for that step only (`POLY_DIVMOD` long division for `Q`, carry-free `Q·B_i` + XOR with `A_i` for `T₁`–`T₃`) inside `#derivation-popup`.
+   - **Shift-and-XOR Clarity & Illustration Popup:** Removes the redundant blue summary banner, uses intuitive `A(x)` / `<< 1` / bit `bᵢ` descriptions, reorders both Sub-Block 1 (`Shift & Reduce`) and Sub-Block 2 (`Check Bit bᵢ & Update Sum`) so calculation steps appear **above** the bold final answer (`Shifted value` / `Running Sum`), and adds a **`Show Shift & XOR illustration`** button opening `#derivation-popup` for that step.
+   - **Modulo Reduction Cards:** Always display full untruncated hex values cleanly wrapped, drop the duplicate summary banner and separate `Shift` row, and label the shifted reducer directly as **`Shifted modulus · m(x) << k`** between `Before` and `After XOR`.
+   - **Full-Value Inspector Popup (`#inspector-popup`):** Clicking any truncated large-field cell (`GF(2¹⁶³)`–`GF(2⁵⁷¹)`) marked with the expand cue (`⤢`, tooltip `"Click to view full value"`) opens a dismissible popup displaying the complete untruncated value in Hexadecimal, Binary, and Polynomial (`<sup>`) forms with per-format **`Copy`** buttons and toast confirmation.
 
-4. **Specification & Plan Synchronization (`Plan/`):**
-   - Synchronizes early planning drafts in `Plan/README.md` and `Plan/Milestones/02`, `04`, `05` with the live FastAPI contract in `backend/api/schemas.py` (`m`, `input_base`, `output_base`, `density`, `filename`, `default_base`, `format`, `download`, plus backward-compatible aliases) and documents Milestone 6 in `Plan/Milestones/06_refinements_interactive_lessons_and_testing.md`.
+4. **Self-Contained Visual `Lessons` Overhaul (`#lessons`, `frontend/lesson-data.js`, `frontend/lessons.js`):**
+   - Strips out the top playback toolbar, step dots, `Step diff` legend, and Calculator handoff buttons; keeps only the gliding top section bar (`#lesson-subtabs`) and linear **`Previous section`** / **`Next section`** footer navigation stepping smoothly across all sections of the 7-lesson curriculum.
+   - Renders each section in one clean scrollable study card grounded in Stallings Chapters 4, 6, and 10 and our literature review: fixes the `1.1` `b_1x` subscript typo (`b<sub>1</sub>x`), keeps the 8-bit polynomial sandbox, embeds crisp 4-row $\mathbb{Z}_2$ Addition / XOR truth tables in `1.2` and `2.1`, and includes full worked examples (`{57} ⊕ {83} = {D4}`, `{2B79} mod {11B} = {C1}`, why lookup tables fail at $2^{163}$, `{02} × {87} = {15}`, `{57} × {83} = {C1}`, `POLY_DIVMOD`, Stallings Table 4.7 `{83}⁻¹ = {80}`, `{C1} ÷ {83} = {57}`, and XTS-AES / Binary ECC).
 
----
-
-## 2. Zero-Horizontal-Scroll Trace Redesign (`frontend/traces.js`)
-
-### 2.1 Three-Mode Layout Switcher & Smart Defaults
-
-Every trace panel (`#trace-panel`, `#aes-trace`, `#aes-affine`, `#compare-shift`, `#compare-division-trace`) provides a segmented mode switcher:
-
-| Layout Mode | Default Trigger | Visual Representation |
-|---|---|---|
-| **`Step view`** | Default when $m > 8$ or viewport $\le 600\text{ px}$ | Displays one rich, zero-horizontal-scroll card or **Extended Euclid Step Inspector Square** (`role="region"`, `aria-label="Current trace step"`) for the active step. |
-| **`All steps grid`** | User-selectable on any viewport | Renders all steps simultaneously as a vertical stack of cards (`.trace-grid-cards`) with zero horizontal scrolling. |
-| **`Classic table`** | Default on desktop when $m \le 8$ | Renders traditional multi-column tables (`Table 1`, `Table 2`, `Table 4.7`, `Bitwise XOR`, `Modulo reduction`) with wrapped cells (`overflow-wrap: anywhere; word-break: break-word`). |
-
-In addition, clicking **`Expand full view`** opens `<dialog id="trace-fullscreen">` (~95% viewport width / 90% viewport height) displaying the full classic tables in a dedicated focus overlay.
-
-### 2.2 Extended Euclid Step Inspector Square (Stallings Table 4.7)
-
-Instead of squeezing 8 wide columns into a single horizontal table row, `Step view` and `All steps grid` render each Extended Euclidean Algorithm iteration as an **Extended Euclid Step Inspector Square** (`.euclid-inspector-square`):
-
-```text
-+-----------------------------------------------------------------------------------+
-| Extended Euclid · step k   [Iteration k]                 [ Q(x) = A3(x) div B3(x) ]|
-| Q = A3 div B3 · T1 = A1 ⊕ Q·B1 · T2 = A2 ⊕ Q·B2 · T3 = A3 mod B3                  |
-+-----------------------------------------+-----------------------------------------+
-| Triple A(x)            A ← prev B       | Triple B(x)            B ← A ⊕ Q·B      |
-|   A1(x): <wrapped / copyable value>     |   B1(x): <wrapped / copyable value>     |
-|   A2(x): <wrapped / copyable value>     |   B2(x): <wrapped / copyable value> [*] |
-|   A3(x): <wrapped / copyable value>     |   B3(x): <wrapped / copyable value>     |
-+-----------------------------------------+-----------------------------------------+
-```
-
-- **State-Transfer Animation:** On each step transition ($k - 1 \to k$), Triple A highlights with `.is-carried` (`slideCarry` keyframe) to show that $(A_1, A_2, A_3)$ was carried directly from step $k-1$'s $(B_1, B_2, B_3)$, while Triple B highlights with `.is-updated` (`pulseUpdate` keyframe) to show the auxiliary recurrence update $T_i(x) = A_i(x) \oplus Q(x) \cdot B_i(x)$.
-- **Termination Highlighting:**
-  - When $B_3(x) = 1$, $B_2(x)$ is highlighted in emerald green (`.picked`) as $b(x)^{-1} \bmod m(x)$.
-  - When $B_3(x) = 0$, $A_3(x) = \gcd(m(x), b(x))$ is highlighted in amber/red (`.picked.is-gcd`).
-- **Compact vs. Full $m$-Bit Values:** When `Compact values` is active (default for $m > 8$), leading zero padding is trimmed in Hex/Binary modes and middle terms of long algebraic polynomials are summarized (`x^162 + x^159 + … + 1`). Toggling **`Full m-bit`** displays the full unshortened string wrapped across lines inside the card with zero horizontal overflow. Every value is click-to-copy.
-
-### 2.3 5-Button Playback Bar & Interactive Scrubber
-
-The trace toolbar provides full media-style playback controls:
-- **`First step`** (jump to step 1), **`Previous step`**, **`Play animation` / `Pause`** with speed selector (**`Slow`** $900\text{ ms}$, **`Normal`** $450\text{ ms}$, **`Fast`** $200\text{ ms}$), **`Next step`**, and **`Last step`**.
-- An interactive `<input type="range" class="trace-scrubber" aria-label="Trace step scrubber">` slider synchronized with the live `Step X of Y` / `All steps` status indicator.
+5. **Modulus Explorer Polish (`#modulus`) & Real-World `Applications` Tab (`#applications`):**
+   - Applies Unicode superscript Polynomial formatting, auto-uppercase Hex formatting, non-numeric placeholder (`Enter modulus m(x)`), and a plain-English 1-sentence explanation above the **GCD checkpoints** table in `#modulus`.
+   - Introduces the dedicated **`Applications`** tab (`#applications`) featuring two gliding sub-tabs powered by `backend/engine/explorations.py` and `backend/api/exploration_routes.py`:
+     - **XTS-AES $GF(2^{128})$ Tweak Multiplier (`POST /api/explorations/xts-tweak`):** IEEE 1619-2007 / Stallings Ch. 6 modulus $x^{128} + x^7 + x^2 + x + 1$ (reduction mask `0x87`), full 128-bit tweak display, randomize, step next block ($j \to j+1$), reset, and `b₁₂₇ = 1 → x¹²⁸ overflow → XOR 0x87` highlighting.
+     - **Binary ECC ($E_{2^m}(a,b)$) Explorer (`POST /api/explorations/binary-ecc`):** Reuses canonical `backend/engine/` primitives across **Teaching Curve $GF(2^4)$** ($G = (\text{3}, \text{C})$, $2G = (\text{A}, \text{B})$) and official **NIST FIPS 186-4 / SEC 2 NIST B-163 ($GF(2^{163})$)**, displaying tagged Point Doubling ($2P$) and Point Addition ($P + Q$) algebraic steps (`÷ / EEA`, `× Shift-and-XOR`, `⊕ XOR`), automatic green **Verified on curve** badges, Full-Value Inspector popups on 163-bit coordinates, and a compact **ECDH Key Exchange** card ($K = n_A P_B = n_B P_A$).
 
 ---
 
-## 3. Standalone Animated `Lessons` Curriculum (`#lessons`)
+## 2. Iterative Milestone 6 Evolution Summary
 
-### 3.1 Module Architecture (`frontend/lesson-data.js` & `frontend/lessons.js`)
-
-The standalone `#lessons` view is structured into two clean ES modules:
-1. **`frontend/lesson-data.js`**: Pure data specification exporting the `LESSONS` array of 7 lessons and 21 sub-lessons, including step formulas, visual payloads, interactive mini-activities, self-check quizzes, and Calculator preset handoffs.
-2. **`frontend/lessons.js`**: Interactive controller exporting `setupLessons({ openInCalculator })`, managing the 7-card Lesson Catalog Hub (`#lesson-catalog`), sub-lesson tabs (`#lesson-subtabs`), 5-button animation playback (`#lesson-first`, `#lesson-prev`, `#lesson-play`, `#lesson-speed`, `#lesson-next`, `#lesson-last`), clickable step timeline dots (`#lesson-step-dots`), keyboard shortcuts (`ArrowLeft`, `ArrowRight`, `Home`, `End`, `Space`), and deep-link routing (`#lessons/<lesson-id>`).
-
-### 3.2 Seven-Lesson Syllabus & Cryptographic Alignment
-
-| Lesson | Symbol | Sub-Lessons & Core Mathematical Content | Calculator / Exploration Handoff |
-|---|---|---|---|
-| **1. Foundations of $GF(2^m)$ & Polynomial Representation** | `GF(2^m)` | **1.1** Bits as coefficients in $GF(2)[x]$ (`bit-sandbox`); **1.2** Why integers $\bmod 2^m$ fail to form a field vs. irreducible $m(x)$; **1.3** Standard moduli ($m = 2 \dots 8$, AES $0\text{x}11\text{B}$, NIST curves $163 \dots 571$). | `{57} × {83}` in $GF(2^8)$ + `#modulus` |
-| **2. Addition & Subtraction ($A(x) \oplus B(x)$)** | `＋ / −` | **2.1** Coefficient arithmetic in $GF(2)$ ($1 \oplus 1 = 0$, $A + B = A - B$, $-A = A$); **2.2** Term alignment by power of $x$; **2.3** Animated 8-bit walkthrough `{57} ⊕ {83} = {D4}` + 4-bit XOR activity + quiz. | `{57} + {83} = {D4}` in $GF(2^8)$ |
-| **3. Modular Reduction ($A(x) \bmod m(x)$)** | `mod` | **3.1** Substitution rule $x^m \equiv m(x) - x^m \pmod{m(x)}$ ($x^8 \equiv x^4 + x^3 + x + 1$); **3.2** Iterative shift-and-XOR degree cancellation; **3.3** Walkthrough reducing degree-14 `{2B79}` modulo `{11B}` to `{C1}` + quiz. | `{2B79} mod {11B} = {C1}` in $GF(2^8)$ |
-| **4. Multiplication ($A(x) \times B(x) \bmod m(x)$)** | `×` | **4.1** `xtime` left shift & conditional XOR with $0\text{x}1\text{B}$ (`{02} × {87} = {15}`); **4.2** Distributive law & Shift-and-XOR algorithm; **4.3** Full 8-step walkthrough of Stallings Ch. 4 `{57} × {83} = {C1}` (Tables 1 & 2) + quiz. | `{57} × {83} = {C1}` in $GF(2^8)$ + `#compare` |
-| **5. Multiplicative Inverse & Extended Euclid ($A(x)^{-1}$)** | `x⁻¹` | **5.1** Polynomial long division (`POLY_DIVMOD`) $A_3 = Q \cdot B_3 \oplus R$; **5.2** Bézout identity $m \cdot B_1 + b \cdot B_2 = B_3$ & Table 4.7 invariants; **5.3** Animated walkthroughs of `{83}⁻¹ = {80}` and `{95}⁻¹ = {8A}`; **5.4** Failure mode $B_3 = 0$. | `{95}⁻¹ = {8A}` in $GF(2^8)$ + `#aes` |
-| **6. Polynomial Division ($A(x) \div B(x)$)** | `÷` | **6.1** Division via inverse $A / B = A \otimes B^{-1} \bmod m(x)$; **6.2** Two-stage pipeline walkthrough `{C1} ÷ {83} = {57}` (Stage 1 Table 4.7 + Stage 2 Shift-and-XOR) and multiplicative identity verification $(Q \otimes B) \bmod m(x) = A$. | `{C1} ÷ {83} = {57}` in $GF(2^8)$ |
-| **7. Cryptographic Applications (AES, XTS-AES & Binary ECC)** | `AES / ECC` | **7.1** AES `SubBytes` S-box & `MixColumns` (Stallings Ch. 5); **7.2** XTS-AES tweakable block cipher $\alpha = x$ multiplication in $GF(2^{128})$ (Stallings Ch. 6); **7.3** Binary Elliptic Curve Cryptography over $GF(2^{163}) \dots GF(2^{571})$ (Stallings Ch. 10). | $GF(2^{163})$ multiplication + `#aes` |
-
----
-
-## 4. Wave 2: Previous-to-Current Visual Diff & Color-Coded Change Tracking
-
-Wave 2 adds a shared, color-blind-safe visual diff system across both `Calculation steps` (`frontend/traces.js`) and `Lessons` (`frontend/lessons.js`, `frontend/lesson-data.js`) so every step transition makes exact state changes unmistakable without relying on color alone or transient animations:
-
-| Visual Diff State | CSS Class | Color Palette | Text Micro-Badges | Meaning |
-| :--- | :--- | :--- | :--- | :--- |
-| **Carried / Shifted** | `.diff-carried` | Indigo / Blue | `← prev B1..B3`, `Shifted left`, `Shifted m(x)`, `Completed` | Values copied or shifted forward from Step $k-1$. |
-| **New / Updated** | `.diff-updated` | Emerald / Green | `New T1..T3`, `XOR'd (bit = 1)`, `Set to 1`, `Reduced`, `Inverse Found` | Newly computed values, updated accumulators, or active stage results. |
-| **Reduced / Cancelled** | `.diff-reduced` | Amber / Orange | `Shifted + Reduced ⊕ m(x)`, `1 ⊕ 1 → 0`, `Cancel x^d`, `GCD / No Inverse` | Overflow reductions modulo $m(x)$, characteristic-2 bit cancellations, or leading-term eliminations. |
-| **Unchanged** | `.diff-unchanged` | Neutral Muted | `Unchanged`, `Unchanged (bit = 0)`, `Init`, `Pending` | Values that stayed identical from Step $k-1$ to Step $k$. |
-
-### Key Wave 2 Capabilities
-1. **Shared Legend Bar (`.diff-legend`) & Transition Banners (`.diff-banner`):** Rendered unobtrusively above active stepping stages in both `#calculator` and `#lessons`, paired with 1-line transition summaries (e.g., `Step 1 → Step 2: B shifted into A; Q = 0D produced new B1, B2, B3` and `From Step 1 → Step 2: ...`).
-2. **Inline `was:` & `prev → now` Deltas (`.diff-prev-value`):** Changed Extended Euclid cells display `was: <prev>` underneath the current value; Shift-and-XOR cards display `prev: <old> → now: <new>` for both shifted operand $A$ and the running XOR accumulator.
-3. **Side-by-Side `Compare prev → curr` Toggle (`.diff-compare-grid`):** Available in both `Calculation steps` (`Step view`) and `#lessons` (`#lesson-compare`), placing a read-only **Previous Step ($k-1$)** snapshot card directly beside (or stacked above on viewports $\le 840\text{ px}$) the **Current Step ($k$)** card with a connecting arrow (`→`) and zero horizontal overflow.
+* **Wave 1 (Core Trace & Lessons Foundation):** Added `Step view` / `All steps grid` / `Classic table` architecture, Table 4.7 Step Inspector Square, standalone `#lessons` view, `Tutorial tour` rename, and `Plan/` schema synchronization.
+* **Wave 2 (Visual Diff Grammar):** Established color-blind-safe WCAG AA visual diff badges (`.diff-carried` Indigo, `.diff-updated` Emerald, `.diff-reduced` Amber, `.diff-unchanged` Neutral) and inline `was:` / `prev → now` deltas.
+* **Wave 3 (Full-Width Layout & Typography):** Replaced the left sidebar with a full-width `.top-controls-bar`, added the read-only **Modulus $m(x)$** card on unary operations (`Reduce`, `Inverse`), added XSS-safe `<sup>`/`<sub>` math builders (`mathFragment`), and introduced slow gliding `.sliding-pill` navigation indicators.
+* **Wave 4 (Boundaries, Toasts, Upload Modal & Comprehensive UX Simplification):**
+  - Added playback boundary disabled states, instant `First changed bit` jump, bottom-right confirmation toasts (`#feedback-popup`), and drag-and-drop upload modal (`#upload-modal`) with sample downloads and zero em/en-dashes across `frontend/` and `data/tutorial_slides.json`.
+  - Delivered the comprehensive UX simplification: auto-uppercase Hex & Unicode superscript Polynomial inputs, non-numeric placeholders, untruncated Results & Modulo Reduction (`m(x) << k`), top-center floating `#error-popup`, `Step view` default across all 13 fields with built-in Previous → Current, inline 4-step paginated `All steps grid`, `Classic table` color legend, playback locking outside `Step view`, Extended Euclid `Q / T₁ / T₂ / T₃` and Shift-and-XOR `<< 1 / ⊕ m(x)` derivation popups, Full-Value Inspector popup (`#inspector-popup`), self-contained `Lessons` overhaul with $\mathbb{Z}_2$ truth tables, `#modulus` polish, the new **`Applications`** tab (XTS-AES $GF(2^{128})$ + Binary ECC NIST B-163), and the custom **`frontend/gf2m-badge.png`** $GF(2^m)$ header emblem & favicon paired with the **`GF(2ᵐ) Polynomial Arithmetic · EECE 455`** header subtitle.
+* **Wave 5 (Flat De-Boxed UI, Gentler Animation Speeds, Global `Share link` & Applications Form Polish):**
+  - Applied a consistent flat visual hierarchy site-wide (`frontend/lab.css`): kept one clean outer white `.panel` card per top-level section and borders strictly on inputs, buttons, and data tables, replacing nested inner card boxes and pill borders across Calculator operands/results/metrics, trace step cards, Previous → Current panes, inline dot-accented `Step diff` legends, Lessons, Modulus, Applications, Compare, and popups with whitespace, color-coded text, hairlines, and crisp left accent bars.
+  - Shifted `Play animation` speeds down one notch (`Fast: 0.45s / 450ms`, `Normal: 0.9s / 900ms`, `Slow: 1.8s / 1800ms`) in `frontend/traces.js` so students can comfortably follow each step.
+  - Upgraded the header share control to a global **`Share link`** button visible on all 5 tabs (`#calculator`, `#lessons`, `#modulus`, `#applications`, `#compare`), serializing and restoring exact page state via query parameters and URL hash (`frontend/lab.js`, `frontend/lessons.js`, `frontend/explorations.js`, `frontend/tour.js`).
+  - Fixed vertical subscript label wrapping (`T₀`, `n_A`, `n_B`) using `<span class="field-label">` in `frontend/index.html`, matched `<input>`/`<select>` control heights into balanced desktop rows on `#applications`, and wired the Applications hero badge to dynamically reflect **`GF(2¹²⁸) · IEEE 1619`** (XTS-AES) and **`GF(2¹⁶³) · NIST B-163`** (Binary ECC).
+* **Wave 6 (GCM / GHASH $GF(2^{128})$ Sub-Tab & Polynomial ECC Slide Notation Alignment):**
+  - Added pure-Python **`gcm_ghash`** in `backend/engine/explorations.py` (re-exported in `backend/engine/__init__.py`) and **`POST /api/explorations/gcm-ghash`** in `backend/api/exploration_routes.py`, computing NIST SP 800-38D / Stallings Chapter 12 GHASH authentication tags $Y_i = (Y_{i-1} \oplus X_i) \cdot H \pmod{x^{128} + x^7 + x^2 + x + 1}$ via canonical `add` and `multiply` across $1$–$8$ 128-bit blocks.
+  - Added the third gliding pill sub-tab **`GCM · GHASH (GF(2¹²⁸))`** inside `#applications` (syncing the hero badge to **`GF(2¹²⁸) · NIST SP 800-38D`**), featuring auto-uppercase Hex inputs, randomize/reset controls, a flat clickable 128-bit tag display and block-by-block trace table wired to `#inspector-popup`, global `Share link` serialization (`?app=ghash&h=...&blocks=...#applications`), updated Lesson `7.2`, and updated Applications tour copy.
+  - Aligned the **Polynomial / Binary ECC** sub-tab display labels and formulas directly to the classroom Polynomial ECC slide (`y² + xy = x³ + ax² + b`, `P = (Xp, Yp)`, `Q = (Xq, Yq)`, `R = (Xr, Yr)`, slope `s`).
+* **Wave 7 (Clean Non-Wavy Input Exponents, Dynamic Two-Other-Notations Previews & Empty Initial State):**
+  - Kept uniform monospace ASCII caret notation (`x^138 + x^105`) inside `<input>` elements across `#calculator` and `#modulus` while continuing to accept pasted Unicode superscripts (`x¹³⁸`) and preserving true HTML `<sup>`/`<sub>` typography everywhere outside `<input>` boxes.
+  - Added dynamic **two-non-selected-notations** previews directly underneath `Operand A(x)`, `Operand B(x)`, unary locked **Modulus $m(x)$**, and Result values (with `-` placeholders when empty and `#inspector-popup` inspection for very long 163–571-bit elements), never duplicating the active notation.
+  - Made every page (`#calculator`, `#modulus`, `#applications`, `#compare`) open completely clean/blank on fresh load with zero pre-filled values or auto-run outputs, backed by one-click **Random** and preset controls (`Random operands`, `Random polynomial`, `Randomize 128-bit tweak`, `Randomize keys`, `Randomize key H & blocks`) while preserving full **Share link** URL restoration.
 
 ---
 
-## 5. Wave 3: Full-Width Layout, Read-Only Modulus Card, Real `<sup>`/`<sub>` Typography, Pop-Up Errors, Smooth Transitions & Sequential Cascade
+## 3. Automated Verification Coverage
 
-Wave 3 delivers eight holistic visual and interaction refinements across `frontend/` without touching backend endpoints or math contracts:
-
-1. **Read-Only Modulus $m(x)$ Card on Unary Ops (`frontend/lab.js`, `frontend/index.html`):** Choosing **Reduce (`modulo`)** or **Inverse (`inverse`)** preserves the user's typed `Operand B(x)` value in memory while transforming the second card into a locked **Modulus $m(x)$** display showing `Locked to GF(2^m)`, operation context (`Reducing A(x) mod m(x)` or `Inverting A(x)⁻¹ mod m(x)`), and the active field modulus synced with the selected notation (`Hex`, `Binary`, or `Polynomial`).
-2. **True HTML `<sup>` and `<sub>` Typography (`frontend/notation.js`):** Safe DOM tokenizers (`mathFragment`, `appendMathText`, `setMathText`, `mathElement`) convert exponents (`GF(2^163)`, `x^4`, `x^-1`, `x^(2^i)`) and indexed variables (`A1`–`A3`, `B1`–`B3`, `T1`–`T3`, `b0`–`b7`) into true `<sup>`/`<sub>` nodes across UI labels, step titles, Table 4.7 headers/cells, bit-builders, errors, and lessons—while keeping raw `<input>` fields, clipboard copies, share URLs, and `.md`/`.json` downloads plain ASCII.
-3. **Elevated Pop-Up Error Dialog (`#error-popup`):** Routes all validation, batch-upload, exploration, and zero-inverse errors into a accessible `<dialog id="error-popup">` supporting `Esc`, backdrop click, `OK / Dismiss`, and an optional **"View Step 0 / GCD trace"** shortcut when an Extended Euclid failure trace is attached.
-4. **Full-Width De-Nested Workspace & Uncluttered 2-Row Toolbar:** Eliminates the dead left sidebar on `#calculator` by arranging field settings and textbook presets in a top `.top-controls-bar`, giving `Calculator`, `Result`, and `Calculation steps` full container width, flattening nested borders, removing redundant `Show all` / `Show step cards` buttons, and laying out trace controls in two clean non-clipping rows.
-5. **Smooth Color Cross-Fades & Gliding Active Pill (`attachSlidingIndicator`):** Pairs CSS color transitions (`240ms ease`) with a dynamic `.sliding-pill` highlight gliding smoothly across `.lab-nav`, `.segments.notation`, `.operations`, `.trace-modes`, `#lesson-subtabs`, and `#lesson-step-dots`.
-6. **Informative Educational Step Titles (`.step-knowledge-title`):** Renders a descriptive mathematical summary heading on every step card across both `Calculation steps` (with `Stage 1` / `Stage 2` prefixes on Division) and `Lessons`.
-7. **Auto-Maximize on `All steps grid`:** Selecting **`All steps grid`** expands `#trace-panel` (`.is-maximized`, ~95% viewport width/height) into a spacious multi-column grid, complete with `Exit maximized view` and `Esc` dismissal.
-8. **Sequential Step Cascade (`2 → 3 → 4 → 5`):** Jumping non-adjacently across multiplier bits, trace scrubber positions, or lesson timeline dots animates sequentially through intermediate steps (capped at 12 hops, cancelled on rapid clicks, and disabled cleanly under `prefers-reduced-motion`).
-
----
-
-## 6. Wave 4: Playback Boundaries, Instant `First changed bit` Jump, Toasts, Upload Modal & UI Polish
-
-Wave 4 delivers five targeted usability refinements across `frontend/` and `data/tutorial_slides.json`:
-
-1. **Boundary Disabled States (`frontend/traces.js`, `frontend/lessons.js`, `frontend/lab.css`):** `syncPlaybackControls()` (and the Lessons stepper updater) disables `First step` and `Previous` on Step 0, `Next` and `Last step` on the final step, and all steppers + `Play animation` when `totalSteps <= 1` (`disabled = true`, `aria-disabled="true"`, `cursor: not-allowed`, and click/keyboard no-op guards).
-2. **Instant `First changed bit` / `First active step` Jump:** Implemented `findFirstChangedStep()` in `frontend/traces.js` (and `lesson-first-active` in `frontend/lessons.js`) so users working in large fields ($GF(2^{163})$ to $GF(2^{571})$) can jump in one click directly to the first nonzero bit iteration (`b_i = 1`, `added`, or overflow reduction) or active Euclid/Modulo update without waiting for sequential cascade hops, automatically disabling when already on that step.
-3. **Non-Blocking Copy & Export Confirmation Toasts (`#feedback-popup`):** Added `showFeedbackPopup()` and `copyToClipboard()` (with hidden `<textarea>` + `execCommand("copy")` fallback) in `frontend/notation.js`, displaying crisp bottom-right confirmation toasts (`Copied to clipboard`, `Exported successfully`, `File uploaded`) with 2800 ms auto-dismiss and manual close.
-4. **Upload Pop-Up Modal & Format Guide (`#upload-modal`):** Replaced the hidden OS picker trigger with a full modal featuring an interactive drag-and-drop zone, click-to-browse button, live `.txt` and `.json` schema examples matching `POST /api/parse-polynomials`, and one-click `Download sample .txt` / `Download sample .json` buttons.
-5. **Hero Badge Cleanup & Long Dash Removal:** Removed the redundant `1 ⊕ 1 = 0` line from the hero $GF(2^m)$ badge card and eliminated all Unicode em-dashes (`\u2014`) and en-dashes (`\u2013`) across `frontend/` and `data/tutorial_slides.json`.
-
----
-
-## 7. Wave 5: Explicit $m(x)$ Reduction Math & Shift-and-XOR Step-Card Redesign
-
-Wave 5 makes polynomial overflow reduction and Shift-and-XOR partial-product accumulation self-explanatory for students across both small textbook fields ($m \le 16$) and large cryptographic fields ($m \in \{163 \dots 571\}$):
-
-1. **Explicit $m(x)$ Overflow Reduction Breakdown (`formatStepReductionBreakdown` in `frontend/traces.js`):**
-   - Applies Stallings' reduction identity $x^m \bmod m(x) = m(x) - x^m$ directly inside each Shift-and-XOR step card using client-side `BigInt` bitmasks:
-     - **Step $0$ ($i = 0$):** Displays `Initial term (x^0 · A(x)): {hex} (no shift yet)`.
-     - **No Overflow (`Reduced? = No`):** Shows the left shift (`<< 1`) and confirms no $x^m$ overflow occurred.
-     - **Overflow on Small Fields ($m \le 16$):** Renders a 3-line aligned monospace binary breakdown showing `(prev_val << 1)` ($m+1$ bits), `⊕ m(x)` ($m+1$ bits), and the reduced $m$-bit result alongside `{hex}` (e.g., `11100 ⊕ 11001 = 0101 ({5})` on Step 2 of $\{\text{E}\} \times \{\text{D}\}$ in $GF(2^4)$).
-     - **Overflow on Cryptographic Fields ($m > 16$, e.g. $163 \dots 571$):** Renders a compact zero-scroll 3-line breakdown dropping $x^m$ (`unreduced_shift & ((1 << m) - 1)`), displaying the lower $m(x)$ taps with `<sup>` exponents (`⊕ (x^7 + x^6 + x^3 + 1)` in $GF(2^{163})$), and showing the reduced `{hex}` result.
-   - **Auto-Expanded Initial Reduction ($\deg \ge m$):** Whenever an input operand has degree $\ge m$ (such as `11B` in $GF(2^8)$), `.initial-reduction-panel` (`<details open>`) opens automatically and prints each leading-term cancellation step `before ⊕ (m(x) · x^(d-m) = reducer) = after` with `appendMathText`.
-
-2. **Two-Block Shift-and-XOR Step-Card Redesign (`multiplyStepCard` in `frontend/traces.js`, `frontend/lab.css`):**
-   - **Stallings Brace Notation (`{E}`, `{A}`, `{5}`):** Wraps hexadecimal values in curly braces across step cards, `prev → now` deltas, and XOR equations (`{E} ⊕ {A} = {4}`) so hex digit `{A}` is never mistaken for `Operand A(x)`, while preserving plain raw strings in `<input>` fields, clipboard copies, share links, and downloads.
-   - **Two Logical Sub-Blocks & De-Cluttered Pills:** Groups **1. Shift & Reduce ($x^i \cdot A(x) \bmod m(x)$)** (`Shifted operand A`, `Reduced?`, and `.reduction-breakdown`) separately from **2. Check Bit $b_i$ & Update Running Sum** (`Bit of B`, `Running XOR`, and `.bit-equation`), with a single status pill per sub-block.
-   - **Live Running Formula Strip (`.mul-formula-strip`):** Displays the cumulative partial-product sum on $m \le 8$ (`Sum = [1]·{E} ⊕ [0]·{5} ⊕ [1]·{A} ⊕ [1]·{D} = {9}` with the active step highlighted) and a compact non-wrapping summary (`Included k of i+1 terms so far → Running XOR = {curr}`) on $m > 8$.
-
----
-
-## 8. Verification & Playwright E2E Coverage
-
-Milestone 6 expands `tests/e2e/test_workbench_e2e.py` with seven dedicated Milestone 6 end-to-end browser tests alongside updated core workflow assertions (bringing the total suite to **365 automated tests**: `269` engine + `79` API + `17` Playwright E2E):
-
-1. `test_milestone6_zero_scroll_trace_modes_and_playback`:
-   - Verifies `#tutorial-open` label (**`Tutorial tour`**), $GF(2^{163})$ Inverse Step view default, Step Inspector Square zero overflow, 5-button playback, `Full m-bit` / `Compact values` toggle, `All steps grid`, `Classic table`, and `Expand full view` modal across desktop (`1280x900`) and mobile (`390x840`).
-2. `test_milestone6_standalone_lessons_page_and_handoff`:
-   - Verifies `#lessons` 7-lesson catalog, 5-step `Lessons` Spotlight tour, interactive 8-bit sandbox, Lesson 2 playback + quiz, and Lesson 6 Calculator handoff (`{83}^-1 = {80}`).
-3. `test_milestone6_wave2_trace_visual_diffs_and_compare_mode`:
-   - Verifies `.diff-legend`, `.diff-banner`, `.diff-carried` (`← prev B`), `.diff-updated` (`New T`), inline `was:` values, and `Compare prev → curr` side-by-side mode on $GF(2^{163})$ traces.
-4. `test_milestone6_wave2_lessons_visual_diffs_and_compare_mode`:
-   - Verifies `"From Step k-1 → Step k"` diff summaries, persistent badges, `was:` deltas, and `Compare prev → curr` side-by-side slides in `#lessons`.
-5. `test_milestone6_wave3_layout_modulus_card_math_popup_maximize_cascade`:
-   - Verifies gliding `.sliding-pill` indicators, read-only **Modulus $m(x)$** card on `modulo`/`inverse` + preserved `B(x)` restore, real `<sup>`/`<sub>` DOM elements, `#error-popup` (`Esc` & `OK`), non-empty `.step-knowledge-title` headings, auto-maximized `All steps grid` + `Exit maximized view`, sequential step cascade (`0 → 1 → 2 → 3`), zero console/page errors, and zero horizontal overflow on desktop and mobile (`390x840`).
-6. `test_milestone6_wave4_boundaries_first_changed_toasts_upload_modal_and_dashes`:
-   - Verifies Step 0 and final-step disabled boundary states (`disabled` + `aria-disabled`), instant `First changed bit` jump from Step 0 to Bit 20 in $GF(2^{163})$, `#feedback-popup` toasts on Copy and `.md` Export, `#upload-modal` format guide + upload confirmation, cleaned hero badge (`GF(2^m)` without `1 ⊕ 1 = 0`), zero `\u2014`/`\u2013` characters across `frontend/` and `data/tutorial_slides.json`, and zero horizontal overflow on desktop and mobile (`390x840`).
-7. `test_milestone6_wave5_explicit_reduction_and_clear_step_cards`:
-   - Verifies the $GF(2^4)$ $\{\text{E}\} \times \{\text{D}\} = \{9\}$ walkthrough (`11100`, `11001`, `0101`, `{5}` on Step 2; `{E} ⊕ {A} = {4}` on Step 3; `Sum = [1]·{E} ⊕ [0]·{5} ⊕ [1]·{A} ⊕ [1]·{D} = {9}` on Step 4), $GF(2^{163})$ sparse-tap overflow reduction (`x^7 + x^6 + x^3 + 1` with `<sup>` exponents) with zero horizontal overflow on desktop and mobile (`390x840`), and auto-expanded `Initial reduction` when $\deg \ge m$.
+Milestone 6 expands unit, API, and Chromium Playwright E2E coverage across:
+* `tests/engine/test_explorations.py`: Verifies Modulus irreducibility/Berlekamp witnesses, XTS-AES $GF(2^{128})$ overflow (`XOR 0x87`) and non-overflow shifts, Teaching $GF(2^4)$ hand-verified $2P = (\text{A}, \text{B})$ and edge cases, and official NIST B-163 base point $G$, $2G$, $G + 2G$, and ECDH $n_A P_B = n_B P_A$ curve verification.
+* `tests/api/test_exploration_routes.py`: Verifies `POST /api/explorations/modulus`, `POST /api/explorations/xts-tweak`, `POST /api/explorations/binary-ecc`, `POST /api/explorations/compare-multiplication`, and `GET /api/explorations/multiplication-benchmarks`.
+* `tests/e2e/test_workbench_e2e.py`: Verifies all five top-level views, `Step view` default with built-in Previous → Current across small and large fields, 4-step paginated inline `All steps grid` + locked playback, `Classic table` color legend + locked playback, EEA `Q / T₁ / T₂ / T₃` and Shift-and-XOR breakdown popups, Full-Value Inspector popup on `GF(2^163)` cells, auto-uppercase Hex & Unicode superscript Polynomial inputs, top-center `#error-popup`, simplified self-contained `#lessons` (truth tables in `1.2` & `2.1`, fixed `b₁x`, linear section stepping), `#modulus` polish, `#applications` (XTS-AES & Binary ECC NIST B-163), zero em/en-dashes in `frontend/` and `data/tutorial_slides.json`, **0 console errors**, **0 page errors**, and **0 horizontal overflow** on desktop (`1280×900`) and mobile (`390×840`).
