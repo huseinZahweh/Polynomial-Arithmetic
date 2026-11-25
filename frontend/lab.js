@@ -741,7 +741,7 @@ async function handleUploadFile(file) {
   }
   try {
     const parsed = await api("parse-polynomials", {
-      content: await file.text(), filename: file.name, default_base: base === "binary" ? "binary" : "hex",
+      content: await file.text(), filename: file.name, default_base: base === "binary" ? "binary" : base,
     });
     uploadPairs = parsed.pairs;
     $("pairs").replaceChildren(...uploadPairs.map((pair, index) => {

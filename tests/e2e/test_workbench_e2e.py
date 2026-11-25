@@ -57,12 +57,12 @@ def test_browser_workflow(live_url: str) -> None:
         check(restored.locator("#poly-a")).to_have_value("01010111")
         restored.close()
 
-        page.locator('input[value="add"]').check(force=True)
+        page.locator('label:has(input[value="add"])').click()
         page.locator("#calculate").click()
         check(page.locator("#result-value")).to_have_text("11010100")
         check(page.get_by_role("region", name="Current trace step")).to_contain_text("Bitwise XOR")
 
-        page.locator('input[value="modulo"]').check(force=True)
+        page.locator('label:has(input[value="modulo"])').click()
         page.locator("#poly-a").fill("100000000")
         page.locator("#calculate").click()
         check(page.locator("#result-value")).to_have_text("00011011")
@@ -108,7 +108,7 @@ def test_browser_workflow(live_url: str) -> None:
         check(page.locator('#pairs option[value="1"]')).to_have_text("Pair 2 · A=02, B=87 (hex)")
         page.locator("#pairs").select_option("1")
         check(page.locator("#poly-a")).to_have_value("00000010")
-        page.locator('input[value="multiply"]').check(force=True)
+        page.locator('label:has(input[value="multiply"])').click()
         page.locator("#calculate").click()
         check(page.locator("#result-value")).to_have_text("00010101")
 
@@ -124,7 +124,7 @@ def test_browser_workflow(live_url: str) -> None:
 
         page.set_viewport_size({"width": 390, "height": 840})
         page.locator("#field").select_option("571")
-        page.locator('input[value="divide"]').check(force=True)
+        page.locator('label:has(input[value="divide"])').click()
         page.locator("#poly-a").fill("1" + "0" * 569 + "1")
         page.locator("#poly-b").fill("10")
         page.locator("#calculate").click()
@@ -650,7 +650,7 @@ def test_milestone6_ux_simplification_popups_pagination_and_playback_locking(liv
         # 3. Shift-and-XOR in GF(2^4): default Step view, steps BEFORE answer, Shift & XOR popup, no blue diff-banner.
         page.get_by_role("button", name="Hex", exact=True).click()
         page.locator("#field").select_option("4")
-        page.locator('input[value="multiply"]').check(force=True)
+        page.locator('label:has(input[value="multiply"])').click()
         page.locator("#poly-a").fill("e")
         check(page.locator("#poly-a")).to_have_value("E")
         page.locator("#poly-b").fill("d")
@@ -687,7 +687,7 @@ def test_milestone6_ux_simplification_popups_pagination_and_playback_locking(liv
 
         # 4. Extended Euclid in GF(2^163): 4 breakdown buttons (Q, T1, T2, T3), Full-Value Inspector, 4-step grid pagination, playback locking.
         page.locator("#field").select_option("163")
-        page.locator('input[value="inverse"]').check(force=True)
+        page.locator('label:has(input[value="inverse"])').click()
         page.locator("#poly-a").fill("57")
         page.locator("#calculate").click()
         check(page.locator("#verification")).to_contain_text("Mathematically verified")

@@ -28,7 +28,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from .additive import MOD_REDUCE
+from .additive import MOD_REDUCE, modulo
 from .exceptions import NotInvertibleError, ZeroElementHasNoInverseError
 from .poly_ops import POLY_DIVMOD, POLY_MUL_NO_MOD
 from .polyrepr import (
@@ -179,6 +179,8 @@ def EXTENDED_EUCLID_GF2M(
     m_poly_int: int,
     m_degree: int,
     b_int: int,
+    *,
+    trace: bool = True,
 ) -> tuple[int, dict[str, Any]]:
     """Compute multiplicative inverse ``b(x)^(-1) mod m(x)`` via Extended Euclid.
 
@@ -199,6 +201,8 @@ def EXTENDED_EUCLID_GF2M(
         m_poly_int: Reduction polynomial bitmask of degree ``m_degree`` (bit ``m`` set).
         m_degree: Extension field degree ``m >= 1``.
         b_int: Non-negative polynomial bitmask to invert (auto-reduced if ``deg >= m``).
+        trace: Collect educational rows when ``True`` (default). ``False``
+            returns an empty trace dict without allocating or formatting rows.
 
     Returns:
         Tuple ``(b_inv_int, trace_dict)`` where ``0 < b_inv_int < 2^m_degree``
@@ -215,10 +219,24 @@ def EXTENDED_EUCLID_GF2M(
         Let ``m = m_degree``. Each division strictly lowers ``deg(B3)`` by at
         least 1, bounding iterations by ``m`` (average ``~m / 2`` for dense
         inputs). Total arithmetic is ``O(m^2)`` bit operations and Table 4.7
-        formatted trace storage is ``O(m^2)``.
+        formatted trace storage is ``O(m^2)`` when ``trace=True``.
     """
     validate_modulus(m_poly_int, m_degree)
     validate_non_negative_poly(b_int, name="b_int")
+
+    if not trace:
+        # Fast untraced path: track only remainder and Bezout coefficient without formatting rows.
+        r0, r1 = m_poly_int, modulo(b_int, m_poly_int, m_degree)
+        if r1 == 0:
+            raise ZeroElementHasNoInverseError(gcd=r0)
+        t0, t1 = 0, 1
+        while r1 != 1:
+            quotient, remainder = POLY_DIVMOD(r0, r1)
+            r0, r1 = r1, remainder
+            t0, t1 = t1, t0 ^ POLY_MUL_NO_MOD(quotient, t1)
+            if r1 == 0:
+                raise NotInvertibleError(gcd=r0)
+        return modulo(t1, m_poly_int, m_degree), {}
 
     b_red, b_mod_trace = MOD_REDUCE(b_int, m_poly_int, m_degree)
 

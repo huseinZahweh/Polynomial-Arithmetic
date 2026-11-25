@@ -15,9 +15,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Finite Field Lab</title>
   <link rel="icon" type="image/png" href="/workbench/gf2m-badge.png" />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="./fonts/fonts.css">
   <link rel="stylesheet" href="./lab.css">
   <script type="module" src="./lab.js"></script>
 </head>
@@ -280,15 +278,15 @@
 
       <section id="app-panel-ghash" class="applications-subpanel" role="tabpanel" aria-labelledby="app-tab-ghash" hidden>
         <section class="panel experiment-form" aria-labelledby="ghash-form-title">
-          <h2 id="ghash-form-title">GCM · GHASH Authenticator (GF(2<sup>128</sup>))</h2>
-          <p class="meta app-intro">Stallings Ch. 12 / NIST SP 800-38D Galois/Counter Mode computes a 128-bit authentication tag over ciphertext and AAD blocks as <code>Y<sub>m</sub> = (X<sub>1</sub> · H<sup>m</sup>) ⊕ (X<sub>2</sub> · H<sup>m-1</sup>) ⊕ ... ⊕ (X<sub>m</sub> · H)</code>, evaluated iteratively via <code>Y<sub>i</sub> = (Y<sub>i-1</sub> ⊕ X<sub>i</sub>) · H mod (x<sup>128</sup> + x<sup>7</sup> + x<sup>2</sup> + x + 1)</code> using our full 128-bit XOR and Shift-and-XOR multiplication engine.</p>
+          <h2 id="ghash-form-title">GCM · GHASH Calculator (GF(2<sup>128</sup>))</h2>
+          <p class="meta app-intro">Compute the GHASH value of 1-8 complete 128-bit blocks using NIST SP 800-38D: <code>Y<sub>i</sub> = (Y<sub>i-1</sub> ⊕ X<sub>i</sub>) · H mod (x<sup>128</sup> + x<sup>7</sup> + x<sup>2</sup> + x + 1)</code>. In this standard, the leftmost block bit is the constant polynomial coefficient. For GCM, supply the correctly padded AAD/ciphertext and length block. A complete GCM authentication tag also requires the AES counter mask; this calculator returns the GHASH value only.</p>
           <form id="ghash-form">
             <div class="experiment-inputs ghash-inputs">
               <label><span class="field-label">Hash subkey <i>H</i> (128-bit hex)</span><input type="text" id="ghash-h" value="" placeholder="Enter 128-bit hash key H (hex)" spellcheck="false" autocomplete="off" required></label>
               <label><span class="field-label">Ciphertext / data blocks <i>X</i><sub>1</sub> ... <i>X</i><sub>k</sub> (1 to 8 blocks, one 128-bit hex block per line)</span><textarea id="ghash-blocks" rows="4" placeholder="Enter 1 to 8 128-bit hex blocks, one per line" spellcheck="false" autocomplete="off" required></textarea></label>
             </div>
             <div class="experiment-actions">
-              <button type="submit" class="primary">Compute GHASH tag</button>
+              <button type="submit" class="primary">Compute GHASH value</button>
               <button type="button" class="outline" id="ghash-random">Randomize key H &amp; blocks</button>
               <button type="button" class="outline" id="ghash-reset">Reset</button>
             </div>
@@ -296,7 +294,7 @@
         </section>
         <section class="panel trace" id="ghash-results" aria-labelledby="ghash-results-title" hidden>
           <div class="section-head">
-            <h2 id="ghash-results-title">GHASH authentication tag &amp; block chain</h2>
+            <h2 id="ghash-results-title">GHASH value &amp; block chain</h2>
             <span id="ghash-modulus-badge" class="readonly-badge"></span>
           </div>
           <p id="ghash-status" class="experiment-status" role="status"></p>
@@ -494,7 +492,7 @@
       </div>
       <p class="upload-dropzone-primary">Drag and drop a <code>.txt</code> or <code>.json</code> file here</p>
       <p class="upload-dropzone-prompt">Click anywhere here to browse files</p>
-      <span class="upload-dropzone-hint">Accepted formats: <code>.txt</code>, <code>.json</code></span>
+      <span class="upload-dropzone-hint">Accepted formats: <code>.txt</code>, <code>.json</code> · hex, binary or algebraic · at most 4096 bits per operand</span>
       <input id="file" type="file" aria-label="Upload operand file" accept=".txt,.json" hidden>
     </div>
     <section class="upload-format-guide" aria-label="Supported file formats">

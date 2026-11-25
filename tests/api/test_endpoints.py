@@ -163,7 +163,8 @@ def test_calculate_preserves_structured_gcd_and_trace_on_400(client, monkeypatch
     assert live_body["trace"]["table_4_7_rows"][0]["B3"] == 0
 
     # Custom NotInvertibleError path: verifies any GF2mInverseError payload passes through.
-    def fake_eea(mod_poly, m, a):
+    def fake_eea(mod_poly, m, a, *, trace=True):
+        assert trace is True
         raise NotInvertibleError("not invertible", gcd=mod_poly, trace=[{"step": 0, "B3": 0}])
 
     monkeypatch.setattr(services, "EXTENDED_EUCLID_GF2M", fake_eea)

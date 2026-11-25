@@ -132,10 +132,14 @@ def test_gcm_ghash_identities_edge_cases_and_validation() -> None:
     x1_int = int(x1_hex, 16)
     x2_int = int(x2_hex, 16)
 
-    # 1. Single-block identity: Y_1 = X_1 * H mod m(x).
+    # 1. Single-block identity: Y_1 = X_1 * H mod m(x) using NIST MSB-first bit order.
+    def reverse(value: int) -> int:
+        return int(f"{value:0128b}"[::-1], 2)
+
     single = gcm_ghash(h_hex, [x1_hex])
-    expected_y1 = multiply(x1_int, h_int, GHASH_MODULUS, 128)
+    expected_y1 = reverse(multiply(reverse(x1_int), reverse(h_int), GHASH_MODULUS, 128))
     assert single["block_count"] == 1
+    assert single["output_kind"] == "ghash"
     assert single["modulus_poly"] == "x^128 + x^7 + x^2 + x + 1"
     assert int(single["tag_hex"], 16) == expected_y1
     assert len(single["tag_hex"]) == 32
@@ -146,12 +150,14 @@ def test_gcm_ghash_identities_edge_cases_and_validation() -> None:
 
     # 2. Multi-block algebraic polynomial identity: Y_2 = (X_1 * H^2) XOR (X_2 * H) mod m(x).
     two_blocks = gcm_ghash(h_hex, [x1_hex, x2_hex])
-    h_sq = multiply(h_int, h_int, GHASH_MODULUS, 128)
-    expected_y2 = add(
-        multiply(x1_int, h_sq, GHASH_MODULUS, 128),
-        multiply(x2_int, h_int, GHASH_MODULUS, 128),
-        GHASH_MODULUS,
-        128,
+    h_sq = multiply(reverse(h_int), reverse(h_int), GHASH_MODULUS, 128)
+    expected_y2 = reverse(
+        add(
+            multiply(reverse(x1_int), h_sq, GHASH_MODULUS, 128),
+            multiply(reverse(x2_int), reverse(h_int), GHASH_MODULUS, 128),
+            GHASH_MODULUS,
+            128,
+        )
     )
     assert two_blocks["block_count"] == 2
     assert int(two_blocks["tag_hex"], 16) == expected_y2

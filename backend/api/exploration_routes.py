@@ -199,7 +199,9 @@ def gcm_ghash_route(req: GCMGHashRequest) -> dict[str, Any]:
 
     Returns:
         Field metadata, per-block XOR and Shift-and-XOR multiplication steps,
-        final 128-bit ``tag_hex``, ``tag_poly``, and ``elapsed_ms``.
+        final GHASH value in legacy ``tag_hex``/``tag_poly`` fields, ``encoding``,
+        ``output_kind="ghash"``, and ``elapsed_ms``. Note that GHASH is not a
+        complete GCM authentication tag without AAD/length formatting and ``E_K(J_0)``.
 
     Raises:
         HTTPException: Status 400 on invalid hex, values ``>= 2^128``, or block

@@ -7,7 +7,7 @@ Hussein Abbas — Milestone 1 (Field Configuration, I/O, Additive/Modulo & Utili
 Purpose & Course References
 ---------------------------
 Parses classroom batch operand files uploaded via ``POST /api/parse-polynomials``
-into validated ``{"a", "b", "base"}`` records for Binary and Hexadecimal inputs
+into validated ``{"a", "b", "base"}`` records for Binary, Hexadecimal and Algebraic inputs
 (Stallings **Chapter 4** polynomial bit-strings and **Chapter 5** braced hex byte
 notation such as ``{57}``). Supports:
 
@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import json
 
-from .polyrepr import BIN_TO_INT, HEX_TO_INT
+from .polyrepr import ALGEBRAIC_TO_INT, BIN_TO_INT, HEX_TO_INT, validate_input_width
 
 
 class OperandFileError(ValueError):
@@ -67,15 +67,15 @@ def _normalize_base(
     pair: int | None = None,
     line: int | None = None,
 ) -> str:
-    """Normalize supported batch base labels to ``"hex"`` or ``"bin"``.
+    """Normalize batch base labels to ``"hex"``, ``"bin"``, or ``"algebraic"``.
 
     Args:
-        base: Candidate base string (``"hex"``, ``"bin"``, or ``"binary"``).
+        base: Candidate base string (``"hex"``, ``"bin"``, ``"binary"``, or ``"algebraic"``).
         pair: Optional 1-based pair index for error reporting.
         line: Optional 1-based source line number for error reporting.
 
     Returns:
-        Normalized string ``"hex"`` or ``"bin"``.
+        Normalized string ``"hex"``, ``"bin"``, or ``"algebraic"``.
 
     Raises:
         OperandFileError: If ``base`` is not a recognized string.
@@ -86,7 +86,9 @@ def _normalize_base(
             return normalized
         if normalized in ("bin", "binary"):
             return "bin"
-    raise OperandFileError("base must be hex or bin", pair=pair, line=line, field="base")
+        if normalized == "algebraic":
+            return normalized
+    raise OperandFileError("base must be hex or bin or algebraic", pair=pair, line=line, field="base")
 
 
 def _validate_pair(
@@ -116,7 +118,7 @@ def _validate_pair(
         raise OperandFileError("expected an operand object", pair=pair)
     lines = lines or {}
     base = _normalize_base(item.get("base", fallback_base), pair=pair, line=lines.get("base"))
-    parse = HEX_TO_INT if base == "hex" else BIN_TO_INT
+    parse = {"hex": HEX_TO_INT, "bin": BIN_TO_INT, "algebraic": ALGEBRAIC_TO_INT}[base]
     result = {"base": base}
     for field in ("a", "b"):
         value = item.get(field, "")
@@ -129,7 +131,7 @@ def _validate_pair(
             )
         if value.strip():
             try:
-                parse(value)
+                validate_input_width(parse(value))
             except ValueError as exc:
                 raise OperandFileError(
                     str(exc),
@@ -137,8 +139,9 @@ def _validate_pair(
                     line=lines.get(field),
                     field=field,
                 ) from exc
-        # Collapse grouping whitespace so returned strings satisfy strict API parsing.
-        result[field] = "".join(value.split())
+        # Collapse grouping whitespace for hex/bin, but preserve algebraic token
+        # boundaries so malformed syntax like "x^1 2" is never silently rewritten.
+        result[field] = value.strip() if base == "algebraic" else "".join(value.split())
     return result
 
 

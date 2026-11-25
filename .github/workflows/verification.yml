@@ -1,0 +1,23 @@
+name: Local correctness and browser verification
+on: [push, pull_request]
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python -m pytest tests/engine tests/api -q --junitxml=audit-results/project-tests.xml
+      - run: python tools/independent_audit.py --repo . --deps . --out audit-results
+      - run: python tools/supplemental_checks.py --repo . --deps . --out audit-results
+      - run: python -c "import json; r=json.load(open('audit-results/results.json')); assert r['total']==10000 and r['failed']==0, r"
+      - run: python -m playwright install chromium --only-shell
+      - run: python -m pytest tests/e2e -q --junitxml=audit-results/browser-tests.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: correctness-evidence
+          path: audit-results/

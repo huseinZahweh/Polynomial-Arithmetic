@@ -32,8 +32,28 @@ from typing import Any
 _BINARY_DIGITS = frozenset("01")
 _HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
 
-# Maximum exponent accepted by ALGEBRAIC_TO_INT to prevent unbounded memory allocation.
-_MAX_ALGEBRAIC_EXPONENT = 4096
+# Maximum operand bit width shared across calculator and batch file uploads.
+MAX_INPUT_BITS = 4096
+_MAX_ALGEBRAIC_EXPONENT = MAX_INPUT_BITS
+
+
+def validate_input_width(value: int) -> int:
+    """Apply the shared 4096-bit operand limit to calculator and batch inputs.
+
+    Args:
+        value: Candidate polynomial bitmask.
+
+    Returns:
+        Validated non-negative integer ``value``.
+
+    Raises:
+        TypeError: If ``value`` is not an integer bitmask.
+        ValueError: If ``value < 0`` or ``value.bit_length() > MAX_INPUT_BITS``.
+    """
+    validate_non_negative_poly(value)
+    if value.bit_length() > MAX_INPUT_BITS:
+        raise ValueError(f"polynomials may have at most {MAX_INPUT_BITS} bits")
+    return value
 
 
 def validate_non_negative_poly(value: int, name: str = "polynomial") -> int:

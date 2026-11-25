@@ -607,13 +607,13 @@ export const LESSONS = [
           {
             title: "How Lessons 1 to 7 Power Real Cryptographic Standards",
             formula: "XTS-AES (GF(2^128)): << 1 & ⊕ 0x87   |   Binary ECC (GF(2^163)): ⊕, ×, ÷ via EEA   |   GCM / GHASH (GF(2^128)): (Y_{i-1} ⊕ X_i) · H",
-            explanation: "Open the Applications tab to watch all three algorithms run live. XTS-AES advances 128-bit storage tweaks by repeating Lesson 5's shift-and-reduce rule modulo x^128 + x^7 + x^2 + x + 1. Binary ECC over NIST B-163 executes point doubling, point addition, and Elliptic Curve Diffie-Hellman (ECDH) on top of XOR, Shift-and-XOR multiplication, and Extended Euclid division. GCM / GHASH chains full 128-bit XOR and Shift-and-XOR multiplication with hash key H to authenticate ciphertext blocks.",
+            explanation: "Open the Applications tab to watch all three algorithms run live. XTS-AES advances 128-bit storage tweaks by repeating Lesson 5's shift-and-reduce rule modulo x^128 + x^7 + x^2 + x + 1. Binary ECC over NIST B-163 executes point doubling, point addition, and Elliptic Curve Diffie-Hellman (ECDH) on top of XOR, Shift-and-XOR multiplication, and Extended Euclid division. GHASH chains 128-bit XOR and polynomial multiplication with hash key H, using the NIST block bit convention. It is one component of GCM: a full GCM tag additionally needs message formatting and the AES counter mask.",
             visual: {
               type: "cards",
               items: [
                 { badge: "XTS-AES · GF(2^128)", title: "Disk & Volume Encryption", detail: "Shifts T_j left by 1 bit per 16-byte block and XORs 0x87 whenever MSB b_127 = 1 (IEEE 1619-2007, Stallings Ch. 6)." },
                 { badge: "NIST B-163 · GF(2^163)", title: "Polynomial ECC & ECDH", detail: "Slope s uses ÷ / EEA; X_r and Y_r use × Shift-and-XOR and ⊕ XOR, then verify y^2 + xy = x^3 + ax^2 + b and K = n_A P_B = n_B P_A (Stallings Ch. 10)." },
-                { badge: "GCM · GHASH (GF(2^128))", title: "Authenticated Encryption Tag", detail: "Iteratively computes Y_i = (Y_{i-1} ⊕ X_i) · H mod (x^128 + x^7 + x^2 + x + 1) across ciphertext blocks (NIST SP 800-38D, Stallings Ch. 12)." },
+                { badge: "GCM · GHASH (GF(2^128))", title: "GHASH Universal Hash", detail: "Iteratively computes Y_i = (Y_{i-1} ⊕ X_i) · H mod (x^128 + x^7 + x^2 + x + 1) across ciphertext blocks (NIST SP 800-38D, Stallings Ch. 12)." },
               ],
             },
           },

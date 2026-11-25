@@ -35,7 +35,7 @@ flowchart LR
 | Layer | Directory | Ownership | Responsibilities |
 | :--- | :--- | :--- | :--- |
 | **Pure Math & Utilities** | `backend/engine/` | Hussein Abbas (M1), Hassan Tarhini (M2), Husein Zahweh (M3, M6), Ali Zahreddine (Explorations) | Canonical 13-field registry, lossless Binary/Hex/Algebraic converters, traced $+$, $-$, $\bmod$, Shift-and-XOR $\times$, carry-free $\times$, `POLY_DIVMOD`, Table 4.7 Extended Euclid $b^{-1}$, two-stage division, live verifiers, random generator, batch parser, exporter, tutorial loader, Modulus irreducibility/Berlekamp, XTS-AES $GF(2^{128})$ tweak multiplier, Binary ECC ($GF(2^4)$ & NIST B-163), and multiplication comparison/benchmarks. |
-| **Web API & Service Layer** | `backend/api/` | Hassan Tarhini (M2 Core), Ali Zahreddine (Integration & Explorations), Husein Zahweh (M6 Applications) | Pydantic v2 schemas (`schemas.py`), operation dispatch / timing / verification assembly (`services.py`), 5 exploration & application endpoints (`exploration_routes.py`), 6 core endpoints + CORS + `/workbench/` mount (`main.py`). |
+| **Web API & Service Layer** | `backend/api/` | Hassan Tarhini (M2 Core), Ali Zahreddine (Integration & Explorations), Husein Zahweh (M6 Applications) | Pydantic v2 schemas (`schemas.py`), operation dispatch / timing / verification assembly (`services.py`), 6 exploration & application endpoints (`exploration_routes.py`), 6 core endpoints + CORS + `/workbench/` mount (`main.py`). |
 | **Educational Web GUI** | `frontend/` | Ali Zahreddine (M4–M5), Husein Zahweh (M6) | Single-document 5-view lab (`index.html`, `lab.css` serving `#calculator`, `#lessons`, `#modulus`, `#applications`, `#compare`), client `BigInt` formatting + Unicode superscripts + Full-Value Inspector & Derivation popups + top-center error alerts (`notation.js`), `Step view`-default traces with built-in Previous → Current, 4-step inline `All steps grid`, `Classic table` color legend, playback locking & EEA/Shift-XOR derivation popups (`traces.js`), self-contained 7-lesson study guide with truth tables (`lesson-data.js`, `lessons.js`), interactive `Tutorial tour` spotlight walkthroughs (`tour.js`), Modulus / Applications (XTS-AES + Binary ECC) / Compare labs (`explorations.js`), and calculator controller (`lab.js`). |
 | **Static Classroom Data** | `data/` | Hussein Abbas (M1), Ali Zahreddine (M4) | Single source of truth for the 4 tutorial slides + Ch. 4/5 presets (`tutorial_slides.json`) and 4-pair classroom upload demo (`demo-operands.json`). |
 | **Benchmarks & Tests** | `benchmarks/`, `tests/` | Husein Zahweh (M3), Full Team | Multi-field EEA/division CLI benchmark (`benchmark_gf2m.py`) and unified root `pytest` suite (`tests/engine/`, `tests/api/`, `tests/e2e/`). |
@@ -62,7 +62,8 @@ All modules in `backend/engine/` represent every polynomial $p(x) = \sum_{i=0}^{
 Base URL (default): `http://127.0.0.1:8000` · Swagger OpenAPI UI: `/docs` · Web Workbench: `/workbench/`
 
 ### 4.1 Meta & Health Routes
-* `GET /` — Returns `{"service": "gf2m-api", "version": "1.0.0", "docs": "/docs", "workbench": "/workbench/"}`.
+* `GET /` — Redirects to `/workbench/`.
+* `GET /api` — Returns `{"service": "gf2m-api", "version": "1.0.0", "docs": "/docs", "workbench": "/workbench/"}`.
 * `GET /api/health` — Returns `{"status": "ok"}`.
 
 ### 4.2 Core Arithmetic & Utility Endpoints (6 Routes)

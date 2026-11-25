@@ -670,18 +670,18 @@ function setupApplications(api, reportError) {
     setMathText($("ghash-modulus-badge"), "m(x) = " + data.modulus_poly);
     status(
       "ghash-status",
-      "Authenticated " + data.block_count + (data.block_count === 1 ? " block" : " blocks") +
+      "Hashed " + data.block_count + (data.block_count === 1 ? " block" : " blocks") +
         " in GF(2^128) · " + data.elapsed_ms.toFixed(3) + " ms · H = " + data.h_hex.slice(0, 10) + "…" + data.h_hex.slice(-6),
       true,
     );
 
     const tagDisplay = $("ghash-tag-display");
     tagDisplay.replaceChildren(
-      mathElement("span", "128-bit GHASH Authentication Tag (Y_" + data.block_count + ")", "ghash-tag-label"),
+      mathElement("span", "128-bit GHASH Value (Y_" + data.block_count + ")", "ghash-tag-label"),
       makeGhashInspectButton(
         data.tag_hex,
-        "GHASH Authentication Tag (Y_" + data.block_count + ")",
-        "Final 128-bit GHASH tag in GF(2^128) mod (x^128 + x^7 + x^2 + x + 1)",
+        "GHASH Value (Y_" + data.block_count + ")",
+        "Final 128-bit GHASH value in NIST block order over GF(2^128) mod (x^128 + x^7 + x^2 + x + 1)",
         false,
         "ghash-tag-btn",
       ),

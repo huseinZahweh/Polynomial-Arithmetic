@@ -45,3 +45,6 @@ desktop.ini
 *.log
 *.tmp
 *.bak
+
+# Generated independent audit evidence
+audit-results/

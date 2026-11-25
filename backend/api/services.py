@@ -49,9 +49,6 @@ from .schemas import (
 # Operations requiring both operand A(x) and operand B(x).
 _BINARY_OPS = {Operation.add, Operation.subtract, Operation.multiply, Operation.divide}
 
-# Guardrail cap matching ALGEBRAIC_TO_INT and preventing excessive bit-width DoS inputs.
-_MAX_INPUT_BITS = 4096
-
 
 class CalculationError(ValueError):
     """Domain validation or non-invertible error mapped to HTTP 400 by the API.
@@ -170,10 +167,7 @@ def _parse_operand(text: str, base: str, name: str) -> int:
         CalculationError: On malformed syntax or bit lengths exceeding ``4096``.
     """
     try:
-        value = polyrepr.parse_value(text, base)
-        if value.bit_length() > _MAX_INPUT_BITS:
-            raise ValueError(f"polynomials may have at most {_MAX_INPUT_BITS} bits")
-        return value
+        return polyrepr.validate_input_width(polyrepr.parse_value(text, base))
     except ValueError as exc:
         raise CalculationError(f"operand {name}: {exc}") from exc
 
@@ -228,7 +222,7 @@ def _dispatch(
         return gf2m_multiply(a, b, mod_poly, m), None, None
 
     if op is Operation.inverse:
-        result, eea_trace = EXTENDED_EUCLID_GF2M(mod_poly, m, a)
+        result, eea_trace = EXTENDED_EUCLID_GF2M(mod_poly, m, a, trace=want_trace)
         proof = VERIFY_INVERSE(a, result, mod_poly, m)
         ver = Verification(
             label="A(x) * A(x)^-1 mod m(x) = 1",
@@ -242,8 +236,8 @@ def _dispatch(
         if want_trace:
             result, div_trace = GF2M_DIVIDE(a, b, mod_poly, m)
         else:
-            # Fast path when no trace is requested: skip Shift-and-XOR step formatting.
-            b_inv, _ = EXTENDED_EUCLID_GF2M(mod_poly, m, b)
+            # Fast path when no trace is requested: skip Shift-and-XOR and EEA row formatting.
+            b_inv, _ = EXTENDED_EUCLID_GF2M(mod_poly, m, b, trace=False)
             result, div_trace = gf2m_multiply(a, b_inv, mod_poly, m), None
         proof = VERIFY_DIVISION(a, b, result, mod_poly, m)
         ver = Verification(

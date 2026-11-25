@@ -714,18 +714,24 @@ def _parse_128bit_hex(raw: str, label: str) -> int:
     return value
 
 
+def _reverse_128_bits(value: int) -> int:
+    """Convert between NIST SP 800-38D GHASH block bit order and engine polynomial basis."""
+    return int(f"{value:0128b}"[::-1], 2)
+
+
 def gcm_ghash(h_hex: str, blocks_hex: list[str]) -> dict[str, Any]:
-    """Compute GCM GHASH authentication tag over ``GF(2^128)`` modulo ``x^128 + x^7 + x^2 + x + 1``.
+    """Compute a NIST SP 800-38D GHASH value over ``GF(2^128)`` modulo ``x^128 + x^7 + x^2 + x + 1``.
 
-    Implements the NIST SP 800-38D / Stallings **Chapter 12** GHASH polynomial
-    authenticator using our canonical :func:`backend.engine.additive.add` (XOR)
-    and :func:`backend.engine.multiply.multiply` (Shift-and-XOR) primitives.
-    Starting from ``Y_0 = 0``, iterates for ``i = 1 .. k``:
+    NIST SP 800-38D section 6.3 assigns the leftmost block bit to the constant
+    polynomial coefficient. Reverses all 128 bits at the shared polynomial
+    multiplier boundary so both official NIST vectors and our Shift-and-XOR
+    multiplier agree exactly. Note: GHASH is the universal hash component of
+    GCM; a full GCM authentication tag additionally requires AAD/ciphertext
+    length formatting and XORing with ``E_K(J_0)``.
 
-        ``Y_i = (Y_{i-1} XOR X_i) * H mod (x^128 + x^7 + x^2 + x + 1)``
-
-    which evaluates the Horner polynomial
-    ``Y_k = (X_1 * H^k) XOR (X_2 * H^(k-1)) XOR ... XOR (X_k * H) mod m(x)``.
+    Implements Stallings **Chapter 12** / NIST SP 800-38D GHASH chaining using
+    :func:`backend.engine.additive.add` (XOR) and :func:`backend.engine.multiply.multiply`
+    (Shift-and-XOR): ``Y_i = (Y_{i-1} XOR X_i) * H mod (x^128 + x^7 + x^2 + x + 1)``.
 
     Args:
         h_hex: 128-bit hash subkey ``H`` as an unsigned hexadecimal string.
@@ -736,7 +742,8 @@ def gcm_ghash(h_hex: str, blocks_hex: list[str]) -> dict[str, Any]:
         Dictionary containing ``m=128``, ``modulus_hex``, ``modulus_poly``,
         ``h_hex``, ``block_count``, per-block ``steps`` (each with ``block_index``,
         ``x_i_hex``, ``prev_y_hex``, ``xor_input_hex``, ``y_i_hex``), final
-        ``tag_hex``, ``tag_poly``, and ``elapsed_ms``.
+        ``tag_hex``, ``tag_poly`` (in NIST coefficient order), ``encoding``,
+        ``output_kind="ghash"``, and ``elapsed_ms``.
 
     Raises:
         ValueError: If ``h_hex`` or any block is malformed/negative/``>= 2^128``,
@@ -751,6 +758,7 @@ def gcm_ghash(h_hex: str, blocks_hex: list[str]) -> dict[str, Any]:
         raise ValueError("Provide between 1 and 8 128-bit hexadecimal blocks.")
 
     h_val = _parse_128bit_hex(h_hex, "Hash subkey H")
+    h_poly = _reverse_128_bits(h_val)
     parsed_blocks = [
         _parse_128bit_hex(raw_block, f"Block X{idx}")
         for idx, raw_block in enumerate(blocks_hex, start=1)
@@ -761,7 +769,9 @@ def gcm_ghash(h_hex: str, blocks_hex: list[str]) -> dict[str, Any]:
     steps: list[dict[str, Any]] = []
     for block_index, x_i in enumerate(parsed_blocks, start=1):
         xor_input = add(y_prev, x_i, GHASH_MODULUS, GHASH_DEGREE)
-        y_i = multiply(xor_input, h_val, GHASH_MODULUS, GHASH_DEGREE)
+        y_i = _reverse_128_bits(
+            multiply(_reverse_128_bits(xor_input), h_poly, GHASH_MODULUS, GHASH_DEGREE)
+        )
         steps.append(
             {
                 "block_index": block_index,
@@ -782,7 +792,9 @@ def gcm_ghash(h_hex: str, blocks_hex: list[str]) -> dict[str, Any]:
         "block_count": len(steps),
         "steps": steps,
         "tag_hex": INT_TO_HEX(y_prev, GHASH_DEGREE).upper(),
-        "tag_poly": INT_TO_ALGEBRAIC(y_prev),
+        "tag_poly": INT_TO_ALGEBRAIC(_reverse_128_bits(y_prev)),
+        "encoding": "NIST SP 800-38D: leftmost block bit is the constant coefficient",
+        "output_kind": "ghash",
         "elapsed_ms": round(elapsed_ms, 4),
     }
 

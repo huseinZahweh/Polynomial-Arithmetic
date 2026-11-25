@@ -116,7 +116,7 @@ Polynomial-Arithmetic/
 │   ├── engine/                       # Unified GF(2^m) pure-Python math & utilities
 │   │   ├── __init__.py               # Clean public re-exports
 │   │   ├── fields.py                 # 13-field registry (2 <= m <= 8 and m in {163..571})
-│   │   ├── polyrepr.py               # Lossless Binary / Hex / Algebraic converters
+│   │   ├── polyrepr.py               # Lossless Binary / Hex / Algebraic converters & shared 4096-bit check
 │   │   ├── additive.py               # Add, subtract, modulo reduction & traces
 │   │   ├── multiply.py               # Shift-and-XOR multiplication & Tables 1 & 2 traces
 │   │   ├── poly_ops.py               # Carry-free multiply & POLY_DIVMOD long division
@@ -125,17 +125,18 @@ Polynomial-Arithmetic/
 │   │   ├── verification.py           # Live algebraic self-verifiers (inverse & division)
 │   │   ├── exceptions.py             # GF2mInverseError, ZeroElementHasNoInverseError, NotInvertibleError
 │   │   ├── randomops.py              # Sparse/dense nonzero random operand generator
-│   │   ├── parser.py                 # Batch .txt/.json operand file parser
+│   │   ├── parser.py                 # Batch .txt/.json operand file parser (hex, bin, algebraic)
 │   │   ├── formatter.py              # .md/.json summary exporter & v1 share-token codec
 │   │   ├── tutorial.py               # Tutorial slide loader (reads data/tutorial_slides.json)
-│   │   └── explorations.py           # Irreducibility/Berlekamp, XTS-AES GF(2^128), Binary ECC (B-163), Mul comparison
+│   │   └── explorations.py           # Irreducibility/Berlekamp, XTS-AES GF(2^128), Binary ECC (B-163), GCM/GHASH, Mul comparison
 │   └── api/                          # Unified FastAPI server & service layer
 │       ├── __init__.py
-│       ├── main.py                   # FastAPI entrypoint (6 core + 5 exploration/application routes + /workbench/)
+│       ├── main.py                   # FastAPI entrypoint (6 core + 6 exploration/application routes + /workbench/)
 │       ├── schemas.py                # Pydantic v2 request/response contracts
 │       ├── services.py               # Operation dispatcher, timing, verification, error mapping
 │       └── exploration_routes.py     # /api/explorations/* FastAPI router
-├── frontend/                         # Zero-build ES-module educational web workbench
+├── frontend/                         # Zero-build ES-module educational web workbench + self-hosted fonts/
+│   ├── fonts/                        # Self-hosted IBM Plex Sans & JetBrains Mono woff2 assets + OFL licenses
 │   ├── index.html
 │   ├── lab.css
 │   ├── lab.js
@@ -151,7 +152,10 @@ Polynomial-Arithmetic/
 ├── benchmarks/
 │   ├── __init__.py
 │   └── benchmark_gf2m.py             # Multi-field EEA & division benchmark CLI
-├── tests/                            # Unified root pytest suite (363 tests)
+├── tools/                            # Independent 10,000-case verification campaign & supplemental checks
+│   ├── independent_audit.py
+│   └── supplemental_checks.py
+├── tests/                            # Unified root pytest suite (engine, API, audit regressions, & Chromium E2E)
 │   ├── conftest.py
 │   ├── engine/                       # Pure-Python math, utilities, & exploration unit tests
 │   ├── api/                          # FastAPI endpoint, 8-row matrix, & exploration route tests

@@ -27,7 +27,7 @@ Canonical $O(1)$ lookup table for all 13 supported binary finite fields ($2 \le 
 
 ### `backend/engine/polyrepr.py` — Hussein Abbas (M1), Hassan Tarhini (M2), Husein Zahweh (M3), Ali Zahreddine (M4)
 Single unified representation, validation, and base-conversion module:
-* **`validate_non_negative_poly(value, name)` / `validate_modulus(m_poly_int, m_degree)`:** Enforces strict non-boolean integer bitmasks and checks $\deg(m(x)) = m$.
+* **`validate_non_negative_poly(value, name)` / `validate_input_width(value)` / `validate_modulus(m_poly_int, m_degree)`:** Enforces strict non-boolean integer bitmasks, shared `MAX_INPUT_BITS = 4096` cap across calculator & upload parsers, and checks $\deg(m(x)) = m$.
 * **`DEG(poly_int)` / `HAMMING_WEIGHT(poly_int)`:** $O(1)$ degree via `bit_length() - 1` (`-1` for `0`) and term count via `bit_count()`.
 * **`BIN_TO_INT(text)` / `HEX_TO_INT(text)`:** Parses grouped binary/hex strings (allowing whitespace grouping, Stallings Ch. 5 `{...}` braces, and `0b`/`0x` prefixes; strictly rejecting `+`, `-`, and `_`).
 * **`ALGEBRAIC_TO_INT(text)`:** Parses monomial sums like `x^7 + x + 1`, cancelling duplicate terms modulo 2 via XOR and capping exponents below $4096$.
@@ -66,7 +66,7 @@ Structured inverse error hierarchy carrying `.gcd` and `.trace` for educational 
 ### `backend/engine/extended_euclid.py` — Husein Zahweh (Milestone 3)
 Stallings Chapter 4 Table 4.7 Extended Euclidean Algorithm:
 * **`_build_table_4_7_row(...)` / `_build_trace_dict(...)`:** Constructs raw integer columns and pre-formatted multi-base `cells` (`hex`, `bin`, `algebraic`) plus initial reduction and termination metadata.
-* **`EXTENDED_EUCLID_GF2M(m_poly_int, m_degree, b_int)`:** Reduces $b(x)$ via `MOD_REDUCE`, runs the Bezout triple recurrence in $O(m^2)$ time, returns `(b_inv_int, trace_dict)` on $B_3 = 1$, or raises `ZeroElementHasNoInverseError` / `NotInvertibleError` on $B_3 = 0$.
+* **`EXTENDED_EUCLID_GF2M(m_poly_int, m_degree, b_int, *, trace=True)`:** Reduces $b(x)$ via `MOD_REDUCE`, runs the Bezout triple recurrence in $O(m^2)$ time, returns `(b_inv_int, trace_dict)` on $B_3 = 1$, or raises `ZeroElementHasNoInverseError` / `NotInvertibleError` on $B_3 = 0$. Supports `trace=False` for callers that need only the inverse and `.gcd` without allocating Table 4.7 row dictionaries.
 
 ### `backend/engine/division.py` — Husein Zahweh (Milestone 3)
 Two-stage finite-field division $a(x) / b(x) = a(x) \times b(x)^{-1} \bmod m(x)$:
@@ -83,7 +83,7 @@ Live algebraic proof builders:
 
 ### `backend/engine/parser.py` — Hussein Abbas (Milestone 1)
 * **`OperandFileError(ValueError)`:** Carries `.pair`, `.line`, and `.field` diagnostics.
-* **`parse_operand_file(content, filename="", default_base="hex")`:** Auto-detects `.json` vs. `.txt` (supporting BOM removal, `#` comments, `---`/`===` delimiters, and optional unary `B`) and validates every digit via `HEX_TO_INT`/`BIN_TO_INT`.
+* **`parse_operand_file(content, filename="", default_base="hex")`:** Auto-detects `.json` vs. `.txt` (supporting BOM removal, `#` comments, `---`/`===` delimiters, and optional unary `B`) and validates `"hex"`, `"bin"`, and `"algebraic"` operands via `HEX_TO_INT`/`BIN_TO_INT`/`ALGEBRAIC_TO_INT` plus `validate_input_width`.
 
 ### `backend/engine/formatter.py` — Hussein Abbas (Milestone 1) & Ali Zahreddine (Integration)
 * **`make_share_token` / `parse_share_token`:** Encodes/decodes `v1|{m}|{op}|{a_hex}|{b_hex}|{base}` as lowercase UTF-8 hex.
@@ -98,7 +98,7 @@ Pure-Python exploration and cryptographic application engines:
 * **`explore_modulus(polynomial)`:** Checks irreducibility for degrees $2 \le d \le 571$ via $\gcd(f, x^{2^i} + x)$ and extracts two nonzero factor witnesses when reducible.
 * **`compute_xts_tweak(t0_hex, steps=6)`:** Computes the IEEE 1619-2007 / Stallings Ch. 6 XTS-AES $GF(2^{128})$ tweak sequence $T_j = T_0 \otimes \alpha^j \pmod{x^{128} + x^7 + x^2 + x + 1}$, flagging every $b_{127} = 1$ overflow reduction (`⊕ 0x87`).
 * **`ECC_CURVES`, `ecc_is_on_curve`, `ecc_double`, `ecc_add`, `ecc_scalar_mul`, `explore_binary_ecc(curve, n_a, n_b)`:** Binary elliptic curve explorer ($E_{2^m}(a,b)$: $y^2 + xy = x^3 + ax^2 + b$) supporting both Teaching Curve $GF(2^4)$ ($G = (\text{3}, \text{C})$) and official NIST FIPS 186-4 / SEC 2 **NIST B-163** ($GF(2^{163})$), reusing canonical `backend.engine` `add`, `multiply`, `EXTENDED_EUCLID_GF2M`, and `GF2M_DIVIDE` primitives for point doubling ($R = 2P$), point addition ($R = P + Q$), curve membership verification, and ECDH ($K = n_A P_B = n_B P_A$).
-* **`gcm_ghash(h_hex, blocks_hex)`:** NIST SP 800-38D / Stallings Ch. 12 GCM GHASH authenticator over $GF(2^{128})$ modulo $x^{128} + x^7 + x^2 + x + 1$, chaining canonical `add` (XOR) and `multiply` (Shift-and-XOR) across $1$–$8$ 128-bit blocks to compute $Y_i = (Y_{i-1} \oplus X_i) \cdot H \bmod m(x)$ and returning per-block steps, `tag_hex`, `tag_poly`, and `elapsed_ms`.
+* **`gcm_ghash(h_hex, blocks_hex)`:** NIST SP 800-38D / Stallings Ch. 12 GHASH universal hash over $GF(2^{128})$ modulo $x^{128} + x^7 + x^2 + x + 1$, reversing 128-bit block bit order via `_reverse_128_bits` at the shared `multiply` boundary per §6.3–6.4, chaining canonical `add` and `multiply` across $1$–$8$ blocks, and returning per-block steps, `tag_hex`, `tag_poly`, `encoding`, `output_kind="ghash"`, and `elapsed_ms`.
 * **`compare_multiplication(m, a, b)`:** Runs Shift-and-XOR (`multiply_traced`) alongside `POLY_MUL_NO_MOD` + traced `POLY_DIVMOD`.
 * **`benchmark_multiplication(seed=455, trials=31, degrees=(163, 571))`:** Alternates untraced execution order across 31 trials per method and reports median microseconds.
 
