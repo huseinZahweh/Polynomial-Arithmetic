@@ -807,8 +807,11 @@ details > summary:hover {
   min-width: 0;
 }
 
-.poly-input-wrap input.has-poly-overlay {
-  color: transparent;
+.poly-input-wrap input.has-poly-overlay,
+.operand .poly-input-wrap input[type="text"].has-poly-overlay,
+.experiment-inputs .poly-input-wrap input.has-poly-overlay {
+  color: transparent !important;
+  -webkit-text-fill-color: transparent;
   caret-color: var(--ink);
 }
 
@@ -818,10 +821,17 @@ details > summary:hover {
   display: flex;
   align-items: center;
   padding: .52rem .68rem;
+  border-radius: calc(var(--radius-sm) - 1px);
   font: 500 1.02rem/1.45 var(--mono);
   color: var(--ink);
-  background: transparent;
+  background: var(--surface-card);
   pointer-events: none;
+  overflow: hidden;
+}
+
+.poly-input-overlay-text {
+  display: block;
+  width: 100%;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -834,6 +844,7 @@ details > summary:hover {
 
 .poly-input-overlay.is-invalid {
   color: var(--danger-ink);
+  background: #fffafb;
 }
 
 .poly-input-overlay sup {

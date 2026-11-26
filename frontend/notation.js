@@ -167,8 +167,10 @@ export function attachPolyInputOverlay(inputEl, isPolyModeFn) {
       && !inputEl.disabled
       && raw.trim().length > 0;
     if (active) {
-      overlay.replaceChildren();
-      appendMathText(overlay, normalizeAlgebraicInput(raw));
+      const textSpan = document.createElement("span");
+      textSpan.className = "poly-input-overlay-text";
+      appendMathText(textSpan, normalizeAlgebraicInput(raw));
+      overlay.replaceChildren(textSpan);
       overlay.classList.toggle("is-invalid", inputEl.getAttribute("aria-invalid") === "true");
       overlay.hidden = false;
       inputEl.classList.add("has-poly-overlay");

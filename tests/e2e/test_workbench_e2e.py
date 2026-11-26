@@ -1064,6 +1064,8 @@ def test_visual_lab_toggle_export_import_ghash_keys_and_sup_overlays(live_url: s
         check(overlay_a).to_be_visible()
         check(overlay_a.locator("sup")).to_have_text(["6", "4", "3", "2"])
         assert "^" not in overlay_a.inner_text()
+        assert overlay_a.inner_text() == "x6 + x4 + x3 + x2 + 1"
+        assert page.evaluate("getComputedStyle(document.querySelector('#poly-a')).color") == "rgba(0, 0, 0, 0)"
         # Focusing hides the overlay for exact raw ASCII editing; blurring restores <sup>.
         page.locator("#poly-a").focus()
         check(overlay_a).to_be_hidden()
