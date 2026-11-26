@@ -1,4 +1,4 @@
-"""Unified FastAPI application hosting all 12 API endpoints and the web workbench.
+"""Unified FastAPI application hosting all 13 API endpoints and the web workbench.
 
 Original Authors
 ----------------
@@ -17,8 +17,9 @@ Core REST API (6 endpoints):
     POST /api/export-calculation   Render downloadable .md or .json summary reports
     GET  /api/tutorial             Serve the 4-slide tutorial and Ch. 4/5 presets
 
-Teaching Explorations & Applications (6 endpoints via :mod:`backend.api.exploration_routes`):
+Teaching Explorations & Applications (7 endpoints via :mod:`backend.api.exploration_routes`):
     POST /api/explorations/modulus
+    POST /api/explorations/aes-sbox
     POST /api/explorations/xts-tweak
     POST /api/explorations/binary-ecc
     POST /api/explorations/gcm-ghash
@@ -267,7 +268,7 @@ def get_tutorial() -> TutorialResponse:
     )
 
 
-# Mount the 6 interactive exploration routes and the static web workbench.
+# Mount the 7 interactive exploration routes and the static web workbench.
 app.include_router(explorations_router)
 if FRONTEND_DIR.is_dir():
     app.mount("/workbench", StaticFiles(directory=FRONTEND_DIR, html=True), name="workbench")

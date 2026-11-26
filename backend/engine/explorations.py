@@ -243,6 +243,71 @@ def explore_modulus(polynomial: int) -> dict[str, Any]:
     }
 
 
+def compute_aes_sbox(byte: int) -> dict[str, Any]:
+    """Compute the FIPS 197 §5.1.1 / Stallings Ch. 5 AES S-box transformation.
+
+    Stage 1 inverts ``byte`` in ``GF(2^8)`` modulo ``0x11B`` via
+    :func:`EXTENDED_EUCLID_GF2M` (mapping ``0x00 -> 0x00`` per the AES zero rule).
+    Stage 2 XORs the inverse byte with its 4 cyclic left bit-rotations and the
+    affine constant ``0x63`` (``01100011``).
+
+    Args:
+        byte: Input byte integer in ``[0, 255]``.
+
+    Returns:
+        Dictionary containing ``input``, ``inverse``, ``inverse_trace`` (Table 4.7
+        trace or ``None`` for ``byte == 0``), ``affine_rows`` (6 cumulative XOR
+        rows), and ``output``.
+
+    Raises:
+        TypeError: If ``byte`` is not an ``int`` (or is ``bool``).
+        ValueError: If ``byte < 0`` or ``byte > 0xFF``.
+
+    Complexity:
+        Constant time ``O(1)`` (fixed 8-bit field width) and ``O(1)`` space.
+    """
+    validate_non_negative_poly(byte, "byte")
+    if byte > 0xFF:
+        raise ValueError("Enter one byte, from 00 through FF in hex.")
+
+    field = get_field(8)
+    if byte:
+        inverted, trace = EXTENDED_EUCLID_GF2M(field.mod_poly, field.m, byte)
+    else:
+        # FIPS 197 §5.1.1 defines the multiplicative inverse of 0x00 as 0x00.
+        inverted, trace = 0, None
+
+    running = 0
+    rows: list[dict[str, Any]] = []
+    # Equivalent to the 8x8 circulant AES affine matrix multiplication over GF(2).
+    for shift in range(5):
+        rotated = ((inverted << shift) | (inverted >> (8 - shift))) & 0xFF
+        running ^= rotated
+        rows.append(
+            {
+                "label": "Inverse byte" if shift == 0 else f"Rotate left by {shift}",
+                "value": _repr(rotated, 8),
+                "running": _repr(running, 8),
+            }
+        )
+    running ^= 0x63
+    rows.append(
+        {
+            "label": "AES constant",
+            "value": _repr(0x63, 8),
+            "running": _repr(running, 8),
+        }
+    )
+
+    return {
+        "input": _repr(byte, 8),
+        "inverse": _repr(inverted, 8),
+        "inverse_trace": trace,
+        "affine_rows": rows,
+        "output": _repr(running, 8),
+    }
+
+
 def compute_xts_tweak(t0: int, steps: int = 6) -> dict[str, Any]:
     """Compute XTS-AES ``GF(2^128)`` tweak progression ``T_j = T_0 * alpha^j mod m(x)``.
 

@@ -9,6 +9,7 @@ from backend.engine import (
     POLY_DIVMOD,
     POLY_MUL_NO_MOD,
     add,
+    compute_aes_sbox,
     compute_xts_tweak,
     ecc_add,
     ecc_double,
@@ -183,3 +184,29 @@ def test_gcm_ghash_identities_edge_cases_and_validation() -> None:
         gcm_ghash(h_hex, [x1_hex] * 9)
     with pytest.raises(ValueError):
         gcm_ghash(h_hex, ["1" + "0" * 32])
+
+
+def test_aes_all_bytes_against_inverse_by_exponentiation_and_bit_formula() -> None:
+    """Exhaustively verify all 256 AES S-box outputs against a^254 and FIPS 197 bit math."""
+    for byte in range(256):
+        reference_inverse = 1
+        for _ in range(254):
+            reference_inverse = multiply(reference_inverse, byte, 0x11B, 8)
+        expected = 0x63
+        for destination in range(8):
+            for offset in (0, 4, 5, 6, 7):
+                bit = (reference_inverse >> ((destination + offset) % 8)) & 1
+                expected ^= bit << destination
+        result = compute_aes_sbox(byte)
+        assert int(result["inverse"]["hex"], 16) == reference_inverse
+        assert int(result["output"]["hex"], 16) == expected
+        assert result["affine_rows"][-1]["running"] == result["output"]
+        if byte == 0:
+            assert result["inverse_trace"] is None
+        else:
+            assert result["inverse_trace"] is not None
+
+    with pytest.raises(ValueError):
+        compute_aes_sbox(-1)
+    with pytest.raises(ValueError):
+        compute_aes_sbox(0x100)

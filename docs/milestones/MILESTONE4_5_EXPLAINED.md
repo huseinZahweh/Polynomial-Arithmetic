@@ -41,7 +41,7 @@ The frontend is a zero-build, accessible ES-module web application hosted direct
 
 ### 1.4 Guided Spotlight Tours & Field Concepts Modal (`frontend/tour.js`)
 
-Clicking **Tutorial tour** launches a context-aware spotlight walkthrough tailored to whichever tab is open (Calculator, Lessons, Modulus explorer, Applications, or Compare multiplication). Each step highlights the target control, falls back gracefully to the action button if a result panel is not yet visible, and updates live when calculations complete. From the Calculator tour, **Field concepts** opens the 4-slide `<dialog>` modal served by `GET /api/tutorial`.
+Clicking **Tutorial tour** launches a context-aware spotlight walkthrough tailored to whichever of the six tabs is open (Calculator, Lessons, Visual lab, Modulus explorer, Applications, or Compare multiplication). Each step highlights the target control, falls back gracefully to the action button if a result panel is not yet visible, and updates live when calculations complete. From the Calculator tour, **Field concepts** opens the 4-slide `<dialog>` modal served by `GET /api/tutorial`.
 
 ---
 
@@ -55,7 +55,8 @@ Built in [backend/engine/explorations.py](../../backend/engine/explorations.py),
 2. **Applications (`#applications` — upgraded in Milestone 6 from the initial byte-level walkthrough to full multi-standard $GF(2^m)$ demos):**
    * **XTS-AES $GF(2^{128})$ Tweak Multiplier (`POST /api/explorations/xts-tweak`):** Demonstrates IEEE 1619-2007 / Stallings Chapter 6 sector tweak shifts modulo $x^{128} + x^7 + x^2 + x + 1$ (`XOR 0x87` on $b_{127} = 1$).
    * **Polynomial / Binary ECC ($E_{2^m}(a,b)$) Explorer (`POST /api/explorations/binary-ecc`):** Demonstrates Stallings Chapter 10 & NIST FIPS 186-4 / SEC 2 point doubling ($R = 2P$), point addition ($R = P + Q$) in classroom slide notation (`Xp`, `Yp`, `s`, `Xr`, `Yr`), curve membership verification, and ECDH key exchange on both Teaching Curve $GF(2^4)$ and official **NIST B-163** ($GF(2^{163})$).
-   * **GCM · GHASH ($GF(2^{128})$) Authenticator (`POST /api/explorations/gcm-ghash`):** Demonstrates NIST SP 800-38D / Stallings Chapter 12 authenticated encryption hashing $Y_i = (Y_{i-1} \oplus X_i) \cdot H \pmod{x^{128} + x^7 + x^2 + x + 1}$ across $1$–$8$ 128-bit blocks using canonical XOR and Shift-and-XOR multiplication.
+   * **GCM · GHASH ($GF(2^{128})$) Authenticator (`POST /api/explorations/gcm-ghash`):** Demonstrates NIST SP 800-38D / Stallings Chapter 12 authenticated encryption hashing $Y_i = (Y_{i-1} \oplus X_i) \cdot H \pmod{x^{128} + x^7 + x^2 + x + 1}$ across $1$–$8$ 128-bit blocks using canonical XOR and Shift-and-XOR multiplication, with `Save key` and `Share key`.
+   * **AES S-Box ($GF(2^8)$) Byte Substitution (`POST /api/explorations/aes-sbox`):** Traces one byte through $GF(2^8)$ inversion modulo `0x11B` and the FIPS 197 §5.1.1 affine XOR transformation (`0x63`), integrated as the 4th sub-tab inside `#applications` (with legacy `#aes` hash redirection and shared `Export JSON` / `Import JSON` across all four sub-tabs).
 3. **Compare Multiplication (`#compare` / `POST /api/explorations/compare-multiplication` & `GET /api/explorations/multiplication-benchmarks`):**
    * Runs interleaved Shift-and-XOR alongside deferred carry-free multiplication (`POLY_MUL_NO_MOD`) + Euclidean long division (`POLY_DIVMOD`) on identical operands, displaying both traces side-by-side.
    * **Compare multiplication methods** in the calculator transfers the active degree and operands directly into `#compare`.

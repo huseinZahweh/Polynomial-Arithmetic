@@ -1,0 +1,1257 @@
+/*
+ * Finite Field Lab - Visual Lab & Visual / Classic Toggle Stylesheet (EECE 455 Project-3)
+ * Harmonized with lab.css Swiss Precision tokens (de-boxed surfaces, WCAG 2.2 AA).
+ * Colour roles stay fixed across Visual Lab: amber = A, blue = B, white ring / ink = result.
+ */
+
+/* ---------- Header Visual | Classic Mode Switch (scoped to Visual lab) ---------- */
+.learn-mode {
+  min-width: 9.25rem;
+  gap: .22rem;
+}
+
+.learn-mode button {
+  min-height: 2.05rem;
+  padding: .28rem .62rem;
+  font-size: .82rem;
+}
+
+[data-learn-mode="visual"] .classic-only {
+  display: none !important;
+}
+
+[data-learn-mode="classic"] .visual-only {
+  display: none !important;
+}
+
+[data-learn-mode="classic"] [data-lab-view="visual"] *,
+[data-learn-mode="classic"] [data-lab-view="visual"] *::before,
+[data-learn-mode="classic"] [data-lab-view="visual"] *::after {
+  animation-duration: 1ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 1ms !important;
+}
+
+/* ---------- Page Rhythm ---------- */
+.visual-view {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.visual-view > .hero {
+  margin-bottom: 0;
+}
+
+.vl-lede {
+  margin: .4rem 0 0;
+  color: var(--muted);
+  max-width: 68ch;
+  line-height: 1.55;
+  font-size: .9rem;
+}
+
+.vl-row-label {
+  color: var(--muted);
+  font-size: .84rem;
+  font-weight: 600;
+}
+
+/* ---------- Interactive Bit Tiles ---------- */
+.vl-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+}
+
+.vl-tile {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: .15rem;
+  width: 3.15rem;
+  height: 3.6rem;
+  padding: 0;
+  background: var(--surface-card);
+  border: 1px solid var(--line);
+  border-radius: .55rem;
+  font-family: var(--mono);
+  color: var(--muted);
+  transition:
+    background-color 200ms ease,
+    color 200ms ease,
+    transform 200ms cubic-bezier(.22, 1, .36, 1),
+    border-color 200ms ease;
+}
+
+.vl-tile b {
+  font-size: 1.22rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.vl-tile small {
+  font-size: .7rem;
+  line-height: 1.2;
+}
+
+.vl-tile.on {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--amber);
+}
+
+.vl-tile.on small {
+  color: #cbd5e1;
+}
+
+button.vl-tile:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: var(--blue);
+  background: var(--surface-card);
+  color: var(--ink);
+}
+
+button.vl-tile.on:hover:not(:disabled) {
+  background: var(--ink);
+  color: var(--amber);
+}
+
+.vl-tiles.compact .vl-tile {
+  width: 2.65rem;
+  height: 3.15rem;
+}
+
+.vl-tiles.compact .vl-tile b {
+  font-size: 1.05rem;
+}
+
+.vl-tiles.overflow .vl-tile:first-child.on {
+  background: #c2410c;
+  border-color: #c2410c;
+  color: #ffffff;
+}
+
+.vl-tiles.modulus .vl-tile {
+  border-style: dashed;
+}
+
+.vl-tiles.modulus .vl-tile.on {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #ffffff;
+}
+
+.vl-tiles.result .vl-tile.on {
+  box-shadow: 0 0 0 2px var(--amber);
+}
+
+.flash {
+  animation: vl-flash 600ms cubic-bezier(.22, 1, .36, 1);
+}
+
+@keyframes vl-flash {
+  35% {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 6px rgba(245, 179, 0, .38);
+  }
+}
+
+/* ---------- 5-Screen Guided Intro ---------- */
+.vl-path-nav {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: .4rem;
+}
+
+.vl-path-nav button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  text-align: left;
+  padding: .55rem .6rem;
+  background: transparent;
+  border: 0;
+  border-top: 3px solid var(--line);
+  border-radius: 0;
+  color: var(--muted);
+  font-size: .84rem;
+  line-height: 1.25;
+}
+
+.vl-path-nav button span {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  font: 600 .78rem var(--mono);
+  background: var(--surface-card);
+}
+
+.vl-path-nav button:hover:not(:disabled) {
+  background: transparent;
+  border-top-color: var(--border-strong);
+  color: var(--ink);
+}
+
+.vl-path-nav button.seen {
+  border-top-color: var(--ink);
+  color: var(--ink);
+}
+
+.vl-path-nav button.seen span {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--amber);
+}
+
+.vl-path-nav button[aria-current] {
+  border-top-color: var(--blue);
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.vl-path-nav button[aria-current] span {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #ffffff;
+}
+
+.vl-stage {
+  margin-top: 1rem;
+}
+
+.vl-screen {
+  display: grid;
+  grid-template-columns: minmax(14rem, 21rem) minmax(0, 1fr);
+  gap: .75rem 2.2rem;
+  align-items: start;
+  padding: 1.25rem 0 .25rem;
+  border-top: 1px solid var(--hairline);
+  animation: vl-in 320ms cubic-bezier(.22, 1, .36, 1);
+}
+
+@keyframes vl-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.vl-screen h3 {
+  grid-column: 1;
+  margin: 0;
+  font-size: 1.35rem;
+  letter-spacing: -.02em;
+  line-height: 1.18;
+}
+
+.vl-take {
+  grid-column: 1;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+  font-size: .92rem;
+}
+
+.vl-play {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: grid;
+  gap: .8rem;
+  justify-items: start;
+  min-width: 0;
+}
+
+.vl-labelled {
+  display: grid;
+  grid-template-columns: 4.5rem auto;
+  align-items: center;
+  gap: .75rem;
+  max-width: 100%;
+}
+
+.vl-rule {
+  width: 14rem;
+  max-width: 100%;
+  height: 2px;
+  background: var(--ink);
+  margin-left: 5.25rem;
+}
+
+.vl-rule.wide {
+  width: 17.5rem;
+}
+
+.vl-readout {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: .3rem 1rem;
+  margin: .2rem 0 0;
+  font-size: .9rem;
+}
+
+.vl-readout span {
+  color: var(--muted);
+}
+
+.vl-readout b {
+  font: 600 .92rem/1.5 var(--mono);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.vl-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+
+.vl-facts {
+  margin: 0;
+  padding-left: 1.15rem;
+  display: grid;
+  gap: .5rem;
+  line-height: 1.55;
+  max-width: 62ch;
+  font-size: .92rem;
+}
+
+.vl-cycle {
+  display: grid;
+  grid-template-columns: repeat(15, minmax(0, 1fr));
+  gap: .25rem;
+  width: 100%;
+}
+
+.vl-cycle span {
+  display: grid;
+  place-items: center;
+  padding: .42rem 0;
+  border-radius: .35rem;
+  border: 1px solid var(--line);
+  background: var(--surface-card);
+  color: var(--muted);
+  font-family: var(--mono);
+  transition: background-color 220ms ease, color 220ms ease, transform 220ms ease;
+}
+
+.vl-cycle b {
+  font-weight: 600;
+  font-size: .9rem;
+}
+
+.vl-cycle small {
+  font-size: .64rem;
+}
+
+.vl-cycle .lit {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #e2e8f0;
+}
+
+.vl-cycle .current,
+.vl-cycle .done {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: var(--ink);
+}
+
+.vl-cycle .current {
+  transform: translateY(-2px);
+}
+
+.vl-path-controls {
+  display: flex;
+  justify-content: flex-end;
+  gap: .5rem;
+  margin-top: 1rem;
+}
+
+/* ---------- Explorer: Three Numbered Steps ---------- */
+.vl-step {
+  margin-top: 1.35rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--hairline);
+}
+
+.vl-step-title {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  margin: 0 0 .85rem;
+  font-size: .98rem;
+  font-weight: 700;
+}
+
+.vl-step-title span {
+  display: grid;
+  place-items: center;
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--amber);
+  font: 600 .8rem var(--mono);
+}
+
+.vl-inputs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: .75rem .9rem;
+}
+
+.vl-input {
+  display: grid;
+  gap: .32rem;
+  font-weight: 650;
+  font-size: .84rem;
+  color: var(--ink-secondary);
+}
+
+.vl-input select {
+  min-width: 15rem;
+  min-height: 2.5rem;
+}
+
+.vl-input input {
+  width: 13rem;
+  min-height: 2.5rem;
+  padding: .46rem .68rem;
+  font: 500 1rem var(--mono);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-card);
+  color: var(--ink);
+}
+
+.vl-input input:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, .14);
+}
+
+.vl-input input[aria-invalid="true"] {
+  border-color: var(--danger-accent);
+  box-shadow: 0 0 0 3px rgba(225, 29, 72, .12);
+}
+
+.vl-input-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+}
+
+.vl-input-actions button {
+  min-height: 2.5rem;
+}
+
+.vl-hint {
+  margin: .68rem 0 0;
+  color: var(--muted);
+  font-size: .84rem;
+  line-height: 1.5;
+}
+
+.vl-hint code {
+  font: .82rem var(--mono);
+  background: var(--surface-tinted);
+  padding: .05rem .35rem;
+  border-radius: .25rem;
+  color: var(--ink);
+}
+
+.vl-modline {
+  margin: .35rem 0 0;
+  color: var(--muted);
+  font-size: .84rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* De-boxed flat operand cards with left accent bar (Wave 5 aesthetic) */
+.vl-numbers {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.1rem;
+  margin-top: 1rem;
+}
+
+.vl-number {
+  display: grid;
+  gap: .7rem;
+  align-content: start;
+  padding: .25rem 0 .25rem 1rem;
+  background: transparent;
+  border: 0;
+  border-left: 3px solid var(--amber);
+  border-radius: 0;
+  min-width: 0;
+}
+
+.vl-number.b {
+  border-left-color: var(--blue);
+}
+
+.vl-number-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .55rem;
+}
+
+.vl-tag {
+  display: grid;
+  place-items: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: .35rem;
+  background: var(--amber);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: .82rem;
+  align-self: center;
+}
+
+.vl-number.b .vl-tag {
+  background: var(--blue);
+  color: #ffffff;
+}
+
+.vl-hex {
+  font: 600 1.48rem/1 var(--mono);
+  color: var(--ink);
+}
+
+.vl-pow {
+  font-family: var(--mono);
+  color: var(--muted);
+  font-size: .9rem;
+}
+
+.vl-reprs {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: .25rem .95rem;
+  margin: 0;
+  font-size: .84rem;
+}
+
+.vl-reprs dt {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.vl-reprs dd {
+  margin: 0;
+  font-family: var(--mono);
+  color: var(--ink-secondary);
+  overflow-wrap: anywhere;
+}
+
+.vl-note {
+  margin: 0;
+  padding: .35rem 0 .35rem .7rem;
+  border-left: 2px solid var(--amber);
+  background: transparent;
+  color: var(--warning-ink);
+  font-size: .82rem;
+  line-height: 1.45;
+}
+
+.vl-error {
+  margin: 0;
+  padding: .45rem 0 .45rem .75rem;
+  border-left: 2px solid var(--danger-accent);
+  background: transparent;
+  color: var(--danger-ink);
+  font-size: .85rem;
+  line-height: 1.45;
+}
+
+/* ---------- Relation Selector Cards ---------- */
+.vl-relations {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .6rem;
+}
+
+.vl-rel {
+  display: grid;
+  gap: .24rem;
+  justify-items: start;
+  text-align: left;
+  min-height: 0;
+  padding: .8rem .95rem;
+  background: var(--surface-card);
+  border: 1px solid var(--line);
+  border-radius: .6rem;
+}
+
+.vl-rel:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--blue);
+  color: var(--ink);
+}
+
+.vl-rel-label {
+  font-weight: 650;
+  font-size: .9rem;
+}
+
+.vl-rel-value {
+  font: 600 1.4rem/1.15 var(--mono);
+}
+
+.vl-rel-note {
+  color: var(--muted);
+  font-size: .78rem;
+  font-family: var(--mono);
+  line-height: 1.4;
+}
+
+.vl-rel[aria-pressed="true"] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #ffffff;
+  box-shadow: 0 10px 22px -14px rgba(15, 23, 42, .8);
+}
+
+.vl-rel[aria-pressed="true"]:hover:not(:disabled) {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #ffffff;
+}
+
+.vl-rel[aria-pressed="true"] .vl-rel-value {
+  color: var(--amber);
+}
+
+.vl-rel[aria-pressed="true"] .vl-rel-note {
+  color: #cbd5e1;
+}
+
+/* ---------- Interactive Visualization Stage ---------- */
+.vl-stage-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: .75rem 1.4rem;
+  margin-bottom: .9rem;
+}
+
+.vl-stage-intro {
+  margin: 0;
+  flex: 1 1 24rem;
+  max-width: 64ch;
+  line-height: 1.55;
+  color: var(--ink-secondary);
+  font-size: .9rem;
+}
+
+.vl-stage-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .45rem;
+}
+
+.vl-mulview {
+  min-width: 14rem;
+}
+
+.vl-speed {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  color: var(--muted);
+  font-size: .84rem;
+  font-weight: 600;
+}
+
+.vl-calc-link {
+  font-size: .86rem;
+  font-weight: 650;
+  color: var(--blue);
+  text-underline-offset: 3px;
+  padding-inline: .3rem;
+}
+
+.vl-board {
+  --cell: clamp(1.75rem, 4.4vw, 2.9rem);
+  --gap: .32rem;
+  display: grid;
+  justify-content: center;
+  gap: .5rem;
+  padding: 1.15rem;
+  background: var(--ink);
+  border-radius: .8rem;
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.vl-board-row {
+  display: grid;
+  grid-template-columns: 5.2rem auto;
+  align-items: center;
+  gap: .75rem;
+}
+
+.vl-board .vl-row-label {
+  color: #94a3b8;
+}
+
+.vl-cells {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 9), var(--cell));
+  gap: var(--gap);
+}
+
+.vl-cells.sliding {
+  transform: translateX(calc(-1 * (var(--cell) + var(--gap))));
+  transition: transform 340ms cubic-bezier(.65, 0, .35, 1);
+}
+
+.vl-cell {
+  display: grid;
+  place-items: center;
+  height: var(--cell);
+  border-radius: .38rem;
+  background: rgba(255, 255, 255, .07);
+  color: #64748b;
+  font: 500 1rem var(--mono);
+  transition: background-color 220ms ease, color 220ms ease, box-shadow 220ms ease, opacity 220ms ease;
+}
+
+.vl-cell.on {
+  background: #2b3556;
+  color: #ffffff;
+}
+
+.vl-cell.ghost {
+  background: transparent;
+}
+
+.vl-cell.slot {
+  background: transparent;
+  outline: 1px dashed rgba(255, 255, 255, .18);
+  outline-offset: -1px;
+}
+
+.vl-cell.over.on {
+  background: #c2410c;
+  color: #ffffff;
+}
+
+.vl-cell.power {
+  background: transparent;
+  height: auto;
+  color: #94a3b8;
+  font-size: .74rem;
+  line-height: 1.8;
+}
+
+.vl-cell.col-lit {
+  box-shadow: 0 0 0 2px var(--amber);
+}
+
+.vl-cell.power.col-lit {
+  box-shadow: none;
+  color: var(--amber);
+}
+
+.vl-cell.pending {
+  opacity: 0;
+}
+
+.vl-board-row.res,
+.vl-board-row.acc {
+  margin-top: .32rem;
+  padding-top: .6rem;
+  border-top: 1px solid rgba(255, 255, 255, .14);
+}
+
+.vl-board-row.res .vl-cell.on,
+.vl-board-row.acc .vl-cell.on {
+  background: var(--amber);
+  color: var(--ink);
+}
+
+.vl-board-row.b .vl-cell.current {
+  box-shadow: 0 0 0 2px var(--amber);
+  color: var(--amber);
+}
+
+.vl-board-row.m {
+  opacity: .16;
+  transition: opacity 260ms ease;
+}
+
+.vl-board-row.m.show {
+  opacity: 1;
+}
+
+.vl-board-row.m .vl-cell.on {
+  background: var(--blue);
+}
+
+.vl-board-row.acc.hit .vl-row-label,
+.vl-board-row.acc.final .vl-row-label {
+  color: var(--amber);
+}
+
+.vl-caption {
+  margin-top: .85rem;
+  min-height: 3.1em;
+  line-height: 1.55;
+  max-width: 78ch;
+  font-size: .92rem;
+}
+
+.vl-caption p {
+  margin: 0 0 .3rem;
+}
+
+.vl-result-line {
+  display: block;
+  font: 600 1.05rem/1.5 var(--mono);
+  color: var(--ink);
+}
+
+.vl-progress {
+  color: var(--muted);
+  font-size: .8rem;
+}
+
+/* ---------- Classic Mode Textbook Tables ---------- */
+.vl-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .88rem;
+  background: var(--surface-card);
+}
+
+.vl-table caption {
+  text-align: left;
+  padding-bottom: .55rem;
+  color: var(--muted);
+  font-size: .84rem;
+}
+
+.vl-table th,
+.vl-table td {
+  padding: .48rem .68rem;
+  text-align: left;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.vl-table th {
+  font-weight: 650;
+  background: var(--surface-subtle);
+  border-bottom-color: var(--line);
+}
+
+.vl-table td {
+  font-family: var(--mono);
+}
+
+.vl-table tr.used td {
+  background: #fff8e1;
+}
+
+.vl-xor td,
+.vl-xor thead th {
+  text-align: center;
+}
+
+.vl-xor .vl-poly {
+  text-align: left;
+}
+
+.vl-xor tr.sum td,
+.vl-xor tr.sum th {
+  border-top: 2px solid var(--ink);
+  font-weight: 650;
+}
+
+.vl-pane .classic-only {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.vl-power-wrap {
+  max-height: 26rem;
+  overflow: auto;
+  border: 1px solid var(--hairline);
+  border-radius: .55rem;
+}
+
+.vl-power caption {
+  padding: .68rem .68rem .5rem;
+}
+
+.vl-power thead th {
+  position: sticky;
+  top: 0;
+}
+
+.vl-power tr[data-k] {
+  cursor: pointer;
+}
+
+.vl-power tr[data-k]:hover td {
+  background: var(--surface-hover);
+}
+
+.vl-power tr.is-a td {
+  background: #fff3cc;
+}
+
+.vl-power tr.is-b td {
+  background: var(--accent-soft);
+}
+
+.vl-power tr.is-result td {
+  background: var(--ink);
+  color: var(--amber);
+}
+
+/* ---------- 3D Powers of g Ring ---------- */
+.vl-ring-stage {
+  position: relative;
+  background: radial-gradient(ellipse at 50% 62%, rgba(29, 78, 216, .35), transparent 62%), var(--ink);
+  border-radius: .9rem;
+  padding: .75rem;
+  overflow: hidden;
+}
+
+.vl-ring-stage:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+}
+
+.vl-ring {
+  position: relative;
+  height: clamp(18rem, 34vw, 25rem);
+  touch-action: pan-y;
+  cursor: grab;
+  user-select: none;
+}
+
+.vl-ring.grabbing {
+  cursor: grabbing;
+}
+
+.vl-orbit {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.vl-orbit ellipse {
+  fill: none;
+  stroke: rgba(255, 255, 255, .14);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 6;
+}
+
+.vl-trail {
+  fill: none;
+  stroke: var(--amber);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 6px rgba(245, 179, 0, .6));
+}
+
+.vl-hub {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  color: #64748b;
+  text-align: center;
+  pointer-events: none;
+}
+
+.vl-hub b {
+  font: 600 1.35rem var(--mono);
+}
+
+.vl-hub small {
+  font-size: .7rem;
+}
+
+.vl-node {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: .1rem;
+  width: 3.3rem;
+  height: 3.3rem;
+  min-height: 0;
+  padding: 0;
+  border-radius: 50%;
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, .18);
+  color: #e2e8f0;
+  font-family: var(--mono);
+  will-change: transform;
+  transition: background-color 220ms ease, border-color 220ms ease, box-shadow 220ms ease, width 220ms ease, height 220ms ease;
+}
+
+.vl-node b {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.vl-node small {
+  font-size: .6rem;
+  color: #94a3b8;
+  line-height: 1;
+}
+
+.vl-node:hover:not(:disabled) {
+  background: #334155;
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.vl-ring[data-size="md"] .vl-node {
+  width: 2.45rem;
+  height: 2.45rem;
+}
+
+.vl-ring[data-size="md"] .vl-node b {
+  font-size: .8rem;
+}
+
+.vl-ring[data-size="md"] .vl-node small {
+  display: none;
+}
+
+.vl-ring[data-size="dense"] .vl-node {
+  width: .58rem;
+  height: .58rem;
+  background: #475569;
+  border: 0;
+}
+
+.vl-ring[data-size="dense"] .vl-node > * {
+  display: none;
+}
+
+.vl-ring[data-size="dense"] .vl-node.on-trail {
+  background: rgba(245, 179, 0, .78);
+}
+
+.vl-ring[data-size="dense"] :is(.vl-node.is-a, .vl-node.is-b, .vl-node.is-result, .vl-node.is-one) {
+  width: 2.95rem;
+  height: 2.95rem;
+  border: 1px solid rgba(255, 255, 255, .32);
+}
+
+.vl-ring[data-size="dense"] :is(.vl-node.is-a, .vl-node.is-b, .vl-node.is-result, .vl-node.is-one) > * {
+  display: block;
+}
+
+.vl-node.on-trail {
+  border-color: var(--amber);
+}
+
+.vl-node.is-one {
+  border-color: rgba(255, 255, 255, .6);
+}
+
+.vl-ring .vl-node.is-b {
+  background: var(--blue);
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.vl-ring .vl-node.is-b small {
+  color: #dbeafe;
+}
+
+.vl-ring .vl-node.is-a {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: var(--ink);
+  box-shadow: 0 0 24px rgba(245, 179, 0, .55);
+}
+
+.vl-ring .vl-node.is-a small {
+  color: #5a4300;
+}
+
+.vl-ring .vl-node.is-result {
+  background: #ffffff;
+  border-color: #ffffff;
+  color: var(--ink);
+  box-shadow: 0 0 0 4px var(--amber), 0 0 28px rgba(255, 255, 255, .48);
+}
+
+.vl-ring .vl-node.is-result small {
+  color: var(--muted);
+}
+
+.vl-legend {
+  position: absolute;
+  top: .75rem;
+  left: .95rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .8rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: #cbd5e1;
+  font-size: .78rem;
+}
+
+.vl-legend li {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+}
+
+.vl-legend li::before {
+  content: "";
+  width: .68rem;
+  height: .68rem;
+  border-radius: 50%;
+}
+
+.vl-legend .a::before {
+  background: var(--amber);
+}
+
+.vl-legend .b::before {
+  background: var(--blue);
+}
+
+.vl-legend .r::before {
+  background: #ffffff;
+  box-shadow: 0 0 0 2px var(--amber);
+}
+
+.vl-legend .one::before {
+  border: 1px solid rgba(255, 255, 255, .6);
+}
+
+.vl-ring-hint {
+  position: absolute;
+  left: .95rem;
+  bottom: .55rem;
+  margin: 0;
+  color: #94a3b8;
+  font-size: .78rem;
+}
+
+/* ---------- Responsive (Zero Horizontal Overflow at 390px) ---------- */
+@media (max-width: 900px) {
+  .vl-screen {
+    grid-template-columns: 1fr;
+  }
+
+  .vl-play {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .vl-path-nav {
+    grid-template-columns: repeat(5, minmax(8.5rem, 1fr));
+    overflow-x: auto;
+  }
+
+  .vl-relations {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .vl-numbers {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .learn-mode {
+    min-width: 0;
+  }
+
+  .vl-input,
+  .vl-input input,
+  .vl-input select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .vl-cycle {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .vl-tile {
+    width: 2.55rem;
+    height: 3.05rem;
+  }
+
+  .vl-labelled {
+    grid-template-columns: 3.6rem minmax(0, 1fr);
+    gap: .45rem;
+  }
+
+  .vl-rule {
+    margin-left: 4.05rem;
+    width: 11.5rem;
+  }
+
+  .vl-rule.wide {
+    width: 13.5rem;
+  }
+
+  .vl-board {
+    --cell: 1.55rem;
+    --gap: .18rem;
+    padding: .75rem;
+    justify-content: start;
+  }
+
+  .vl-board-row {
+    grid-template-columns: 3.4rem auto;
+    gap: .38rem;
+  }
+
+  .vl-mulview {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .vl-legend {
+    gap: .5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vl-screen,
+  .flash {
+    animation: none;
+  }
+
+  .vl-cells.sliding {
+    transition: none;
+  }
+}

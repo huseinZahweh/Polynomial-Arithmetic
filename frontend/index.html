@@ -1,12 +1,13 @@
 <!--
   Finite Field Lab - Educational Web Workbench (EECE 455 Project-3)
   Original Author: Ali Zahreddine - Milestone 4, Integration & Milestone 6 (Waves 1-4)
-  Serves five hash-routed full-width views from a single accessible HTML document:
+  Serves six hash-routed full-width views from a single accessible HTML document:
     1. #calculator   - 13-field GF(2^m) calculator, read-only Modulus card on unary ops, bit builder, presets, step traces with breakdown & full-value popups, upload modal, toasts, export & share links
     2. #lessons      - Self-contained 7-lesson GF(2^m) visual study guide with truth tables & interactive sandboxes
-    3. #modulus      - Binary polynomial irreducibility checker & factor witness lab
-    4. #applications - Real-world GF(2^m) applications: XTS-AES GF(2^128) tweak multiplier & Binary ECC (GF(2^4) + NIST B-163)
-    5. #compare      - Shift-and-XOR vs. carry-free + long-division comparison & 163/571-bit benchmark
+    3. #visual       - Interactive Visual lab: 5-screen guided intro, live bit tiles, XOR board, Shift-and-XOR belt, 3D Powers-of-g ring, and Classic tables
+    4. #modulus      - Binary polynomial irreducibility checker & factor witness lab
+    5. #applications - Real-world GF(2^m) applications: XTS-AES GF(2^128), Binary ECC (GF(2^4) + NIST B-163), GCM / GHASH GF(2^128), and AES S-Box GF(2^8)
+    6. #compare      - Shift-and-XOR vs. carry-free + long-division comparison & 163/571-bit benchmark
 -->
 <!doctype html>
 <html lang="en">
@@ -17,13 +18,20 @@
   <link rel="icon" type="image/png" href="/workbench/gf2m-badge.png" />
   <link rel="stylesheet" href="./fonts/fonts.css">
   <link rel="stylesheet" href="./lab.css">
+  <link rel="stylesheet" href="./theme.css">
+  <link rel="stylesheet" href="./visual.css">
   <script type="module" src="./lab.js"></script>
+  <script type="module" src="./theme.js"></script>
 </head>
 <body>
   <header class="masthead">
     <div class="wrap topbar">
       <a class="brand" href="./"><span class="brand-badge"><img src="/workbench/gf2m-badge.png" alt="GF(2^m) Finite Field Lab logo" class="brand-badge-img" /></span><span>Finite Field Lab<small>GF(2<sup>m</sup>) Polynomial Arithmetic · EECE 455</small></span></a>
       <nav aria-label="Lab tools">
+        <div class="segments learn-mode" id="learn-mode-toggle" role="group" aria-label="Learning style" hidden>
+          <button type="button" data-learn-mode="visual" aria-pressed="true" title="Animations, tiles and the 3D ring">Visual</button>
+          <button type="button" data-learn-mode="classic" aria-pressed="false" title="Textbook tables and written derivations, no motion">Classic</button>
+        </div>
         <button type="button" id="tutorial-open" class="quiet">Tutorial tour</button>
         <button type="button" id="share" class="outline">Share link</button>
       </nav>
@@ -33,6 +41,7 @@
     <nav class="lab-nav" aria-label="Lab sections">
       <a href="#calculator" data-lab-tab="calculator" aria-current="page">Calculator</a>
       <a href="#lessons" data-lab-tab="lessons">Lessons</a>
+      <a href="#visual" data-lab-tab="visual">Visual lab</a>
       <a href="#modulus" data-lab-tab="modulus">Modulus explorer</a>
       <a href="#applications" data-lab-tab="applications">Applications</a>
       <a href="#compare" data-lab-tab="compare">Compare multiplication</a>
@@ -205,7 +214,7 @@
       <header class="hero">
         <div>
           <h1 tabindex="-1">Cryptographic applications</h1>
-          <p>See the same GF(2<sup>m</sup>) polynomial arithmetic power XTS-AES disk encryption, NIST binary elliptic curves, and AES-GCM GHASH authentication.</p>
+          <p>See the same GF(2<sup>m</sup>) polynomial arithmetic power XTS-AES disk encryption, NIST binary elliptic curves, AES-GCM GHASH authentication, and the AES S-Box byte substitution.</p>
         </div>
         <div class="hero-math" id="app-hero-badge" aria-hidden="true"><span id="app-hero-field">GF(2<sup>128</sup>)</span><code id="app-hero-std">IEEE 1619</code></div>
       </header>
@@ -214,6 +223,7 @@
         <button type="button" role="tab" id="app-tab-xts" data-app-tab="xts" aria-selected="true" aria-pressed="true" aria-controls="app-panel-xts">XTS-AES · GF(2<sup>128</sup>)</button>
         <button type="button" role="tab" id="app-tab-ecc" data-app-tab="ecc" aria-selected="false" aria-pressed="false" aria-controls="app-panel-ecc">Binary ECC · E<sub>2<sup>m</sup></sub>(a,b)</button>
         <button type="button" role="tab" id="app-tab-ghash" data-app-tab="ghash" aria-selected="false" aria-pressed="false" aria-controls="app-panel-ghash">GCM · GHASH (GF(2<sup>128</sup>))</button>
+        <button type="button" role="tab" id="app-tab-aes" data-app-tab="aes" aria-selected="false" aria-pressed="false" aria-controls="app-panel-aes">AES S-Box · GF(2<sup>8</sup>)</button>
       </div>
 
       <section id="app-panel-xts" class="applications-subpanel" role="tabpanel" aria-labelledby="app-tab-xts">
@@ -230,6 +240,9 @@
               <button type="button" class="outline" id="xts-random">Randomize 128-bit tweak</button>
               <button type="button" class="outline" id="xts-step-next">Step next block (j → j+1)</button>
               <button type="button" class="outline" id="xts-reset">Reset</button>
+              <button type="button" class="quiet app-io-btn" id="xts-export-json">Export JSON</button>
+              <button type="button" class="quiet app-io-btn" id="xts-import-json">Import JSON</button>
+              <input type="file" id="xts-import-file" accept=".json" hidden>
             </div>
           </form>
         </section>
@@ -261,6 +274,9 @@
               <button type="button" class="outline" id="ecc-random">Randomize keys</button>
               <button type="button" class="outline" id="ecc-switch-teaching">Try Teaching GF(2<sup>4</sup>)</button>
               <button type="button" class="outline" id="ecc-switch-b163">Try NIST B-163</button>
+              <button type="button" class="quiet app-io-btn" id="ecc-export-json">Export JSON</button>
+              <button type="button" class="quiet app-io-btn" id="ecc-import-json">Import JSON</button>
+              <input type="file" id="ecc-import-file" accept=".json" hidden>
             </div>
           </form>
         </section>
@@ -288,7 +304,12 @@
             <div class="experiment-actions">
               <button type="submit" class="primary">Compute GHASH value</button>
               <button type="button" class="outline" id="ghash-random">Randomize key H &amp; blocks</button>
+              <button type="button" class="outline" id="ghash-save-key">Save key</button>
+              <button type="button" class="outline" id="ghash-share-key">Share key</button>
               <button type="button" class="outline" id="ghash-reset">Reset</button>
+              <button type="button" class="quiet app-io-btn" id="ghash-export-json">Export JSON</button>
+              <button type="button" class="quiet app-io-btn" id="ghash-import-json">Import JSON</button>
+              <input type="file" id="ghash-import-file" accept=".json" hidden>
             </div>
           </form>
         </section>
@@ -300,6 +321,45 @@
           <p id="ghash-status" class="experiment-status" role="status"></p>
           <div id="ghash-tag-display" class="ghash-tag-summary"></div>
           <div id="ghash-steps" class="ghash-steps-wrap" aria-live="polite"></div>
+        </section>
+      </section>
+
+      <section id="app-panel-aes" class="applications-subpanel" role="tabpanel" aria-labelledby="app-tab-aes" hidden>
+        <section class="panel experiment-form" aria-labelledby="aes-form-title">
+          <h2 id="aes-form-title">AES S-Box Byte Substitution (GF(2<sup>8</sup>))</h2>
+          <p class="meta app-intro">FIPS 197 §5.1.1 / Stallings Ch. 5 transforms one input byte in two stages: multiplicative inversion in <code>GF(2<sup>8</sup>)</code> modulo <code>m(x) = x<sup>8</sup> + x<sup>4</sup> + x<sup>3</sup> + x + 1</code> (<code>0x11B</code>, mapping <code>00 → 00</code>), followed by an 8-bit affine XOR with four cyclic left rotations and constant <code>0x63</code>.</p>
+          <form id="aes-form">
+            <div class="experiment-inputs aes-inputs">
+              <label><span class="field-label">Input byte</span><input type="text" id="aes-byte" value="" placeholder="Enter byte (00 to FF)" spellcheck="false" autocomplete="off" required></label>
+              <label><span class="field-label">Input notation</span><select id="aes-base"><option value="hex">Hexadecimal</option><option value="binary">Binary</option></select></label>
+            </div>
+            <div class="experiment-actions">
+              <button type="submit" class="primary">Compute S-box output</button>
+              <button type="button" class="outline" id="aes-random">Random byte</button>
+              <button type="button" class="outline" id="aes-example">Try byte 53</button>
+              <button type="button" class="outline" id="aes-preset-95">Try byte 95</button>
+              <button type="button" class="outline" id="aes-zero">Try byte 00</button>
+              <button type="button" class="quiet app-io-btn" id="aes-export-json">Export JSON</button>
+              <button type="button" class="quiet app-io-btn" id="aes-import-json">Import JSON</button>
+              <input type="file" id="aes-import-file" accept=".json" hidden>
+            </div>
+          </form>
+        </section>
+        <section class="panel" id="aes-result" aria-labelledby="aes-result-title" hidden>
+          <h2 id="aes-result-title">Byte substitution</h2>
+          <dl id="aes-pipeline" class="byte-pipeline" aria-live="polite"></dl>
+          <p id="aes-inverse-note" class="meta"></p>
+          <details id="aes-euclid"><summary>Show the Extended Euclid trace</summary>
+            <div class="trace" id="aes-trace"><div class="trace-toolbar" id="aes-trace-tools"></div><div id="aes-trace-body"></div></div>
+          </details>
+        </section>
+        <section class="panel trace" id="aes-affine" aria-labelledby="aes-affine-title" hidden>
+          <div class="section-head trace-section-head">
+            <h2 id="aes-affine-title">Affine transformation</h2>
+            <div class="trace-toolbar" id="aes-affine-tools"></div>
+          </div>
+          <p class="meta">XOR the inverse byte with four left rotations and the constant <code>63</code> in hex. Each row shows the byte added and the running XOR.</p>
+          <div id="aes-affine-table"></div>
         </section>
       </section>
     </main>
@@ -386,6 +446,115 @@
             <button type="button" class="outline" id="lesson-prev-topic">Previous section</button>
             <button type="button" class="primary" id="lesson-next-topic">Next section</button>
           </div>
+        </div>
+      </section>
+    </main>
+
+    <main class="experiment visual-view" data-lab-view="visual" hidden>
+      <section class="hero" aria-labelledby="visual-title">
+        <div>
+          <h1 id="visual-title" tabindex="-1">See the field move</h1>
+          <p>Type any two numbers and watch how they add, multiply, divide and invert inside a binary field.</p>
+        </div>
+        <div class="hero-math" aria-hidden="true"><span id="vl-hero-badge">GF(2<sup>8</sup>)</span></div>
+      </section>
+
+      <section class="panel vl-path" id="vl-path" aria-labelledby="vl-path-title">
+        <div class="section-head">
+          <div>
+            <h2 id="vl-path-title">Start here</h2>
+            <p class="vl-lede">New to finite fields? Five short screens with one thing to try on each. It takes about three minutes.</p>
+          </div>
+          <button type="button" class="quiet" id="vl-path-toggle" aria-expanded="true" aria-controls="vl-path-body">Hide intro</button>
+        </div>
+        <div id="vl-path-body">
+          <ol class="vl-path-nav" id="vl-path-nav"></ol>
+          <div class="vl-stage" id="vl-stage" aria-live="polite"></div>
+          <div class="vl-path-controls">
+            <button type="button" class="outline" id="vl-prev">Back</button>
+            <button type="button" class="primary" id="vl-next">Next</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel vl-explorer" id="vl-explorer" aria-labelledby="vl-explorer-title">
+        <div class="section-head">
+          <div>
+            <h2 id="vl-explorer-title">Explore your own numbers</h2>
+            <p class="vl-lede">Everything below updates as you type.</p>
+          </div>
+        </div>
+
+        <div class="vl-step">
+          <h3 class="vl-step-title"><span>1</span>Choose a field and two numbers</h3>
+          <div class="vl-inputs">
+            <label class="vl-input vl-input-field">Field
+              <select id="vl-field"></select>
+            </label>
+            <label class="vl-input">A
+              <input type="text" id="vl-a" value="57" maxlength="200" spellcheck="false" autocomplete="off" aria-describedby="vl-input-hint">
+            </label>
+            <label class="vl-input">B
+              <input type="text" id="vl-b" value="83" maxlength="200" spellcheck="false" autocomplete="off" aria-describedby="vl-input-hint">
+            </label>
+            <div class="vl-input-actions">
+              <button type="button" class="outline" id="vl-random">Random numbers</button>
+              <button type="button" class="quiet" id="vl-swap">Swap A and B</button>
+            </div>
+          </div>
+          <p class="vl-hint" id="vl-input-hint">Type hex like <code>57</code>, binary like <code>0b1010111</code>, or a polynomial like <code>x^6 + x^4 + 1</code>. You can also click the bits below.</p>
+          <p class="vl-modline" id="vl-modline"></p>
+          <div class="vl-numbers">
+            <div class="vl-number a" id="vl-card-a"></div>
+            <div class="vl-number b" id="vl-card-b"></div>
+          </div>
+        </div>
+
+        <div class="vl-step">
+          <h3 class="vl-step-title"><span>2</span>Pick a relation to see</h3>
+          <div class="vl-relations" id="vl-relations" role="group" aria-label="Relation to visualize"></div>
+        </div>
+
+        <div class="vl-step">
+          <h3 class="vl-step-title"><span>3</span>Watch how it works</h3>
+          <div class="vl-stage-head">
+            <p class="vl-stage-intro" id="vl-stage-intro"></p>
+            <div class="vl-stage-controls">
+              <div class="segments vl-mulview" id="vl-mulview" role="group" aria-label="How to show multiplication">
+                <button type="button" data-mulview="steps" aria-pressed="true">Shift-and-XOR</button>
+                <button type="button" data-mulview="ring" aria-pressed="false">Powers of g</button>
+              </div>
+              <button type="button" class="primary visual-only" id="vl-play">Play</button>
+              <button type="button" class="outline visual-only" id="vl-step">Step</button>
+              <button type="button" class="quiet visual-only" id="vl-replay">Replay</button>
+              <label class="vl-speed visual-only">Speed
+                <select id="vl-speed"><option value="1500">Slow</option><option value="900" selected>Normal</option><option value="420">Fast</option></select>
+              </label>
+              <a class="vl-calc-link" id="vl-calc-link" href="./">Open in Calculator</a>
+            </div>
+          </div>
+
+          <div class="vl-pane" data-pane="add">
+            <div class="visual-only vl-board" id="vl-add-board"></div>
+            <div class="classic-only" id="vl-add-classic"></div>
+          </div>
+          <div class="vl-pane" data-pane="steps">
+            <div class="visual-only vl-board" id="vl-belt"></div>
+            <div class="classic-only" id="vl-steps-classic"></div>
+          </div>
+          <div class="vl-pane" data-pane="ring">
+            <div class="vl-ring-layout">
+              <div class="visual-only vl-ring-stage" id="vl-ring-stage" tabindex="0" aria-label="Field ring. Use the left and right arrow keys to turn it.">
+                <div class="vl-ring" id="vl-ring"></div>
+                <ul class="vl-legend" aria-hidden="true">
+                  <li class="a">A</li><li class="b">B</li><li class="r">Result</li><li class="one">1</li>
+                </ul>
+                <p class="vl-ring-hint">Drag to spin. Click a circle to set A.</p>
+              </div>
+              <div class="classic-only vl-power-wrap" id="vl-power-table"></div>
+            </div>
+          </div>
+          <div class="vl-caption" id="vl-caption" aria-live="polite"></div>
         </div>
       </section>
     </main>

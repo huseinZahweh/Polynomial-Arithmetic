@@ -1,4 +1,4 @@
-"""FastAPI TestClient coverage for the six /api/explorations/* routes."""
+"""FastAPI TestClient coverage for the seven /api/explorations/* routes."""
 from __future__ import annotations
 
 from backend.engine import POLY_MUL_NO_MOD
@@ -47,7 +47,26 @@ def test_xts_tweak_endpoint_and_validation(client) -> None:
 
     assert client.post(endpoint, json={"t0_hex": "1" + "0" * 32, "steps": 2}).status_code == 400
     assert client.post(endpoint, json={"t0_hex": "ZZZZ", "steps": 2}).status_code == 400
-    assert client.post("/api/explorations/aes-sbox", json={"byte": "53"}).status_code == 404
+
+
+def test_aes_sbox_endpoint_and_validation(client) -> None:
+    """Verify POST /api/explorations/aes-sbox for {53}, {95}, {00}, and HTTP 400 validation."""
+    endpoint = "/api/explorations/aes-sbox"
+    standard = client.post(endpoint, json={"byte": "01010011", "input_base": "binary"}).json()
+    assert standard["inverse"]["hex"] == "ca"
+    assert standard["output"]["hex"] == "ed"
+    assert standard["inverse_trace"]["table_4_7_rows"][-1]["B3"] == 1
+
+    ch5 = client.post(endpoint, json={"byte": "95", "input_base": "hex"}).json()
+    assert ch5["inverse"]["hex"] == "8a"
+    assert ch5["output"]["hex"] == "2a"
+
+    zero = client.post(endpoint, json={"byte": "00"}).json()
+    assert zero["output"]["hex"] == "63"
+    assert zero["inverse_trace"] is None
+
+    assert client.post(endpoint, json={"byte": "100"}).status_code == 400
+    assert client.post(endpoint, json={"byte": "ZZ"}).status_code == 400
 
 
 def test_binary_ecc_endpoint_gf2_4_and_nist_b163(client) -> None:

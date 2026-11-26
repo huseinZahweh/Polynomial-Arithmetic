@@ -167,9 +167,10 @@ def test_explorations_and_applications_in_browser(live_url: str) -> None:
         check(page.locator("#poly-a")).to_have_value("")
         check(page.locator("#result")).to_be_hidden()
 
-        # Verify top navigation has exactly 5 tabs and no AES S-box tab.
+        # Verify top navigation has exactly 6 tabs (including Visual lab, no standalone AES S-box tab).
         nav_links = page.locator(".lab-nav a")
-        check(nav_links).to_have_count(5)
+        check(nav_links).to_have_count(6)
+        check(page.locator(".lab-nav")).to_contain_text("Visual lab")
         check(page.locator(".lab-nav")).not_to_contain_text("AES S-box")
         check(page.locator(".lab-nav")).to_contain_text("Applications")
 
@@ -297,6 +298,26 @@ def test_explorations_and_applications_in_browser(live_url: str) -> None:
         page.locator("#ghash-reset").click()
         check(page.locator("#ghash-h")).to_have_value("")
         check(page.locator("#ghash-results")).to_be_hidden()
+
+        # Switch to fourth sub-tab: AES S-Box (GF(2^8)) inside #applications.
+        page.locator("#app-tab-aes").click()
+        check(page.locator("#app-hero-field")).to_have_text("GF(28)")
+        check(page.locator("#app-hero-std")).to_have_text("FIPS 197 · Ch. 5")
+        check(page.locator("#aes-byte")).to_have_attribute("placeholder", "Enter byte (00 to FF)")
+        check(page.locator("#aes-byte")).to_have_value("")
+        check(page.locator("#aes-result")).to_be_hidden()
+        page.locator("#aes-example").click()
+        check(page.locator("#aes-pipeline")).to_contain_text("CA")
+        check(page.locator("#aes-pipeline")).to_contain_text("ED")
+        check(page.locator("#aes-affine")).to_be_visible()
+        page.locator("#aes-preset-95").click()
+        check(page.locator("#aes-pipeline")).to_contain_text("8A")
+        check(page.locator("#aes-pipeline")).to_contain_text("2A")
+        page.locator("#aes-zero").click()
+        check(page.locator("#aes-pipeline")).to_contain_text("63")
+        check(page.locator("#aes-euclid")).to_be_hidden()
+        page.locator("#aes-random").click()
+        check(page.locator("#aes-result")).to_be_visible()
 
         # 3. Compare multiplication & benchmark (starts empty, has Random operands + Compare methods).
         page.get_by_role("link", name="Compare multiplication").click()
@@ -994,6 +1015,161 @@ def test_wave5_deboxed_ui_gentler_speeds_and_global_share_link(live_url: str) ->
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
         page.set_viewport_size({"width": 390, "height": 840})
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+        assert not console_errors
+        assert not page_errors
+        browser.close()
+
+
+def test_visual_lab_toggle_export_import_ghash_keys_and_sup_overlays(live_url: str) -> None:
+    """Verify Visual lab + tour, scoped Visual|Classic toggle, Applications JSON Export/Import, GHASH Save/Share key, legacy #aes redirect, flat polynomial readout, and true <sup> Polynomial input overlays."""
+    import json
+
+    playwright = pytest.importorskip("playwright.sync_api")
+    check = playwright.expect
+    with playwright.sync_playwright() as runner:
+        browser = runner.chromium.launch()
+        context = browser.new_context(
+            permissions=["clipboard-read", "clipboard-write"],
+            accept_downloads=True,
+            viewport={"width": 1280, "height": 900},
+        )
+        page = context.new_page()
+        page_errors = []
+        console_errors = []
+        page.on("pageerror", lambda err: page_errors.append(str(err)))
+        page.on("console", lambda msg: console_errors.append(msg.text) if msg.type == "error" else None)
+        page.goto(live_url)
+
+        # 1. Visual | Classic toggle is hidden on Calculator and other non-Visual tabs.
+        learn_toggle = page.locator("#learn-mode-toggle")
+        check(learn_toggle).to_be_hidden()
+
+        # 2. Flat borderless polynomial display (#mod-poly has no border/background box).
+        mod_style = page.evaluate(
+            """() => {
+                const el = document.querySelector('#mod-poly');
+                const cs = getComputedStyle(el);
+                return { border: cs.borderTopWidth, bg: cs.backgroundColor };
+            }"""
+        )
+        assert mod_style["border"] == "0px"
+        assert mod_style["bg"] in ("rgba(0, 0, 0, 0)", "transparent")
+
+        # 3. True <sup> powers inside unfocused Polynomial inputs (#poly-a, #custom-modulus).
+        page.locator("#field").select_option("8")
+        page.get_by_role("button", name="Polynomial", exact=True).click()
+        page.locator("#poly-a").fill("x^6 + x^4 + x^3 + x^2 + 1")
+        page.locator("#poly-a").blur()
+        overlay_a = page.locator("#operand-a .poly-input-overlay")
+        check(overlay_a).to_be_visible()
+        check(overlay_a.locator("sup")).to_have_text(["6", "4", "3", "2"])
+        assert "^" not in overlay_a.inner_text()
+        # Focusing hides the overlay for exact raw ASCII editing; blurring restores <sup>.
+        page.locator("#poly-a").focus()
+        check(overlay_a).to_be_hidden()
+        check(page.locator("#poly-a")).to_have_value("x^6 + x^4 + x^3 + x^2 + 1")
+        page.locator("#poly-a").blur()
+        check(overlay_a).to_be_visible()
+
+        # 4. Visual lab: toggle visible & functional, relations work, Tutorial tour walks all 6 steps cleanly.
+        page.get_by_role("link", name="Visual lab", exact=True).click()
+        check(learn_toggle).to_be_visible()
+        relations = page.locator(".vl-rel-value")
+        check(relations.nth(0)).to_have_text("{D4}")
+        check(relations.nth(1)).to_have_text("{C1}")
+        page.locator("#vl-a").fill("x^6 + x^4 + x^2 + x + 1")
+        page.locator("#vl-b").fill("0b10000011")
+        check(relations.nth(1)).to_have_text("{C1}")
+
+        # Toggle Classic -> hides interactive board and reveals Classic textbook table; back to Visual restores board.
+        page.locator('#learn-mode-toggle button[data-learn-mode="classic"]').click()
+        check(page.locator("#vl-steps-classic")).to_be_visible()
+        check(page.locator("#vl-belt")).to_be_hidden()
+        page.locator('#learn-mode-toggle button[data-learn-mode="visual"]').click()
+        check(page.locator("#vl-belt")).to_be_visible()
+        check(page.locator("#vl-steps-classic")).to_be_hidden()
+
+        # Launch Tutorial tour on Visual lab and walk all 6 steps cleanly.
+        page.locator("#tutorial-open").click()
+        check(page.locator("#page-tour")).to_be_visible()
+        check(page.locator("#vl-path.tour-highlight")).to_be_visible()
+        for expected_sel in (".vl-inputs", ".vl-numbers", "#vl-relations", ".vl-stage-controls", "#vl-caption"):
+            page.locator("#tour-next").click()
+            check(page.locator(expected_sel + ".tour-highlight")).to_be_visible()
+        page.get_by_role("button", name="Done", exact=True).click()
+        check(page.locator("#page-tour")).to_be_hidden()
+
+        # 5. Navigating away hides Visual | Classic toggle; legacy #aes redirects to #applications (AES S-Box).
+        page.goto(f"{live_url}#aes")
+        check(learn_toggle).to_be_hidden()
+        check(page.locator("#app-tab-aes")).to_have_attribute("aria-selected", "true")
+        check(page.locator("#app-panel-aes")).to_be_visible()
+
+        # Blank Export JSON triggers #error-popup.
+        page.locator("#aes-export-json").click()
+        check(page.locator("#error-popup")).to_be_visible()
+        page.locator("#error-popup-ok").click()
+
+        # Populate AES S-Box {53}, Export JSON, Share link, and Import JSON across sub-tabs.
+        page.locator("#aes-example").click()
+        check(page.locator("#aes-pipeline")).to_contain_text("ED")
+        with page.expect_download() as aes_dl:
+            page.locator("#aes-export-json").click()
+        assert aes_dl.value.suggested_filename == "gf2m-aes-sbox.json"
+        exported_aes = json.loads(aes_dl.value.path().read_text(encoding="utf-8"))
+        assert exported_aes["application"] == "aes"
+        assert exported_aes["inputs"]["byte"] == "53"
+        assert exported_aes["result"]["output"]["hex"] == "ed"
+
+        page.get_by_role("button", name="Share link", exact=True).click()
+        aes_share = page.evaluate("navigator.clipboard.readText()")
+        assert "app=aes&byte=53#applications" in aes_share
+        aes_tab = context.new_page()
+        aes_tab.goto(aes_share)
+        check(aes_tab.locator("#app-tab-aes")).to_have_attribute("aria-selected", "true")
+        check(aes_tab.locator("#aes-pipeline")).to_contain_text("ED")
+        aes_tab.close()
+
+        # Import JSON for Binary ECC from the AES panel switches sub-tab automatically and computes!
+        ecc_payload = json.dumps({"application": "ecc", "inputs": {"curve": "gf2_4", "n_a": 4, "n_b": 7}}).encode("utf-8")
+        page.locator("#aes-import-file").set_input_files(
+            {"name": "ecc-test.json", "mimeType": "application/json", "buffer": ecc_payload}
+        )
+        check(page.locator("#app-tab-ecc")).to_have_attribute("aria-selected", "true")
+        check(page.locator("#ecc-curve-badge")).to_contain_text("Teaching Curve")
+        check(page.locator("#feedback-popup")).to_contain_text("Imported ecc-test.json")
+
+        # 6. GHASH Save key & Share key (key-only URL populates H and leaves blocks ready).
+        page.locator("#app-tab-ghash").click()
+        test_h = "66E94BD4EF8A2C3B884CFA59CA342B2E"
+        page.locator("#ghash-h").fill(test_h)
+        with page.expect_download() as key_dl:
+            page.locator("#ghash-save-key").click()
+        assert key_dl.value.suggested_filename == "ghash-key-H.json"
+        saved_key = json.loads(key_dl.value.path().read_text(encoding="utf-8"))
+        assert saved_key["algorithm"] == "GCM-GHASH"
+        assert saved_key["h_hex"] == test_h
+
+        page.locator("#ghash-share-key").click()
+        key_url = page.evaluate("navigator.clipboard.readText()")
+        assert f"app=ghash&h={test_h}#applications" in key_url
+        assert "blocks=" not in key_url
+        key_tab = context.new_page()
+        key_tab.goto(key_url)
+        check(key_tab.locator("#app-tab-ghash")).to_have_attribute("aria-selected", "true")
+        check(key_tab.locator("#ghash-h")).to_have_value(test_h)
+        check(key_tab.locator("#ghash-blocks")).to_have_value("")
+        check(key_tab.locator("#error-popup")).to_be_hidden()
+        key_tab.close()
+
+        # 7. Mobile (390x840) zero horizontal overflow across Visual lab, Applications, and Calculator (m=571).
+        page.set_viewport_size({"width": 390, "height": 840})
+        for link_name in ("Visual lab", "Applications", "Calculator"):
+            page.get_by_role("link", name=link_name, exact=True).click()
+            assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), f"Overflow on {link_name}"
+        page.locator("#field").select_option("571")
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), "Overflow on GF(2^571)"
+
         assert not console_errors
         assert not page_errors
         browser.close()

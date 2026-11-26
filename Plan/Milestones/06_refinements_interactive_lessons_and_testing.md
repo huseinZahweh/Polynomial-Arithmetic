@@ -13,11 +13,12 @@ Refine the integrated **Finite Field Lab** user experience across all five tabs 
 
 ## 2. Refinement & Enhancement Scope
 
-### 2.1 Plan-to-Code API Contract Synchronization (12 Endpoints)
+### 2.1 Plan-to-Code API Contract Synchronization (13 Endpoints)
 * Synchronize all endpoint specifications in `Plan/` and `docs/` with the authoritative Pydantic v2 schemas in `backend/api/schemas.py` and `backend/api/exploration_routes.py`:
   * **6 Core Routes:** `GET /api/fields`, `POST /api/calculate`, `POST /api/random-polynomials`, `POST /api/parse-polynomials`, `POST /api/export-calculation`, `GET /api/tutorial`.
-  * **6 Exploration & Application Routes (`/api/explorations/*`):**
+  * **7 Exploration & Application Routes (`/api/explorations/*`):**
     * `POST /api/explorations/modulus` (irreducibility & Berlekamp factor witnesses)
+    * `POST /api/explorations/aes-sbox` (FIPS 197 §5.1.1 / Stallings Ch. 5 $GF(2^8)$ AES S-Box walkthrough)
     * `POST /api/explorations/xts-tweak` (IEEE 1619-2007 / Stallings Ch. 6 $GF(2^{128})$ tweak multiplier)
     * `POST /api/explorations/binary-ecc` (Stallings Ch. 10 / NIST FIPS 186-4 Teaching $GF(2^4)$ & NIST B-163 curve explorer + ECDH)
     * `POST /api/explorations/gcm-ghash` (NIST SP 800-38D / Stallings Ch. 12 $GF(2^{128})$ GCM GHASH authenticator)
@@ -56,6 +57,7 @@ Refine the integrated **Finite Field Lab** user experience across all five tabs 
 * [x] **Wave 5 Flat De-Boxed UI, Gentler Speeds, Global `Share link` & Applications Form Alignment:** Site-wide de-boxed visual hierarchy (single outer `.panel` cards, inline colored metrics, dot-accented borderless `Step diff` legends, hairline/left-accent dividers across all 5 tabs & popups), gentler animation speeds (`450ms` / `900ms` / `1800ms`), global `Share link` serialization/restoration across all 5 tabs, single-line Applications subscript labels (`T₀`, `n_A`, `n_B`), uniform input/select heights, and dynamic Applications hero badge (`GF(2¹²⁸) · IEEE 1619` ↔ `GF(2¹⁶³) · NIST B-163`).
 * [x] **Wave 6 GCM / GHASH ($GF(2^{128})$) Sub-Tab & Polynomial ECC Slide Alignment:** Pure-Python `gcm_ghash` engine & `POST /api/explorations/gcm-ghash` endpoint (NIST SP 800-38D / Stallings Ch. 12), third gliding Applications sub-tab (`GCM · GHASH (GF(2¹²⁸))`) with dynamic hero badge (`GF(2¹²⁸) · NIST SP 800-38D`), Full-Value Inspector popups, global `?app=ghash&h=...&blocks=...#applications` share links, Lesson `7.2` + tour updates, and Binary ECC display notation aligned to classroom Polynomial ECC slides (`Xp`, `Yp`, `s`, `Xr`, `Yr`).
 * [x] **Wave 7 Clean ASCII Input Exponents, Dynamic Two-Notation Previews & Empty Initial State:** Uniform non-wavy `x^k` caret inputs (accepting pasted Unicode superscripts), dynamic two-non-selected-notations previews beneath `Operand A(x)`/`B(x)`/Result, and clean empty initial load state across all pages (`#calculator`, `#modulus`, `#applications`, `#compare`) with one-click Random/preset helpers and preserved Share link restoration.
+* [x] **Wave 8 Precision Instrument UI Base, Visual Lab, 4-Sub-Tab Applications & True `<sup>` Input Overlays:** Adopted `theme.css`/`theme.js`, flat root `render.yaml`, and the 6-tab navbar with `Visual lab` (`#visual`) + 6-step tour + context-scoped `Visual | Classic` header toggle; merged **AES S-Box · $GF(2^8)$** as the 4th sub-tab inside `#applications` (with legacy `#aes` redirect); added `Export JSON` / `Import JSON` across all 4 Applications sub-tabs plus GHASH `Save key` / `Share key`; flattened static polynomial readouts; and added true non-wavy `<sup>` overlays over unfocused Polynomial `<input>` boxes.
 
 ### Remaining Course Deliverables (Open)
 * [ ] Finalize updated Project Report PDF (`deliverables/Polynomial-Arithmetic-Report.pdf`), 20-minute presentation slides, and 5-minute max demo video (`deliverables/Finite-Field-Lab-Demo.mp4`) reflecting the unified layout and Milestone 6 features.

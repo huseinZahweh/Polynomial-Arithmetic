@@ -21,7 +21,7 @@ def test_standard_ghash_and_algebraic_upload(live_url):
         page.get_by_role("link", name="Calculator", exact=True).click()
         page.get_by_role("button", name="Polynomial", exact=True).click()
         page.locator('#upload').click()
-        page.locator('input[type="file"]').set_input_files({"name": "algebraic.txt", "mimeType": "text/plain", "buffer": b"A: x + 1\nB: x"})
+        page.locator('#upload-modal input[type="file"]').set_input_files({"name": "algebraic.txt", "mimeType": "text/plain", "buffer": b"A: x + 1\nB: x"})
         api.expect(page.locator('#poly-a')).to_have_value('x + 1')
         api.expect(page.locator('#poly-b')).to_have_value('x')
         page.locator('label:has(input[value="add"])').click()

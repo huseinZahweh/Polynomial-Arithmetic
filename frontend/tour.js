@@ -4,9 +4,9 @@
  *
  * Original Author: Ali Zahreddine - Milestone 4, Integration & Milestone 6 (Waves 1-4).
  *
- * Provides contextual guided tours for all five lab views (Calculator, Lessons, Modulus
- * explorer, Applications, Compare multiplication), dynamically falling back to the triggering
- * action button whenever a step's result section has not yet been calculated, and
+ * Provides contextual guided tours for all six lab views (Calculator, Lessons, Visual lab,
+ * Modulus explorer, Applications, Compare multiplication), dynamically falling back to the
+ * triggering action button whenever a step's result section has not yet been calculated, and
  * automatically re-highlighting newly rendered results on `lab:calculation-result` events.
  */
 
@@ -67,6 +67,25 @@ const walkthroughs = {
         "Use Previous section and Next section at the bottom to step seamlessly through every section across all 7 lessons."],
     ],
   },
+  visual: {
+    name: "Visual lab walkthrough",
+    fallback: ["#vl-explorer", "Use the interactive explorer below to inspect GF(2^m) elements."],
+    steps: [
+      ["#vl-path", "Five-screen guided intro",
+        "Walk through five interactive primer screens covering bit tiles, XOR addition, modular reduction mod m(x), generator cycles, and cryptographic uses. Toggle Hide intro whenever you want more space."],
+      [".vl-inputs", "Pick a field and two numbers",
+        "Choose any textbook field from GF(2^2) to GF(2^8), enter A and B in hex, binary (0b...), or polynomial (x^k) notation, or click Random numbers / Swap A and B."],
+      [".vl-numbers", "Toggle coefficient bit tiles live",
+        "Click any bit tile on A or B to flip its coefficient and watch the polynomial, binary, hex, and generator power g^k update immediately."],
+      ["#vl-relations", "Select +, ×, ÷, or A^-1",
+        "Each relation card previews the live answer and switches the visual stage below between column XOR, Shift-and-XOR, and the 3D Powers of g ring."],
+      [".vl-stage-controls", "Control playback or switch Visual / Classic",
+        "Use Play, Step, Speed, or Shift-and-XOR vs. Powers of g here, or toggle Visual | Classic in the top bar to compare animations against static textbook tables. Click Open in Calculator to transfer these exact numbers."],
+      ["#vl-caption", "Follow live step narration",
+        "Every bit XOR, left shift, overflow reduction mod m(x), and exponent wrap-around is narrated live underneath the stage.",
+        ["#vl-explorer", "Enter valid inputs above to see live step narration."]],
+    ],
+  },
   modulus: {
     name: "Modulus walkthrough",
     fallback: ["#modulus-form button[type=submit]", "Click Check irreducibility to see the result."],
@@ -86,13 +105,13 @@ const walkthroughs = {
     name: "Applications walkthrough",
     fallback: ["#xts-form button[type=submit]", "Click Compute tweak chain to see the XTS-AES blocks."],
     steps: [
-      ["#applications-subtabs", "Switch between XTS-AES, Binary ECC, and GCM / GHASH",
-        "Explore three real-world standards built on GF(2^m): XTS-AES disk encryption over GF(2^128), Polynomial / Binary Elliptic Curve Cryptography over GF(2^4) and NIST B-163, and AES-GCM GHASH authentication over GF(2^128)."],
-      ["#xts-form", "Configure the 128-bit XTS-AES tweak",
-        "Enter or randomize a 128-bit hex tweak T_0, compute a block chain, or click Step next block (j → j+1) to watch T_j = T_0 ⊗ α^j advance block by block.",
+      ["#applications-subtabs", "Switch between XTS-AES, Binary ECC, GCM / GHASH, and AES S-Box",
+        "Explore four real-world standards built on GF(2^m): XTS-AES disk encryption over GF(2^128), Binary ECC over GF(2^4) and NIST B-163, AES-GCM GHASH over GF(2^128), and the FIPS 197 AES S-Box over GF(2^8)."],
+      ["#xts-form", "Configure inputs, Export / Import JSON, and GHASH keys",
+        "Enter or randomize inputs, use Export JSON / Import JSON on any of the four sub-tabs to save and reload scenarios, or use Save key / Share key on GCM · GHASH for 128-bit hash subkey H.",
         ["#app-tab-xts", "Select the XTS-AES sub-tab to inspect the 128-bit tweak multiplier."]],
-      ["#xts-results", "Spot x^128 overflows and explore ECC & GHASH",
-        "Whenever top bit b_127 = 1 before shifting left, the overflow bit triggers XOR with 0x87 (x^7 + x^2 + x + 1). Switch to Binary ECC to trace NIST B-163 point doubling, addition, and ECDH, or GCM · GHASH to chain full 128-bit XOR and Shift-and-XOR block authentication.",
+      ["#xts-results", "Inspect results across all four standards",
+        "Spot x^128 overflows (XOR 0x87) in XTS-AES, verify NIST B-163 doubling/addition/ECDH in Binary ECC, chain 128-bit GHASH blocks in GCM · GHASH, or trace GF(2^8) inversion and affine XOR rows in AES S-Box.",
         ["#xts-form button[type=submit]", "Click Compute tweak chain to display the 128-bit sector tweaks."]],
     ],
   },

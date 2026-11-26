@@ -127,6 +127,72 @@ export function applyInputFormatting(inputEl, mode) {
 }
 
 /**
+ * Attach a crisp, non-wavy HTML `<sup>` display overlay onto a polynomial text `<input>`.
+ *
+ * Whenever `isPolyModeFn()` returns `true` and the input is unfocused with non-empty text,
+ * renders the normalized polynomial inside an `aria-hidden` sibling `.poly-input-overlay`
+ * via `appendMathText` (true `<sup>` nodes) while keeping `<input>.value` as plain ASCII `x^k`.
+ * Focusing the input hides the overlay immediately for exact native cursor editing, and
+ * blurring snaps it right back to crisp `<sup>` powers.
+ *
+ * @param {HTMLInputElement | null} inputEl - Target text input element.
+ * @param {() => boolean} isPolyModeFn - Predicate returning `true` when Polynomial mode is active.
+ * @returns {{sync: () => void}} Controller whose `sync()` refreshes the overlay state.
+ */
+export function attachPolyInputOverlay(inputEl, isPolyModeFn) {
+  if (!inputEl) return { sync() { } };
+
+  let wrap = inputEl.parentElement;
+  if (!wrap || !wrap.classList.contains("poly-input-wrap")) {
+    wrap = document.createElement("span");
+    wrap.className = "poly-input-wrap";
+    inputEl.parentNode?.insertBefore(wrap, inputEl);
+    wrap.append(inputEl);
+  }
+
+  let overlay = wrap.querySelector(":scope > .poly-input-overlay");
+  if (!overlay) {
+    overlay = document.createElement("span");
+    overlay.className = "poly-input-overlay";
+    overlay.setAttribute("aria-hidden", "true");
+    overlay.hidden = true;
+    wrap.append(overlay);
+  }
+
+  /** Synchronize overlay visibility and rendered `<sup>` DOM nodes with input state. */
+  function sync() {
+    const raw = inputEl.value;
+    const active = Boolean(isPolyModeFn())
+      && document.activeElement !== inputEl
+      && !inputEl.disabled
+      && raw.trim().length > 0;
+    if (active) {
+      overlay.replaceChildren();
+      appendMathText(overlay, normalizeAlgebraicInput(raw));
+      overlay.classList.toggle("is-invalid", inputEl.getAttribute("aria-invalid") === "true");
+      overlay.hidden = false;
+      inputEl.classList.add("has-poly-overlay");
+    } else {
+      overlay.hidden = true;
+      overlay.replaceChildren();
+      inputEl.classList.remove("has-poly-overlay");
+    }
+  }
+
+  if (!inputEl.dataset.polyOverlayBound) {
+    inputEl.dataset.polyOverlayBound = "true";
+    inputEl.addEventListener("focus", () => {
+      overlay.hidden = true;
+      inputEl.classList.remove("has-poly-overlay");
+    });
+    inputEl.addEventListener("blur", () => sync());
+  }
+
+  sync();
+  return { sync };
+}
+
+/**
  * Parse a user-entered polynomial string in hex, binary, or algebraic notation into a BigInt.
  *
  * Mirrors the server's strict validation rules (`backend.engine.polyrepr.parse_value`):

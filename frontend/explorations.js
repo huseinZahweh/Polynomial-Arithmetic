@@ -1,30 +1,35 @@
 /**
  * @fileoverview Hash-based view routing and controllers for the exploration & real-world
  * application labs (`#modulus`, `#applications`, `#compare`), upgraded with gliding tab
- * indicators, Unicode superscript & auto-uppercase formatting, Full-Value Inspector popups
- * on 163-bit ECC coordinates, and top-center error alerts.
+ * indicators, true `<sup>` polynomial input overlays, auto-uppercase Hex formatting,
+ * JSON Export/Import, GHASH key save/share, Full-Value Inspector popups on 163-bit ECC
+ * coordinates, legacy `#aes` redirect, and top-center error alerts.
  *
  * Original Author: Ali Zahreddine - Milestone 4, Integration & Milestone 6 (Waves 1-4).
  *
  * Connects the frontend exploration views to `/api/explorations/*`:
  *   - `#modulus`:      Binary polynomial irreducibility checker & factor witnesses (Stallings Ch. 4
  *                      plus Berlekamp square-free splitting extension).
- *   - `#applications`: Three gliding sub-tabs:
+ *   - `#applications`: Four gliding sub-tabs:
  *                      (1) XTS-AES GF(2^128) Tweak Multiplier (Stallings Ch. 6 / IEEE 1619-2007)
  *                      (2) Polynomial / Binary ECC E_{2^m}(a,b) Explorer (Teaching GF(2^4) & NIST B-163, Stallings Ch. 10)
  *                      (3) GCM / GHASH GF(2^128) Authenticator (Stallings Ch. 12 / NIST SP 800-38D)
+ *                      (4) AES S-Box GF(2^8) Byte Substitution (Stallings Ch. 5 / FIPS 197)
  *   - `#compare`:      Shift-and-XOR vs. carry-free + long-division comparison and 163/571-bit benchmark.
  */
 
 import {
   applyInputFormatting,
+  attachPolyInputOverlay,
   attachSlidingIndicator,
+  copyToClipboard,
   element,
   mathElement,
   normalizeAlgebraicInput,
   polynomial,
   setMathText,
   showErrorPopup,
+  showFeedbackPopup,
   showInspectorPopup,
 } from "./notation.js";
 import { createTraceView, table } from "./traces.js";
@@ -202,14 +207,16 @@ function renderPointDisplay(pt, mDeg, label) {
 }
 
 /**
- * Bind top-level hash navigation (`#calculator`, `#lessons`, `#lessons/<id>`, `#modulus`,
- * `#applications`, `#compare`) and attach the gliding active tab pill to `.lab-nav`.
+ * Bind top-level hash navigation (`#calculator`, `#lessons`, `#lessons/<id>`, `#visual`,
+ * `#modulus`, `#applications`, `#compare`, plus legacy `#aes` redirect) and attach the
+ * gliding active tab pill to `.lab-nav`.
  *
  * @param {() => void} closeTour - Callback closing any active spotlight walkthrough on switch.
  * @param {(lessonSlug?: string) => void} [onLessonRoute] - Callback invoked on `#lessons`.
- * @param {() => void} [onApplicationsRoute] - Callback invoked on `#applications`.
+ * @param {(forcedSubTab?: string) => void} [onApplicationsRoute] - Callback invoked on `#applications`.
+ * @param {(viewName: string) => void} [onViewChange] - Callback invoked on every view change.
  */
-function setupNavigation(closeTour, onLessonRoute, onApplicationsRoute) {
+function setupNavigation(closeTour, onLessonRoute, onApplicationsRoute, onViewChange) {
   const nav = document.querySelector(".lab-nav");
   const tabs = Array.from(document.querySelectorAll("[data-lab-tab]"));
   const views = Array.from(document.querySelectorAll("[data-lab-view]"));
@@ -217,20 +224,32 @@ function setupNavigation(closeTour, onLessonRoute, onApplicationsRoute) {
 
   function selectView(focus) {
     const rawHash = window.location.hash.slice(1);
-    const [requested, subroute] = rawHash.split("/");
+    const [rawRequested, subroute] = rawHash.split("/");
+    let requested = rawRequested;
+    let forcedAppTab;
+    // Redirect legacy #aes links directly to #applications with the AES S-Box sub-tab active.
+    if (requested === "aes") {
+      requested = "applications";
+      forcedAppTab = "aes";
+      window.history.replaceState(null, "", location.pathname + location.search + "#applications");
+    }
     const selected = views.find(view => view.dataset.labView === requested) || views[0];
+    const activeViewName = selected.dataset.labView;
     closeTour();
     for (const view of views) view.hidden = view !== selected;
     for (const tab of tabs) {
-      if (tab.dataset.labTab === selected.dataset.labView) tab.setAttribute("aria-current", "page");
+      if (tab.dataset.labTab === activeViewName) tab.setAttribute("aria-current", "page");
       else tab.removeAttribute("aria-current");
     }
     navIndicator.update();
-    if (selected.dataset.labView === "lessons" && typeof onLessonRoute === "function") {
+    if (typeof onViewChange === "function") {
+      onViewChange(activeViewName);
+    }
+    if (activeViewName === "lessons" && typeof onLessonRoute === "function") {
       onLessonRoute(subroute);
     }
-    if (selected.dataset.labView === "applications" && typeof onApplicationsRoute === "function") {
-      onApplicationsRoute();
+    if (activeViewName === "applications" && typeof onApplicationsRoute === "function") {
+      onApplicationsRoute(forcedAppTab);
     }
     if (focus) {
       window.scrollTo(0, 0);
@@ -242,8 +261,8 @@ function setupNavigation(closeTour, onLessonRoute, onApplicationsRoute) {
 }
 
 /**
- * Configure the Modulus explorer (`#modulus`) irreducibility test, Unicode superscript /
- * auto-uppercase input formatting, factor-witness display, and plain-English GCD explanation.
+ * Configure the Modulus explorer (`#modulus`) irreducibility test, true `<sup>` polynomial
+ * overlay, auto-uppercase hex formatting, factor-witness display, and plain-English GCD explanation.
  *
  * @param {(path: string, data?: object) => Promise<any>} api - Shared JSON API client.
  * @param {() => object | undefined} currentField - Accessor returning the calculator's active field info.
@@ -252,13 +271,17 @@ function setupNavigation(closeTour, onLessonRoute, onApplicationsRoute) {
 function setupModulus(api, currentField, reportError) {
   const modInput = $("custom-modulus");
   const modBase = $("modulus-base");
+  const modOverlay = attachPolyInputOverlay(modInput, () => modBase.value === "algebraic");
   applyInputFormatting(modInput, modBase.value);
+  modOverlay.sync();
 
   modInput.addEventListener("input", () => {
     applyInputFormatting(modInput, modBase.value);
+    modOverlay.sync();
   });
   modBase.addEventListener("change", () => {
     applyInputFormatting(modInput, modBase.value);
+    modOverlay.sync();
   });
 
   const test = bindExperiment("modulus-form", ["modulus-result"], async () => {
@@ -303,6 +326,7 @@ function setupModulus(api, currentField, reportError) {
     modBase.value = notation;
     modInput.classList.remove("is-algebraic-input");
     modInput.value = notation === "algebraic" ? normalizeAlgebraicInput(text) : text.toUpperCase();
+    modOverlay.sync();
     test();
   }
   $("modulus-random").addEventListener("click", () => {
@@ -356,14 +380,53 @@ function setupModulus(api, currentField, reportError) {
 }
 
 /**
+ * Trigger a browser download of a formatted JSON object and show a confirmation toast.
+ *
+ * @param {string} filename - Suggested download filename (e.g. `"gf2m-xts-aes.json"`).
+ * @param {object} payload - Serializable JSON object.
+ * @param {string} [detail="Saved JSON file"] - Toast detail line.
+ */
+function downloadJsonFile(filename, payload, detail = "Saved JSON file") {
+  const blob = new Blob([JSON.stringify(payload, null, 2) + "\n"], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = element("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showFeedbackPopup("Exported " + filename, detail);
+}
+
+/**
+ * Validate and normalize a 128-bit hexadecimal value to 32 uppercase hex digits.
+ *
+ * @param {string} raw - Raw hex string (optional `0x` or `{...}` wrappers allowed).
+ * @param {string} label - Field label used in validation errors.
+ * @returns {string} 32-character uppercase hex string.
+ * @throws {Error} When blank or not valid 1..32 hex digits.
+ */
+function normalize128BitHex(raw, label) {
+  let clean = String(raw ?? "").trim();
+  if (clean.startsWith("{") && clean.endsWith("}")) clean = clean.slice(1, -1).trim();
+  clean = clean.replace(/^0x/i, "").replace(/\s+/g, "");
+  if (!clean) throw new Error("Enter " + label + " first.");
+  if (!/^[0-9a-fA-F]{1,32}$/.test(clean)) {
+    throw new Error(label + " must be 1 to 32 hexadecimal digits (0-9, A-F).");
+  }
+  return clean.toUpperCase().padStart(32, "0");
+}
+
+/**
  * Configure the `#applications` view with gliding sub-tabs for:
  *   1. XTS-AES GF(2^128) Tweak Multiplier (Stallings Ch. 6 / IEEE 1619-2007)
  *   2. Polynomial / Binary Elliptic Curve (E_{2^m}(a,b)) Explorer (Teaching GF(2^4) + NIST B-163, Stallings Ch. 10)
- *   3. GCM / GHASH GF(2^128) Authenticator (Stallings Ch. 12 / NIST SP 800-38D)
+ *   3. GCM / GHASH GF(2^128) Authenticator (Stallings Ch. 12 / NIST SP 800-38D) + Save key / Share key
+ *   4. AES S-Box GF(2^8) Byte Substitution (Stallings Ch. 5 / FIPS 197)
+ * Plus Export JSON / Import JSON across all four sub-tabs.
  *
  * @param {(path: string, data?: object) => Promise<any>} api - Shared JSON API client.
  * @param {(msg: string, title?: string) => void} reportError - Error alert reporter.
- * @returns {{onActivate: () => void, getShareState: () => {params: Record<string, string>, label: string}, restoreShareState: (params: URLSearchParams) => boolean}} Activation and share-link controller.
+ * @returns {{onActivate: (forcedTab?: string) => void, getShareState: () => {params: Record<string, string>, label: string}, restoreShareState: (params: URLSearchParams) => boolean}} Activation and share-link controller.
  */
 function setupApplications(api, reportError) {
   const subtabsEl = $("applications-subtabs");
@@ -372,11 +435,13 @@ function setupApplications(api, reportError) {
     xts: $("app-panel-xts"),
     ecc: $("app-panel-ecc"),
     ghash: $("app-panel-ghash"),
+    aes: $("app-panel-aes"),
   };
   const subtabsIndicator = attachSlidingIndicator(subtabsEl, '[aria-pressed="true"]');
 
   let activeApp = "xts";
   let lastXtsLastTweak = DEFAULT_XTS_TWEAK;
+  const lastResults = { xts: null, ecc: null, ghash: null, aes: null };
 
   // --- Sub-Tab 1: XTS-AES GF(2^128) Tweak Multiplier ---
   const xtsT0Input = $("xts-t0");
@@ -390,6 +455,7 @@ function setupApplications(api, reportError) {
       t0_hex: xtsT0Input.value.trim(),
       steps: stepsVal,
     });
+    lastResults.xts = data;
     const overflowCount = data.blocks.filter(b => b.reduced_xor_87).length;
     setMathText($("xts-modulus-badge"), "m(x) = " + data.modulus_poly + " · mask 0x" + data.reduction_mask_hex);
     status(
@@ -457,6 +523,7 @@ function setupApplications(api, reportError) {
     $("xts-status").textContent = "";
     $("xts-chain").replaceChildren();
     lastXtsLastTweak = DEFAULT_XTS_TWEAK;
+    lastResults.xts = null;
   });
 
   // --- Sub-Tab 2: Binary ECC Explorer ---
@@ -475,6 +542,7 @@ function setupApplications(api, reportError) {
       n_a: nA,
       n_b: nB,
     });
+    lastResults.ecc = data;
     const curve = data.curve;
     const mDeg = curve.m;
     const gOnCurve = Boolean(curve.base_point_g?.on_curve);
@@ -667,6 +735,7 @@ function setupApplications(api, reportError) {
       h_hex: ghashHInput.value.trim().toUpperCase(),
       blocks_hex: blocks,
     });
+    lastResults.ghash = data;
     setMathText($("ghash-modulus-badge"), "m(x) = " + data.modulus_poly);
     status(
       "ghash-status",
@@ -731,15 +800,297 @@ function setupApplications(api, reportError) {
     $("ghash-status").textContent = "";
     $("ghash-tag-display").replaceChildren();
     $("ghash-steps").replaceChildren();
+    lastResults.ghash = null;
   });
+
+  $("ghash-save-key").addEventListener("click", () => {
+    try {
+      const hHex = normalize128BitHex(ghashHInput.value, "Hash subkey H");
+      ghashHInput.value = hHex;
+      downloadJsonFile(
+        "ghash-key-H.json",
+        {
+          algorithm: "GCM-GHASH",
+          field: "GF(2^128)",
+          modulus_hex: "100000000000000000000000000000087",
+          h_hex: hHex,
+        },
+        "Saved 128-bit GHASH hash subkey H",
+      );
+    } catch (error) {
+      reportError(error.message, "Save key error");
+    }
+  });
+
+  $("ghash-share-key").addEventListener("click", async () => {
+    try {
+      const hHex = normalize128BitHex(ghashHInput.value, "Hash subkey H");
+      ghashHInput.value = hHex;
+      const url = new URL(location.pathname, location.origin);
+      url.search = new URLSearchParams({ app: "ghash", h: hHex });
+      url.hash = "applications";
+      const copied = await copyToClipboard(url.href);
+      if (copied) {
+        showFeedbackPopup("GHASH key link copied", "Key-only share link for H copied to clipboard");
+      } else {
+        window.prompt("Copy GHASH key link", url.href);
+      }
+    } catch (error) {
+      reportError(error.message, "Share key error");
+    }
+  });
+
+  // --- Sub-Tab 4: AES S-Box GF(2^8) Byte Substitution ---
+  const aesByteInput = $("aes-byte");
+  const aesBaseSelect = $("aes-base");
+  const aesTrace = createTraceView($("aes-trace"), $("aes-trace-body"), $("aes-trace-tools"));
+  const aesAffine = createTraceView($("aes-affine"), $("aes-affine-table"), $("aes-affine-tools"));
+
+  aesByteInput.addEventListener("input", () => {
+    if (aesBaseSelect.value === "hex") applyInputFormatting(aesByteInput, "hex");
+  });
+  aesBaseSelect.addEventListener("change", () => {
+    if (aesBaseSelect.value === "hex") applyInputFormatting(aesByteInput, "hex");
+  });
+
+  const runAes = bindExperiment("aes-form", ["aes-result", "aes-affine"], async () => {
+    const rawByte = aesByteInput.value.trim();
+    const baseVal = aesBaseSelect.value;
+    const data = await api("explorations/aes-sbox", {
+      byte: baseVal === "hex" ? rawByte.toUpperCase() : rawByte,
+      input_base: baseVal,
+    });
+    lastResults.aes = data;
+    $("aes-pipeline").replaceChildren();
+    for (const [label, value] of [["Input byte", data.input], ["Inverse stage", data.inverse], ["S-box output", data.output]]) {
+      const cell = element("div");
+      const bytes = element("dd", hex(value));
+      bytes.append(element("span", value.bin));
+      cell.append(element("dt", label), bytes);
+      $("aes-pipeline").append(cell);
+    }
+    $("aes-inverse-note").textContent = data.inverse_trace
+      ? "Find the multiplicative inverse modulo the AES polynomial 11B (hex), then apply the affine transformation."
+      : "AES maps a zero input to zero in the inversion stage. The affine constant then gives an S-box output of 63 (hex).";
+    $("aes-euclid").hidden = !data.inverse_trace;
+    aesTrace.show(data.inverse_trace);
+    aesAffine.show({
+      trace_type: "tabular_steps",
+      title: "XOR by step",
+      headers: ["Term", "Added (hex)", "Added (binary)", "Running XOR (hex)"],
+      rows: data.affine_rows.map(row => [row.label, hex(row.value), row.value.bin, hex(row.running)]),
+      selected: (row, col) => row === data.affine_rows.length - 1 && col === 3,
+    });
+  }, reportError, "AES S-Box error");
+
+  $("aes-random").addEventListener("click", () => {
+    const bytes = new Uint8Array(1);
+    if (window.crypto?.getRandomValues) window.crypto.getRandomValues(bytes);
+    else bytes[0] = Math.floor(Math.random() * 256);
+    const val = bytes[0];
+    aesByteInput.value = aesBaseSelect.value === "binary"
+      ? val.toString(2).padStart(8, "0")
+      : val.toString(16).toUpperCase().padStart(2, "0");
+    runAes();
+  });
+
+  for (const [id, byteHex] of [["aes-example", "53"], ["aes-preset-95", "95"], ["aes-zero", "00"]]) {
+    $(id).addEventListener("click", () => {
+      aesBaseSelect.value = "hex";
+      aesByteInput.value = byteHex;
+      runAes();
+    });
+  }
+
+  // --- Shared Export JSON / Import JSON across all 4 Applications sub-tabs ---
+  /**
+   * Build and download a structured JSON snapshot for one Applications sub-tab.
+   * @param {"xts" | "ecc" | "ghash" | "aes"} appKey - Sub-tab identifier.
+   */
+  function exportAppJson(appKey) {
+    try {
+      if (appKey === "xts") {
+        const t0Hex = normalize128BitHex(xtsT0Input.value, "Initial 128-bit tweak T0");
+        const steps = Number(xtsStepsInput.value);
+        if (!Number.isInteger(steps) || steps < 1 || steps > 16) {
+          throw new Error("Enter a valid number of blocks (1 to 16) before exporting.");
+        }
+        downloadJsonFile(
+          "gf2m-xts-aes.json",
+          { application: "xts", inputs: { t0_hex: t0Hex, steps }, result: lastResults.xts },
+          "Saved XTS-AES inputs and result",
+        );
+        return;
+      }
+      if (appKey === "ecc") {
+        const nA = Number(eccNaInput.value);
+        const nB = Number(eccNbInput.value);
+        if (!Number.isInteger(nA) || nA < 2 || nA > 25 || !Number.isInteger(nB) || nB < 2 || nB > 25) {
+          throw new Error("Enter valid Alice and Bob private keys (2 to 25) before exporting.");
+        }
+        downloadJsonFile(
+          "gf2m-binary-ecc.json",
+          { application: "ecc", inputs: { curve: eccCurveSelect.value, n_a: nA, n_b: nB }, result: lastResults.ecc },
+          "Saved Binary ECC scenario and result",
+        );
+        return;
+      }
+      if (appKey === "ghash") {
+        const hHex = normalize128BitHex(ghashHInput.value, "Hash subkey H");
+        const rawBlocks = readGhashBlocks();
+        if (!rawBlocks.length || rawBlocks.length > 8) {
+          throw new Error("Enter 1 to 8 128-bit hex blocks before exporting.");
+        }
+        const blocks = rawBlocks.map((blk, i) => normalize128BitHex(blk, "Block X_" + (i + 1)));
+        downloadJsonFile(
+          "gf2m-gcm-ghash.json",
+          { application: "ghash", inputs: { h_hex: hHex, blocks_hex: blocks }, result: lastResults.ghash },
+          "Saved GCM / GHASH inputs and result",
+        );
+        return;
+      }
+      const rawByte = aesByteInput.value.trim();
+      const baseVal = aesBaseSelect.value;
+      if (!rawByte) throw new Error("Enter an AES input byte before exporting.");
+      if (baseVal === "hex" && !/^(0x)?[0-9a-fA-F]{1,2}$/.test(rawByte)) {
+        throw new Error("Enter one valid hex byte (00 to FF) before exporting.");
+      }
+      if (baseVal === "binary" && !/^(0b)?[01]{1,8}$/i.test(rawByte)) {
+        throw new Error("Enter one valid 8-bit binary byte before exporting.");
+      }
+      downloadJsonFile(
+        "gf2m-aes-sbox.json",
+        {
+          application: "aes",
+          inputs: { byte: baseVal === "hex" ? rawByte.toUpperCase() : rawByte, input_base: baseVal },
+          result: lastResults.aes,
+        },
+        "Saved AES S-Box input and result",
+      );
+    } catch (error) {
+      reportError(error.message, "Export JSON error");
+    }
+  }
+
+  /**
+   * Read, validate, and load an imported Applications JSON file (including `ghash-key-H.json`).
+   * @param {File | undefined} file - Selected JSON file.
+   */
+  async function importAppJson(file) {
+    if (!file) return;
+    try {
+      let parsed;
+      try {
+        parsed = JSON.parse(await file.text());
+      } catch {
+        throw new Error("Invalid JSON file. Check syntax and try again.");
+      }
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error("JSON root must be an object with application inputs.");
+      }
+
+      // Support importing a saved GHASH key-only file (ghash-key-H.json).
+      if (parsed.algorithm === "GCM-GHASH" && typeof parsed.h_hex === "string" && !parsed.application) {
+        const hHex = normalize128BitHex(parsed.h_hex, "Hash subkey H");
+        selectAppTab("ghash");
+        ghashHInput.value = hHex;
+        showFeedbackPopup("Imported " + file.name, "Loaded 128-bit GHASH key H");
+        return;
+      }
+
+      const appKey = String(parsed.application || "").toLowerCase();
+      const inputs = parsed.inputs;
+      if (!["xts", "ecc", "ghash", "aes"].includes(appKey) || !inputs || typeof inputs !== "object") {
+        throw new Error('JSON must specify "application" ("xts", "ecc", "ghash", or "aes") and an "inputs" object.');
+      }
+
+      if (appKey === "xts") {
+        const t0Hex = normalize128BitHex(inputs.t0_hex, "Initial tweak T0");
+        const steps = Number(inputs.steps ?? 6);
+        if (!Number.isInteger(steps) || steps < 1 || steps > 16) {
+          throw new Error("XTS-AES steps must be an integer between 1 and 16.");
+        }
+        selectAppTab("xts");
+        xtsT0Input.value = t0Hex;
+        xtsStepsInput.value = String(steps);
+        runXts();
+        showFeedbackPopup("Imported " + file.name, "Loaded XTS-AES scenario");
+        return;
+      }
+
+      if (appKey === "ecc") {
+        const curve = String(inputs.curve || "nist_b163");
+        if (curve !== "gf2_4" && curve !== "nist_b163") {
+          throw new Error('Binary ECC curve must be "gf2_4" or "nist_b163".');
+        }
+        const nA = Number(inputs.n_a);
+        const nB = Number(inputs.n_b);
+        if (!Number.isInteger(nA) || nA < 2 || nA > 25 || !Number.isInteger(nB) || nB < 2 || nB > 25) {
+          throw new Error("Binary ECC private keys n_a and n_b must be integers from 2 to 25.");
+        }
+        selectAppTab("ecc");
+        eccCurveSelect.value = curve;
+        eccNaInput.value = String(nA);
+        eccNbInput.value = String(nB);
+        runEcc();
+        showFeedbackPopup("Imported " + file.name, "Loaded Binary ECC scenario");
+        return;
+      }
+
+      if (appKey === "ghash") {
+        const hHex = normalize128BitHex(inputs.h_hex, "Hash subkey H");
+        if (!Array.isArray(inputs.blocks_hex) || inputs.blocks_hex.length < 1 || inputs.blocks_hex.length > 8) {
+          throw new Error("GHASH JSON must contain 1 to 8 hex strings in inputs.blocks_hex.");
+        }
+        const blocks = inputs.blocks_hex.map((blk, i) => normalize128BitHex(blk, "Block X_" + (i + 1)));
+        selectAppTab("ghash");
+        ghashHInput.value = hHex;
+        ghashBlocksInput.value = blocks.join("\n");
+        runGhash();
+        showFeedbackPopup("Imported " + file.name, "Loaded GCM / GHASH inputs");
+        return;
+      }
+
+      const inputBase = inputs.input_base === "binary" ? "binary" : "hex";
+      const rawByte = String(inputs.byte ?? "").trim();
+      if (!rawByte) throw new Error("AES S-Box JSON must include inputs.byte.");
+      if (inputBase === "hex" && !/^(0x)?[0-9a-fA-F]{1,2}$/.test(rawByte)) {
+        throw new Error("AES S-Box hex byte must be 1 to 2 hex digits (00 to FF).");
+      }
+      if (inputBase === "binary" && !/^(0b)?[01]{1,8}$/i.test(rawByte)) {
+        throw new Error("AES S-Box binary byte must be 1 to 8 binary digits.");
+      }
+      selectAppTab("aes");
+      aesBaseSelect.value = inputBase;
+      aesByteInput.value = inputBase === "hex" ? rawByte.replace(/^0x/i, "").toUpperCase() : rawByte.replace(/^0b/i, "");
+      runAes();
+      showFeedbackPopup("Imported " + file.name, "Loaded AES S-Box input");
+    } catch (error) {
+      reportError(error.message, "Import JSON error");
+    }
+  }
+
+  for (const appKey of ["xts", "ecc", "ghash", "aes"]) {
+    $(appKey + "-export-json").addEventListener("click", () => exportAppJson(appKey));
+    const fileInput = $(appKey + "-import-file");
+    $(appKey + "-import-json").addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", async () => {
+      try {
+        await importAppJson(fileInput.files?.[0]);
+      } finally {
+        fileInput.value = "";
+      }
+    });
+  }
 
   /**
    * Synchronize the `#applications` hero badge with the active sub-tab:
    *   - `xts`:   `GF(2^128) · IEEE 1619`
    *   - `ecc`:   `GF(2^163) · NIST B-163`
    *   - `ghash`: `GF(2^128) · NIST SP 800-38D`
+   *   - `aes`:   `GF(2^8) · FIPS 197 · Ch. 5`
    *
-   * @param {"xts" | "ecc" | "ghash"} tabKey - Active application sub-tab.
+   * @param {"xts" | "ecc" | "ghash" | "aes"} tabKey - Active application sub-tab.
    */
   function syncHeroBadge(tabKey) {
     const fieldEl = $("app-hero-field");
@@ -751,6 +1102,9 @@ function setupApplications(api, reportError) {
     } else if (tabKey === "ghash") {
       setMathText(fieldEl, "GF(2^128)");
       stdEl.textContent = "NIST SP 800-38D";
+    } else if (tabKey === "aes") {
+      setMathText(fieldEl, "GF(2^8)");
+      stdEl.textContent = "FIPS 197 · Ch. 5";
     } else {
       setMathText(fieldEl, "GF(2^128)");
       stdEl.textContent = "IEEE 1619";
@@ -758,14 +1112,13 @@ function setupApplications(api, reportError) {
   }
 
   /**
-   * Switch between the XTS-AES, Binary ECC, and GCM / GHASH application sub-tabs, update the hero badge,
-   * and glide the active pill.
+   * Switch between the XTS-AES, Binary ECC, GCM / GHASH, and AES S-Box application sub-tabs,
+   * update the hero badge, and glide the active pill.
    *
-   * @param {"xts" | "ecc" | "ghash"} tabKey - Sub-tab key.
-   * @param {boolean} [autoRun=true] - Automatically run the sub-tab calculation if not yet initialized.
+   * @param {"xts" | "ecc" | "ghash" | "aes"} tabKey - Sub-tab key.
    */
-  function selectAppTab(tabKey, _autoRun = false) {
-    activeApp = tabKey === "ecc" ? "ecc" : tabKey === "ghash" ? "ghash" : "xts";
+  function selectAppTab(tabKey) {
+    activeApp = ["xts", "ecc", "ghash", "aes"].includes(tabKey) ? tabKey : "xts";
     for (const btn of subtabButtons) {
       const isActive = btn.dataset.appTab === activeApp;
       btn.setAttribute("aria-selected", String(isActive));
@@ -774,6 +1127,7 @@ function setupApplications(api, reportError) {
     subpanels.xts.hidden = activeApp !== "xts";
     subpanels.ecc.hidden = activeApp !== "ecc";
     subpanels.ghash.hidden = activeApp !== "ghash";
+    subpanels.aes.hidden = activeApp !== "aes";
     syncHeroBadge(activeApp);
     subtabsIndicator.update();
   }
@@ -785,7 +1139,10 @@ function setupApplications(api, reportError) {
   let restoredFromQuery = false;
 
   /**
-   * Restore a shared `#applications` URL state (`?app=xts...`, `?app=ecc...`, or `?app=ghash...`) and compute live.
+   * Restore a shared `#applications` URL state (`?app=xts...`, `?app=ecc...`, `?app=ghash...`,
+   * or `?app=aes...`) and compute live when full inputs are supplied (leaving key-only GHASH
+   * links ready for block input).
+   *
    * @param {URLSearchParams} params - Parsed URL query parameters.
    * @returns {boolean} True when an application state was restored.
    */
@@ -799,7 +1156,7 @@ function setupApplications(api, reportError) {
       if (Number.isInteger(na) && na >= 2 && na <= 25) eccNaInput.value = String(na);
       const nb = Number(params.get("nb"));
       if (Number.isInteger(nb) && nb >= 2 && nb <= 25) eccNbInput.value = String(nb);
-      selectAppTab("ecc", false);
+      selectAppTab("ecc");
       runEcc();
       return true;
     }
@@ -808,12 +1165,29 @@ function setupApplications(api, reportError) {
       const hParam = params.get("h");
       if (hParam) ghashHInput.value = hParam.trim().toUpperCase();
       const blocksParam = params.get("blocks");
+      let hasBlocks = false;
       if (blocksParam) {
         const list = blocksParam.split(",").map(item => item.trim().toUpperCase()).filter(Boolean).slice(0, 8);
-        if (list.length) ghashBlocksInput.value = list.join("\n");
+        if (list.length) {
+          ghashBlocksInput.value = list.join("\n");
+          hasBlocks = true;
+        }
       }
-      selectAppTab("ghash", false);
-      runGhash();
+      selectAppTab("ghash");
+      // Only auto-compute when blocks are supplied; key-only links (?app=ghash&h=...) leave blocks ready for input.
+      if (hasBlocks) runGhash();
+      return true;
+    }
+    if (app === "aes") {
+      restoredFromQuery = true;
+      const baseParam = (params.get("base") || "hex").toLowerCase();
+      aesBaseSelect.value = baseParam === "binary" ? "binary" : "hex";
+      const byteParam = params.get("byte");
+      if (byteParam) {
+        aesByteInput.value = aesBaseSelect.value === "hex" ? byteParam.trim().toUpperCase() : byteParam.trim();
+      }
+      selectAppTab("aes");
+      if (byteParam && byteParam.trim()) runAes();
       return true;
     }
     if (app === "xts") {
@@ -822,7 +1196,7 @@ function setupApplications(api, reportError) {
       if (t0) xtsT0Input.value = t0.trim().toUpperCase();
       const steps = Number(params.get("steps"));
       if (Number.isInteger(steps) && steps >= 1 && steps <= 16) xtsStepsInput.value = String(steps);
-      selectAppTab("xts", false);
+      selectAppTab("xts");
       runXts();
       return true;
     }
@@ -830,9 +1204,13 @@ function setupApplications(api, reportError) {
   }
 
   return {
-    onActivate() {
-      syncHeroBadge(activeApp);
-      subtabsIndicator.update();
+    onActivate(forcedTab) {
+      if (forcedTab) {
+        selectAppTab(forcedTab);
+      } else {
+        syncHeroBadge(activeApp);
+        subtabsIndicator.update();
+      }
       if (!restoredFromQuery) {
         const params = new URLSearchParams(location.search);
         if (params.has("app")) restoreShareState(params);
@@ -855,13 +1233,26 @@ function setupApplications(api, reportError) {
         };
       }
       if (activeApp === "ghash") {
+        const params = {
+          app: "ghash",
+          h: ghashHInput.value.trim().toUpperCase(),
+        };
+        const blocks = readGhashBlocks();
+        if (blocks.length) params.blocks = blocks.join(",");
         return {
-          params: {
-            app: "ghash",
-            h: ghashHInput.value.trim().toUpperCase(),
-            blocks: readGhashBlocks().join(","),
-          },
+          params,
           label: "Applications (GCM / GHASH)",
+        };
+      }
+      if (activeApp === "aes") {
+        const params = {
+          app: "aes",
+          byte: aesByteInput.value.trim().toUpperCase(),
+        };
+        if (aesBaseSelect.value === "binary") params.base = "binary";
+        return {
+          params,
+          label: "Applications (AES S-Box)",
         };
       }
       return {
@@ -891,9 +1282,15 @@ function setupApplications(api, reportError) {
 function setupComparison(api, currentOperands, reportError) {
   const shiftTrace = createTraceView($("compare-shift"), $("compare-shift-body"), $("compare-shift-tools"));
   const longDivision = createTraceView($("compare-division-trace"), $("compare-division-body"), $("compare-division-tools"));
-  for (const id of ["compare-a", "compare-b"]) {
-    $(id).addEventListener("input", () => applyInputFormatting($(id), "hex"));
-  }
+  const compareOverlays = ["compare-a", "compare-b"].map(id => {
+    const input = $(id);
+    const overlay = attachPolyInputOverlay(input, () => /x\s*\^/i.test(input.value));
+    input.addEventListener("input", () => {
+      applyInputFormatting(input, "hex");
+      overlay.sync();
+    });
+    return overlay;
+  });
 
   const test = bindExperiment("compare-form", ["compare-results"], async () => {
     const data = await api("explorations/compare-multiplication", {
@@ -931,6 +1328,7 @@ function setupComparison(api, currentOperands, reportError) {
     $("compare-degree").value = state.m;
     $("compare-a").value = state.a.toUpperCase();
     $("compare-b").value = state.b.toUpperCase();
+    compareOverlays.forEach(o => o.sync());
     $("compare-results").hidden = true;
     test();
   }
@@ -1016,15 +1414,15 @@ function setupComparison(api, currentOperands, reportError) {
  * Initialize view navigation and all exploration & application labs (`#modulus`, `#applications`, `#compare`).
  *
  * @param {(path: string, data?: object) => Promise<any>} api - Shared JSON API helper.
- * @param {{closeTour: () => void, currentField: () => object | undefined, currentOperands: () => {m: number, a: string, b: string}, onLessonRoute?: (slug?: string) => void, onError?: (msg: string, title?: string) => void}} hooks - Calculator, lesson & error alert hooks.
+ * @param {{closeTour: () => void, currentField: () => object | undefined, currentOperands: () => {m: number, a: string, b: string}, onLessonRoute?: (slug?: string) => void, onViewChange?: (viewName: string) => void, onError?: (msg: string, title?: string) => void}} hooks - Calculator, lesson, view-change & error alert hooks.
  * @returns {{loadFields: (fields: Array<{m: number}>) => void, getShareState: (view: string) => {params: Record<string, string>, label: string} | null, restoreFromURL: (view: string, params: URLSearchParams) => boolean}} Exploration controllers and share-link helpers.
  */
-export function setupExplorations(api, { closeTour, currentField, currentOperands, onLessonRoute, onError }) {
+export function setupExplorations(api, { closeTour, currentField, currentOperands, onLessonRoute, onViewChange, onError }) {
   const reportError = onError || ((msg, title) => showErrorPopup({ title, message: msg }));
   const apps = setupApplications(api, reportError);
   const modulusCtrl = setupModulus(api, currentField, reportError);
   const compareCtrl = setupComparison(api, currentOperands, reportError);
-  setupNavigation(closeTour, onLessonRoute, apps.onActivate);
+  setupNavigation(closeTour, onLessonRoute, apps.onActivate, onViewChange);
 
   return {
     loadFields(fields) {

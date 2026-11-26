@@ -96,6 +96,7 @@ Live algebraic proof builders:
 Pure-Python exploration and cryptographic application engines:
 * **`_poly_gcd(a, b)` & `_split_square_free(polynomial)`:** Euclidean GCD over $GF(2)[x]$ plus Berlekamp $Q - I$ column elimination (**bonus mathematical extension beyond Stallings Ch. 4**) to split equal-degree square-free products.
 * **`explore_modulus(polynomial)`:** Checks irreducibility for degrees $2 \le d \le 571$ via $\gcd(f, x^{2^i} + x)$ and extracts two nonzero factor witnesses when reducible.
+* **`compute_aes_sbox(byte)`:** Computes FIPS 197 §5.1.1 / Stallings Ch. 5 AES S-Box byte substitution over $GF(2^8)$ modulo `0x11B` (EEA inverse with `0x00 -> 0x00` zero rule + 6 cumulative affine XOR rows ending with `0x63`).
 * **`compute_xts_tweak(t0_hex, steps=6)`:** Computes the IEEE 1619-2007 / Stallings Ch. 6 XTS-AES $GF(2^{128})$ tweak sequence $T_j = T_0 \otimes \alpha^j \pmod{x^{128} + x^7 + x^2 + x + 1}$, flagging every $b_{127} = 1$ overflow reduction (`⊕ 0x87`).
 * **`ECC_CURVES`, `ecc_is_on_curve`, `ecc_double`, `ecc_add`, `ecc_scalar_mul`, `explore_binary_ecc(curve, n_a, n_b)`:** Binary elliptic curve explorer ($E_{2^m}(a,b)$: $y^2 + xy = x^3 + ax^2 + b$) supporting both Teaching Curve $GF(2^4)$ ($G = (\text{3}, \text{C})$) and official NIST FIPS 186-4 / SEC 2 **NIST B-163** ($GF(2^{163})$), reusing canonical `backend.engine` `add`, `multiply`, `EXTENDED_EUCLID_GF2M`, and `GF2M_DIVIDE` primitives for point doubling ($R = 2P$), point addition ($R = P + Q$), curve membership verification, and ECDH ($K = n_A P_B = n_B P_A$).
 * **`gcm_ghash(h_hex, blocks_hex)`:** NIST SP 800-38D / Stallings Ch. 12 GHASH universal hash over $GF(2^{128})$ modulo $x^{128} + x^7 + x^2 + x + 1$, reversing 128-bit block bit order via `_reverse_128_bits` at the shared `multiply` boundary per §6.3–6.4, chaining canonical `add` and `multiply` across $1$–$8$ blocks, and returning per-block steps, `tag_hex`, `tag_poly`, `encoding`, `output_kind="ghash"`, and `elapsed_ms`.
@@ -115,7 +116,7 @@ Defines Pydantic v2 enums (`Operation` with aliases `sub`/`mod`/`mul`/`inv`/`div
 * **`_reduce` / `_parse_operand` / `_dispatch` / `calculate(req)`:** Orchestrates strict input parsing (4096-bit cap), initial reduction hex formatting, engine dispatch across all 6 operations, `perf_counter()` timing, live verification badges, and `v1` share-token generation.
 
 ### `backend/api/exploration_routes.py` — Ali Zahreddine (Milestone 4 & Integration) & Husein Zahweh (Milestone 6 Applications)
-Defines Pydantic request models (`ModulusRequest`, `XTSTweakRequest`, `BinaryECCRequest`, `GCMGHashRequest`, `MultiplicationRequest`), strict input validation helper `_parse_input` (HTTP 400 on error), and the six `/api/explorations/*` FastAPI endpoints delegating to `backend.engine.explorations`.
+Defines Pydantic request models (`ModulusRequest`, `SBoxRequest`, `XTSTweakRequest`, `BinaryECCRequest`, `GCMGHashRequest`, `MultiplicationRequest`), strict input validation helper `_parse_input` (HTTP 400 on error), and the seven `/api/explorations/*` FastAPI endpoints delegating to `backend.engine.explorations`.
 
 ### `backend/api/main.py` — Hassan Tarhini (M2) & Ali Zahreddine (Integration)
 Creates the single FastAPI `app`, configures CORS, exposes meta routes (`GET /`, `GET /api/health`) and all 6 core endpoints, includes `explorations_router`, and mounts `frontend/` at `/workbench/`.
@@ -126,13 +127,17 @@ Creates the single FastAPI `app`, configures CORS, exposes meta routes (`GET /`,
 
 Authored by **Ali Zahreddine (Milestones 4 & 5)** with **Milestone 6** refinements by **Husein Zahweh**:
 
-### `frontend/index.html`, `frontend/lab.css` & `frontend/gf2m-badge.png`
-* **Custom Brand Emblem & Favicon (`frontend/gf2m-badge.png`):** Crisp $GF(2^m)$ logo asset served under `/workbench/gf2m-badge.png`, rendered inside the header `.brand-badge` rounded crest (`42px × 42px` desktop, `36px × 36px` mobile) and wired as the browser tab `<link rel="icon">`, paired with the header subtitle **`GF(2ᵐ) Polynomial Arithmetic · EECE 455`** (`<sup>m</sup>`).
-* **Single-Document Five-View Workbench:** Serves `#calculator`, `#lessons`, `#modulus`, `#applications`, and `#compare`, plus the top-center error alert (`#error-popup`), Full-Value Inspector (`#inspector-popup`), Step Derivation (`#derivation-popup`), upload modal (`#upload-modal`), and toast (`#feedback-popup`).
+### `frontend/index.html`, `frontend/lab.css`, `frontend/theme.css`, `frontend/theme.js` & `frontend/gf2m-badge.png`
+* **Custom Brand Emblem & Favicon (`frontend/gf2m-badge.png`):** Crisp $GF(2^m)$ logo asset served under `/workbench/gf2m-badge.png`, rendered inside the header `.brand-badge` rounded crest and wired as `<link rel="icon">`, paired with the header subtitle **`GF(2ᵐ) Polynomial Arithmetic · EECE 455`** (`<sup>m</sup>`).
+* **Precision Instrument Theme (`frontend/theme.css`, `frontend/theme.js`):** Applies the grid canvas, `#141a33` dark hero with gold `GF(2^m)` badge and live modulus bit strip, underline `.lab-nav` rail, flat borderless polynomial readouts (`.modulus`, `.modulus-readonly-value`), and high-contrast keypad/result styling.
+* **Single-Document Six-View Workbench:** Serves `#calculator`, `#lessons`, `#visual`, `#modulus`, `#applications` (4 sub-tabs: XTS-AES, Binary ECC, GCM · GHASH, AES S-Box, with Export/Import JSON and GHASH Save/Share key), and `#compare`, plus the context-scoped `Visual | Classic` header toggle (`#learn-mode-toggle`, visible only on `#visual`), top-center error alert (`#error-popup`), Full-Value Inspector (`#inspector-popup`), Step Derivation (`#derivation-popup`), upload modal (`#upload-modal`), and toast (`#feedback-popup`).
+
+### `frontend/visual.js` & `frontend/visual.css`
+* **`setupVisualLab()`:** Boots the `#visual` small-field ($GF(2^2)$–$GF(2^8)$) visualizer with a 5-screen guided primer, clickable bit tiles, column XOR board, Shift-and-XOR belt, 3D rotatable Powers-of-$g$ ring, Classic textbook tables, `Share link` state serialization, and view-scoped `Visual | Classic` toggle control (`onViewChange`).
 
 ### `frontend/notation.js`
 * **`bases`:** Notation configuration table (`hex`, `binary`, `algebraic`) with non-numeric prompt metadata.
-* **`toSuperscriptDigits` / `formatPolyWithSuperscripts` / `normalizeAlgebraicInput` / `applyInputFormatting`:** Live input formatting auto-uppercasing Hex letters (`a-f` → `A-F`) and raising Polynomial exponents to Unicode superscripts (`x^6` → `x⁶`) while preserving caret position, and normalizing Unicode superscripts back to plain ASCII `x^k` before parsing, API requests, exports, or share links.
+* **`toSuperscriptDigits` / `formatPolyWithSuperscripts` / `normalizeAlgebraicInput` / `applyInputFormatting` / `attachPolyInputOverlay`:** Live input formatting auto-uppercasing Hex letters (`a-f` → `A-F`) and rendering crisp, non-wavy HTML `<sup>` powers over unfocused Polynomial `<input>` boxes (`#poly-a`, `#poly-b`, `#custom-modulus`, `#compare-a`, `#compare-b`) while keeping `<input>.value` as plain ASCII `x^k` for exact cursor editing, API requests, exports, and share links.
 * **`parseOperand(text, base)` / `formatOperand(value, base, m)` / `polynomial(value)` / `degreeOf(value)`:** Exact client-side `BigInt` parsing and formatting matching backend validation up to $4096$ bits (omitting leading hex zeros).
 * **`mathFragment(text)` / `appendMathText(node, text)` / `setMathText(node, text)` / `mathElement(tag, text, className)`:** XSS-safe DOM builders (never `innerHTML`) converting exponents (`GF(2^163)`, `x^4`, `x^-1`, `x^(2^i)`, `α^j`, Unicode superscripts) and subscripts (`b_1x` → `b<sub>1</sub>x`, `A1`-`A3`, `B1`-`B3`, `T1`-`T3`, `b_127`, `P_A`) into true `<sup>`/`<sub>` elements.
 * **`attachSlidingIndicator(container, activeSelector)`:** Attaches a smooth slow-gliding `.sliding-pill` highlight across floating navigation strips, segmented bars, operation grids, and sub-tabs.
@@ -156,7 +161,7 @@ Authored by **Ali Zahreddine (Milestones 4 & 5)** with **Milestone 6** refinemen
 * **`setupLessons()`:** Manages the `#lessons` catalog hub, gliding top section bar (`#lesson-subtabs`), and linear **`Previous section`** / **`Next section`** footer navigation across all sections of the 7-lesson curriculum (no playback toolbar, no Calculator handoff buttons).
 
 ### `frontend/tour.js`
-* **`calculatorSteps` & `walkthroughs`:** Spotlight walkthrough registries for all five views (`calculator`, `lessons`, `modulus`, `applications`, `compare`), including explicit Calculator guidance for Full-Value Inspector and step breakdown popups.
+* **`calculatorSteps` & `walkthroughs`:** Spotlight walkthrough registries for all six views (`calculator`, `lessons`, `visual`, `modulus`, `applications`, `compare`), including dedicated Visual lab guidance and 4-sub-tab Applications + Export/Import/GHASH key guidance.
 * **`setupPageTour()`:** Floating **`Tutorial tour`** controller rendering `<sup>`/`<sub>` math tooltips, dynamic fallback targets, `Escape` dismissal, and live re-highlighting on `lab:calculation-result`.
 
 ### `frontend/explorations.js`

@@ -1,4 +1,4 @@
-"""FastAPI router exposing the six interactive teaching exploration & application endpoints.
+"""FastAPI router exposing the seven interactive teaching exploration & application endpoints.
 
 Original Authors
 ----------------
@@ -12,6 +12,8 @@ Exposes HTTP validation and JSON serialization over the pure-Python engines in
 
 * ``POST /api/explorations/modulus`` — Binary polynomial irreducibility check
   and factor-witness extraction (Stallings **Chapter 4** + Berlekamp kernel extension).
+* ``POST /api/explorations/aes-sbox`` — FIPS 197 §5.1.1 / Stallings **Chapter 5**
+  AES byte substitution walkthrough (EEA inverse + affine XOR rows).
 * ``POST /api/explorations/xts-tweak`` — IEEE 1619-2007 / Stallings **Chapter 6**
   XTS-AES ``GF(2^128)`` tweak progression ``T_j = T_0 * alpha^j mod (x^128 + x^7 + x^2 + x + 1)``.
 * ``POST /api/explorations/binary-ecc`` — Stallings **Chapter 10** & NIST FIPS 186-4 /
@@ -78,6 +80,13 @@ class GCMGHashRequest(BaseModel):
     )
 
 
+class SBoxRequest(BaseModel):
+    """Request payload for tracing one byte through the AES S-box."""
+
+    byte: str = Field(max_length=64)
+    input_base: Base = Base.hex
+
+
 class MultiplicationRequest(BaseModel):
     """Request payload for comparing both multiplication methods in ``GF(2^m)``."""
 
@@ -126,6 +135,26 @@ def explore_modulus_route(req: ModulusRequest) -> dict[str, Any]:
     polynomial = _parse_input(req.polynomial, req.input_base, "Modulus")
     try:
         return engine.explore_modulus(polynomial)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/aes-sbox")
+def aes_sbox_route(req: SBoxRequest) -> dict[str, Any]:
+    """Trace one byte through ``GF(2^8)`` inversion and the AES affine XOR matrix.
+
+    Args:
+        req: :class:`SBoxRequest` carrying a single byte in hex or binary.
+
+    Returns:
+        Input, inverse, optional Table 4.7 trace, 6 affine XOR rows, and output byte.
+
+    Raises:
+        HTTPException: Status 400 if syntax is invalid or value exceeds ``0xFF``.
+    """
+    byte = _parse_input(req.byte, req.input_base, "AES input")
+    try:
+        return engine.compute_aes_sbox(byte)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

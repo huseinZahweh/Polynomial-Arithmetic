@@ -49,13 +49,15 @@ Open [the web workbench](http://127.0.0.1:8000/workbench/) or [the interactive O
 
 Click **Tutorial tour** on any view for a context-aware spotlight walkthrough of that tab's controls and results. From the Calculator tour, **Field concepts** opens the 4-slide guided introduction to $GF(2^m)$ arithmetic.
 
-* **Calculator (`#calculator`):** Supports all 13 binary finite fields (default $GF(2^{163})$) in a full-width de-nested layout, auto-uppercase Hex inputs, Unicode superscript Polynomial inputs (`x⁶ + x⁴ + 1` normalized seamlessly to ASCII `x^k`), non-numeric action placeholders, dynamic read-only **Modulus $m(x)$** card on `Reduce` and `Inverse`, true `<sup>`/`<sub>` math typography, modern top-center floating error alerts, untruncated full-value Results with wrapped/scrollable display, a clear **Compare multiplication methods** shortcut, an $m \le 8$ interactive coefficient bit-builder, Chapter 4 & 5 presets, sparse/dense random operands, `.txt`/`.json` batch upload modal (demo file at [data/demo-operands.json](./data/demo-operands.json)), live algebraic verification badges, Markdown/JSON export, Hex-compressed share links, and streamlined zero-scroll step visualizers (`Step view` default across all 13 fields with built-in side-by-side Previous → Current comparison from Step 1 onward, inline 4-step paginated `All steps grid` with `Show more`, `Classic table` with color highlight legend, automatic playback locking outside `Step view`, step-specific Extended Euclid `Q / T₁ / T₂ / T₃` and Shift-and-XOR `<< 1 / ⊕ m(x)` derivation popups, and a click-to-inspect **Full Value Inspector** popup on truncated large-field cells).
-* **Lessons (`#lessons`):** Clean, self-contained 7-lesson visual study guide teaching $GF(2^m)$ polynomial representation, modulo-2 XOR truth tables (`1.2` and `2.1`), subtraction self-inverses, modular reduction (`{2B79} mod {11B} = {C1}`), Shift-and-XOR multiplication, Extended Euclid (`POLY_DIVMOD` & Stallings Table 4.7), field division, and real-world cryptography (XTS-AES & Binary ECC), navigated cleanly via the top section bar and linear `Previous section` / `Next section` footer controls with interactive sandboxes and self-check quizzes.
-* **Modulus Explorer (`#modulus`):** Tests irreducibility of any binary polynomial of degree $2 \le d \le 571$ (with Unicode superscript Polynomial and auto-uppercase Hex input formatting) using Frobenius GCD checkpoints (`gcd(f, x^(2^i) + x) = 1` with plain-English explanation) and Berlekamp equal-degree splitting, showing two nonzero factor witnesses whose product leaves remainder zero when reducible.
-* **Applications (`#applications`):** Three gliding sub-tabs demonstrating real-world $GF(2^m)$ cryptography directly on our engine:
+* **Calculator (`#calculator`):** Supports all 13 binary finite fields (default $GF(2^{163})$) in a Precision Instrument layout with a dark modulus-bit-strip hero, flat borderless polynomial readouts, auto-uppercase Hex inputs, true non-wavy `<sup>` overlays on unfocused Polynomial inputs (editing as plain ASCII `x^k` on focus while accepting pasted Unicode superscripts), dynamic two-non-selected-notation previews, empty initial state on fresh load, non-numeric placeholders, dynamic read-only **Modulus $m(x)$** card on `Reduce` and `Inverse`, true `<sup>`/`<sub>` math typography, top-center floating error alerts, untruncated full-value Results, **Compare multiplication methods** shortcut, $m \le 8$ bit-builder, Chapter 4 & 5 presets, random operands, `.txt`/`.json` batch upload modal ([data/demo-operands.json](./data/demo-operands.json)), live algebraic verification badges, Markdown/JSON export, global `Share link`, and streamlined zero-scroll step visualizers (`Step view` default with Previous → Current, inline 4-step paginated `All steps grid`, `Classic table` color legend, automatic playback locking, EEA/Shift-XOR derivation popups, and Full-Value Inspector popup).
+* **Lessons (`#lessons`):** Clean, self-contained 7-lesson visual study guide teaching $GF(2^m)$ polynomial representation, modulo-2 XOR truth tables (`1.2` and `2.1`), subtraction self-inverses, modular reduction (`{2B79} mod {11B} = {C1}`), Shift-and-XOR multiplication, Extended Euclid (`POLY_DIVMOD` & Stallings Table 4.7), field division, and real-world cryptography (XTS-AES, Binary ECC & GCM/GHASH), navigated via the top section bar and linear `Previous section` / `Next section` footer controls with interactive sandboxes and self-check quizzes.
+* **Visual Lab (`#visual`):** Interactive small-field ($GF(2^2)$–$GF(2^8)$) learning lab featuring a 5-screen guided primer, live hex/binary/polynomial inputs with clickable coefficient bit tiles, column-by-column XOR board, animated Shift-and-XOR belt, 3D rotatable Powers-of-$g$ ring, a context-scoped **`Visual | Classic`** header switch (visible only on Visual lab to flip between animations and static textbook tables), a dedicated `Tutorial tour`, and deep-link handoff to `#calculator`.
+* **Modulus Explorer (`#modulus`):** Tests irreducibility of any binary polynomial of degree $2 \le d \le 571$ (with true `<sup>` Polynomial input overlay and auto-uppercase Hex input formatting) using Frobenius GCD checkpoints (`gcd(f, x^(2^i) + x) = 1` with plain-English explanation) and Berlekamp equal-degree splitting, showing two nonzero factor witnesses whose product leaves remainder zero when reducible.
+* **Applications (`#applications`):** Four gliding sub-tabs demonstrating real-world $GF(2^m)$ cryptography directly on our engine, each with compact **`Export JSON`** and **`Import JSON`** controls and global **`Share link`** support:
   * **XTS-AES $GF(2^{128})$ Tweak Multiplier (Stallings Ch. 6 / IEEE 1619-2007):** Computes $T_j = T_0 \otimes \alpha^j \pmod{x^{128} + x^7 + x^2 + x + 1}$ with random 128-bit tweak generation, block-by-block stepping ($j \to j+1$), and clear overflow highlighting (`b₁₂₇ = 1 → x¹²⁸ overflow → XOR 0x87`).
   * **Polynomial / Binary ECC ($E_{2^m}(a,b)$) Explorer (Stallings Ch. 10 / NIST FIPS 186-4 & SEC 2):** Supports both **Teaching Curve $GF(2^4)$** and official **NIST B-163 ($GF(2^{163})$)** using classroom Polynomial ECC slide notation (`P = (Xp, Yp)`, `Q = (Xq, Yq)`, `R = (Xr, Yr)`, slope `s`), tagged Point Doubling ($R = 2P$) and Point Addition ($R = P + Q$) steps (`÷ / EEA`, `× Shift-and-XOR`, `⊕ XOR`), automatic green **Verified on curve** badges, Full-Value Inspector popups on 163-bit coordinates, and a live **ECDH Key Exchange** ($K = n_A P_B = n_B P_A$).
-  * **GCM · GHASH ($GF(2^{128})$) Authenticator (Stallings Ch. 12 / NIST SP 800-38D):** Iteratively computes $Y_i = (Y_{i-1} \oplus X_i) \cdot H \pmod{x^{128} + x^7 + x^2 + x + 1}$ across $1$–$8$ 128-bit blocks using full 128-bit XOR and Shift-and-XOR multiplication, with clickable Full-Value Inspector popups and global `Share link` support.
+  * **GCM · GHASH ($GF(2^{128})$) Authenticator (Stallings Ch. 12 / NIST SP 800-38D):** Iteratively computes $Y_i = (Y_{i-1} \oplus X_i) \cdot H \pmod{x^{128} + x^7 + x^2 + x + 1}$ across $1$–$8$ 128-bit blocks using NIST SP 800-38D block bit ordering, clickable Full-Value Inspector popups, **`Save key`** (`ghash-key-H.json`), and **`Share key`** (key-only URL `?app=ghash&h=...#applications`).
+  * **AES S-Box ($GF(2^8)$) Byte Substitution (Stallings Ch. 5 / FIPS 197 §5.1.1):** Traces one byte through $GF(2^8)$ inversion modulo `0x11B` (with `00 → 00` and collapsible Table 4.7 trace) and the 8-bit affine XOR transformation with constant `0x63`, with Random byte and `{53}` / `{95}` / `{00}` presets.
 * **Compare Multiplication (`#compare`):** Runs Shift-and-XOR alongside carry-free multiplication + Euclidean long division on identical operands (with a one-click **Compare multiplication methods** transfer from the Calculator) plus a 31-trial untraced median benchmark at $m = 163$ and $m = 571$.
 
 ### Manual Walkthrough Checklist
@@ -99,7 +101,7 @@ $$
 
 ## 5. Documentation Hub
 
-* **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md):** System diagram, layer responsibilities, complete 12-endpoint REST API contract, and run/test instructions.
+* **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md):** System diagram, layer responsibilities, complete 13-endpoint REST API contract, and run/test instructions.
 * **[docs/CODE_EXPLAINED.md](./docs/CODE_EXPLAINED.md):** File-by-file, function-by-function technical guide across `backend/`, `frontend/`, `benchmarks/`, and `run.py`.
 * **Milestone Explanations:** [Milestone 1](./docs/milestones/MILESTONE1_EXPLAINED.md) · [Milestone 2](./docs/milestones/MILESTONE2_EXPLAINED.md) · [Milestone 3](./docs/milestones/MILESTONE3_EXPLAINED.md) · [Milestones 4 & 5](./docs/milestones/MILESTONE4_5_EXPLAINED.md) · [Milestone 6](./docs/milestones/MILESTONE6_EXPLAINED.md).
 * **Planning & Research:** [Project Plan](./Plan/README.md) · [Literature Review & Related Findings](./Related_Findings/related_findings_and_literature_review.md).
@@ -128,10 +130,10 @@ Polynomial-Arithmetic/
 │   │   ├── parser.py                 # Batch .txt/.json operand file parser (hex, bin, algebraic)
 │   │   ├── formatter.py              # .md/.json summary exporter & v1 share-token codec
 │   │   ├── tutorial.py               # Tutorial slide loader (reads data/tutorial_slides.json)
-│   │   └── explorations.py           # Irreducibility/Berlekamp, XTS-AES GF(2^128), Binary ECC (B-163), GCM/GHASH, Mul comparison
+│   │   └── explorations.py           # Irreducibility/Berlekamp, AES S-Box, XTS-AES GF(2^128), Binary ECC (B-163), GCM/GHASH, Mul comparison
 │   └── api/                          # Unified FastAPI server & service layer
 │       ├── __init__.py
-│       ├── main.py                   # FastAPI entrypoint (6 core + 6 exploration/application routes + /workbench/)
+│       ├── main.py                   # FastAPI entrypoint (6 core + 7 exploration/application routes + /workbench/)
 │       ├── schemas.py                # Pydantic v2 request/response contracts
 │       ├── services.py               # Operation dispatcher, timing, verification, error mapping
 │       └── exploration_routes.py     # /api/explorations/* FastAPI router
@@ -139,6 +141,10 @@ Polynomial-Arithmetic/
 │   ├── fonts/                        # Self-hosted IBM Plex Sans & JetBrains Mono woff2 assets + OFL licenses
 │   ├── index.html
 │   ├── lab.css
+│   ├── theme.css                     # Precision Instrument visual theme layer
+│   ├── theme.js                      # Hero modulus bit-strip renderer
+│   ├── visual.css                    # Visual lab & scoped Visual | Classic styles
+│   ├── visual.js                     # Interactive Visual lab (5-screen intro, XOR board, belt, 3D ring)
 │   ├── lab.js
 │   ├── notation.js
 │   ├── traces.js

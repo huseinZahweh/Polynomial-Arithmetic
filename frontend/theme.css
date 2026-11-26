@@ -1,0 +1,556 @@
+/*
+ * Finite Field Lab: "Precision instrument" theme layer.
+ * Loaded after lab.css. Adopts the paper/ink/ultramarine/amber palette, grid canvas,
+ * dark hero with gold field badge, underline nav rail, and crisp card typography,
+ * while preserving flat borderless polynomial readouts and Wave 6-7 features.
+ * Palette:  paper #F3F4F7 · ink #141A33 · ultramarine #3D38E0 · signal amber #F5B300 · rule #D4D8E2
+ * Type:     IBM Plex Sans (interface) + JetBrains Mono (field elements), self-hosted
+ */
+
+:root {
+  --paper: #f3f4f7;
+  --ink: #141a33;
+  --muted: #586079;
+  --line: #d4d8e2;
+  --hairline: #e3e6ed;
+  --surface-subtle: #f7f8fa;
+  --blue: #3d38e0;
+  --ultra-deep: #2c27a8;
+  --amber: #f5b300;
+  --teal: #f5b300;
+  --mono: "JetBrains Mono", Consolas, monospace;
+  /* Fonts are self-hosted in fonts/ (no third-party requests, works offline). */
+  --sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-sans: var(--sans);
+
+  /* Map lab.css design tokens onto this palette. */
+  --bg-canvas: var(--paper);
+  --surface-card: #fff;
+  --surface-tinted: #f0f1f5;
+  --surface-hover: #eeedfd;
+  --ink-secondary: #2a3150;
+  --border-strong: #b6bbca;
+  --blue-hover: #2c27a8;
+  --blue-deep: #2c27a8;
+  --accent-soft: #eeedfd;
+  --accent-border: #a5a2f2;
+  --focus-ring: #3d38e0;
+  --hero-start: #141a33;
+  --hero-mid: #141a33;
+  --hero-end: #141a33;
+  --info-bg: #eeedfd;
+  --info-border: #c4c2f3;
+  --info-ink: #2c27a8;
+  --neutral-bg: #f4f5f8;
+  --neutral-border: #d4d8e2;
+  --neutral-ink: #586079;
+  --lift: 0 1px 0 rgba(20, 26, 51, .04), 0 8px 24px -16px rgba(20, 26, 51, .18);
+  font-family: var(--sans);
+  color: var(--ink);
+  background: var(--paper);
+  font-feature-settings: "ss01", "tnum";
+}
+
+body {
+  background:
+    linear-gradient(rgba(20, 26, 51, .035) 1px, transparent 1px) 0 0 / 24px 24px,
+    linear-gradient(90deg, rgba(20, 26, 51, .035) 1px, transparent 1px) 0 0 / 24px 24px,
+    var(--paper);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  padding-bottom: 4rem;
+}
+
+::selection {
+  background: #ffe08a;
+  color: var(--ink);
+}
+
+/* ---------- Masthead ---------- */
+.masthead {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: rgba(243, 244, 247, .86);
+  backdrop-filter: saturate(1.4) blur(10px);
+  -webkit-backdrop-filter: saturate(1.4) blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+
+.topbar {
+  min-height: 4rem;
+}
+
+.brand {
+  font-size: 1.05rem;
+  font-weight: 650;
+  letter-spacing: -.015em;
+}
+
+.brand small {
+  letter-spacing: .01em;
+  font-weight: 500;
+  font-size: .74rem;
+}
+
+/* ---------- Section nav: crisp underline rail ---------- */
+.lab-nav {
+  margin-top: 1.25rem;
+  gap: .25rem;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.lab-nav a {
+  border-radius: 0;
+  padding: .7rem .9rem .8rem;
+  color: var(--muted);
+  font-weight: 560;
+  font-size: .93rem;
+  white-space: nowrap;
+}
+
+.lab-nav a:hover {
+  background: transparent;
+  color: var(--ink);
+}
+
+.lab-nav a[aria-current="page"],
+.lab-nav.has-sliding-pill a[aria-current="page"],
+.lab-nav.has-sliding-pill a[aria-current="page"]:hover {
+  background: transparent;
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.lab-nav .sliding-pill {
+  background: transparent;
+  box-shadow: inset 0 -2px 0 var(--blue);
+  border-radius: 0;
+}
+
+.lab-nav:not(.has-sliding-pill) a[aria-current="page"] {
+  box-shadow: inset 0 -2px 0 var(--blue);
+}
+
+/* ---------- Hero: dark navy banner with gold field badge ---------- */
+.hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 1.25rem 2rem;
+  margin-block: 1.5rem 1.25rem;
+  padding: clamp(1.6rem, 3.6vw, 2.75rem);
+  background: var(--ink);
+  border-radius: 1.1rem;
+  box-shadow: 0 30px 60px -40px rgba(20, 26, 51, .7);
+  isolation: isolate;
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background:
+    linear-gradient(rgba(255, 255, 255, .045) 1px, transparent 1px) 0 0 / 22px 22px,
+    linear-gradient(90deg, rgba(255, 255, 255, .045) 1px, transparent 1px) 0 0 / 22px 22px;
+  mask-image: linear-gradient(100deg, transparent 20%, #000 85%);
+}
+
+.hero h1 {
+  font-size: clamp(2.1rem, 4.6vw, 3.6rem);
+  font-weight: 650;
+  letter-spacing: -.035em;
+  line-height: 1.02;
+}
+
+.hero p {
+  color: #b8bdd3;
+  font-size: 1.02rem;
+  max-width: 50ch;
+}
+
+.hero-math {
+  background: transparent;
+  border: 1px solid rgba(245, 179, 0, .45);
+  border-radius: .7rem;
+  padding: .8rem 1.3rem;
+}
+
+.hero-math span {
+  color: var(--amber);
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: clamp(1.45rem, 2.5vw, 2.05rem);
+  letter-spacing: -.02em;
+}
+
+/* Modulus bit strip (rendered by theme.js) */
+.field-strip {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: .55rem;
+  margin-top: .4rem;
+  min-width: 0;
+}
+
+.field-strip-bits {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 2px;
+  height: 1.55rem;
+  width: 100%;
+  overflow: hidden;
+}
+
+.field-strip-bits i {
+  min-width: 0;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, .08);
+  transform-origin: bottom;
+  animation: bit-rise 700ms cubic-bezier(.22, 1, .36, 1) both;
+  animation-delay: calc(var(--i) * 2ms);
+}
+
+.field-strip-bits i.on {
+  background: var(--amber);
+  box-shadow: 0 0 12px rgba(245, 179, 0, .55);
+}
+
+.field-strip-caption {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: .4rem 1rem;
+  color: #8f95b2;
+  font: .78rem/1.35 var(--mono);
+  overflow-wrap: anywhere;
+}
+
+.field-strip-caption b {
+  color: #e4e6f0;
+  font-weight: 500;
+}
+
+@keyframes bit-rise {
+  from {
+    transform: scaleY(0);
+    opacity: 0;
+  }
+}
+
+/* ---------- Surfaces ---------- */
+.panel {
+  border-color: var(--line);
+  border-radius: .9rem;
+  box-shadow: var(--lift);
+}
+
+h2 {
+  font-size: 1.22rem;
+  font-weight: 650;
+  letter-spacing: -.02em;
+}
+
+h3 {
+  font-weight: 650;
+}
+
+.setting label,
+.setting-heading,
+legend,
+.operand label,
+.operand-card-title {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* Flat borderless polynomial readouts (no outer grey box around x^8 + x^4 + x^3 + x + 1) */
+.modulus,
+.modulus-readonly-value {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--ink);
+}
+
+/* ---------- Controls ---------- */
+button,
+select {
+  font-weight: 560;
+  border-color: var(--line);
+  border-radius: .5rem;
+}
+
+button:hover:not(:disabled) {
+  background: #eeedfd;
+  border-color: #c4c2f3;
+}
+
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.quiet:hover:not(:disabled) {
+  background: rgba(20, 26, 51, .05);
+  border-color: transparent;
+}
+
+.primary {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+  min-height: 2.75rem;
+  padding-inline: 1.5rem;
+  font-weight: 620;
+  letter-spacing: .005em;
+  box-shadow: 0 6px 16px -8px rgba(20, 26, 51, .6);
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--blue);
+  border-color: var(--blue);
+}
+
+input[type="text"],
+.operand input[type="text"] {
+  border-color: var(--line);
+  border-radius: .5rem;
+  font-family: var(--mono);
+}
+
+input[type="text"]:hover {
+  border-color: #b6bbca;
+}
+
+input[type="text"]:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 4px rgba(61, 56, 224, .12);
+  outline: none;
+}
+
+input[type="text"]:focus-visible {
+  outline: none;
+}
+
+button:focus-visible,
+select:focus-visible,
+summary:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+/* Segmented controls: white pill on a crisp grey track */
+.segments {
+  background: #eceef3;
+  border: 1px solid transparent;
+  border-radius: .6rem;
+  padding: .2rem;
+}
+
+.segments .sliding-pill {
+  background: #fff;
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 2px rgba(20, 26, 51, .1);
+}
+
+.segments button[aria-pressed="true"] {
+  background: #fff;
+  color: var(--ink);
+  border-color: var(--line);
+  box-shadow: 0 1px 2px rgba(20, 26, 51, .08);
+}
+
+.segments.has-sliding-pill button[aria-pressed="true"],
+.segments.has-sliding-pill button[aria-pressed="true"]:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--ink);
+  font-weight: 620;
+}
+
+/* Presets read as index cards */
+.preset {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--amber);
+  border-radius: .45rem;
+}
+
+.preset:hover:not(:disabled) {
+  border-color: var(--blue);
+  border-left-color: var(--blue);
+  background: #fff;
+}
+
+/* Operands (flat inside white panel, matching Wave 5 de-boxed feel) */
+.operand {
+  background: transparent;
+  border: 0;
+}
+
+.operand input[type="text"] {
+  font-size: 1.15rem;
+  padding: .6rem .7rem;
+}
+
+.operand .poly-input-overlay {
+  font-size: 1.15rem;
+  padding: .6rem .7rem;
+}
+
+.bit-builder label {
+  border-radius: .25rem;
+  font-family: var(--mono);
+}
+
+.bit-builder label:has(:checked) {
+  background: #fff6d6;
+  border-color: var(--amber);
+  color: var(--ink);
+}
+
+/* Operation keys: calculator keypad */
+.operations {
+  gap: .5rem;
+}
+
+.operations label {
+  background: #fff;
+  border-color: var(--line);
+  padding: .7rem .2rem .6rem;
+  font-weight: 560;
+  color: var(--muted);
+}
+
+.operations label:hover {
+  background: #fafafe;
+  border-color: #b6bbca;
+}
+
+.operations span {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 1.25rem;
+  font-weight: 500;
+}
+
+.operations label:has(:checked),
+.operations.has-sliding-pill label:has(:checked) {
+  color: #fff;
+}
+
+.operations label:has(:checked) span {
+  color: var(--amber);
+}
+
+.operations .sliding-pill {
+  background: var(--ink);
+  border-color: var(--ink);
+  box-shadow: 0 8px 18px -10px rgba(20, 26, 51, .7);
+}
+
+.operations:not(.has-sliding-pill) label:has(:checked) {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+/* Result: dark hero card with amber accent bar */
+.result-display {
+  background: var(--ink);
+  border: 0;
+  color: #fff;
+  border-radius: .7rem;
+  padding: 1.1rem 1.25rem 1.25rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.result-display::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 3px;
+  background: var(--amber);
+}
+
+.result-display span {
+  color: #9aa0bd;
+  font-weight: 500;
+  font-size: .82rem;
+}
+
+.result-display output {
+  color: var(--amber);
+  font-weight: 500;
+}
+
+/* Popups and modals */
+.upload-modal-dialog,
+.error-popup-dialog,
+.feedback-popup {
+  border-radius: .9rem;
+}
+
+/* Tables in traces */
+table th {
+  font-weight: 600;
+}
+
+.trace-table td,
+.trace-table th {
+  font-family: var(--mono);
+}
+
+@media (max-width: 720px) {
+  .hero {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-math {
+    justify-self: start;
+  }
+
+  .operations {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .field-strip-caption {
+    flex-direction: column;
+    gap: .2rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .field-strip-bits i {
+    animation: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 1ms !important;
+  }
+}
+
+input[type="range"],
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--blue);
+}
+
+/* Headings receive programmatic focus after tab changes (for screen readers); no ring needed there. */
+h1[tabindex="-1"]:focus,
+h1[tabindex="-1"]:focus-visible,
+h2[tabindex="-1"]:focus,
+h2[tabindex="-1"]:focus-visible {
+  outline: none;
+}

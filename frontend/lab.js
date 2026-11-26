@@ -16,6 +16,7 @@
 
 import {
   applyInputFormatting,
+  attachPolyInputOverlay,
   attachSlidingIndicator,
   bases,
   closeErrorPopup,
@@ -36,6 +37,7 @@ import { createTraceView } from "./traces.js";
 import { setupPageTour } from "./tour.js";
 import { setupExplorations } from "./explorations.js";
 import { setupLessons } from "./lessons.js";
+import { setupVisualLab } from "./visual.js";
 
 /** @param {string} id @returns {HTMLElement} */
 const $ = id => document.getElementById(id);
@@ -55,6 +57,12 @@ let uploadPairs = [];
 // Gliding active selection bars across notation and operation controls.
 const notationIndicator = attachSlidingIndicator(document.querySelector(".segments.notation"), '[aria-pressed="true"]');
 const operationsIndicator = attachSlidingIndicator(document.querySelector(".operations"), "label:has(:checked)");
+
+// Crisp HTML <sup> overlays for unfocused Polynomial operand inputs (keeps <input>.value as plain ASCII x^k).
+const polyOverlays = {
+  a: attachPolyInputOverlay($("poly-a"), () => base === "algebraic"),
+  b: attachPolyInputOverlay($("poly-b"), () => base === "algebraic"),
+};
 
 /** @returns {string} Active operation radio value. */
 const activeOperation = () => document.querySelector("input[name=operation]:checked").value;
@@ -316,6 +324,7 @@ function renderOperands() {
       renderOperandAlternatives($(key + "-preview"), null, degree, "Operand " + key.toUpperCase() + "(x)");
     }
     renderBits(key, value, valid || !input.value.trim());
+    polyOverlays[key]?.sync();
   }
 }
 
@@ -517,6 +526,12 @@ function makeShareURL() {
     const state = lessonsController.getShareState();
     url.search = new URLSearchParams(state);
     return { url: url.href, label: "Lessons (Section " + state.section + ") share link copied" };
+  }
+
+  if (view === "visual") {
+    const state = visualLabController.getShareState();
+    url.search = new URLSearchParams(state);
+    return { url: url.href, label: "Visual lab share link copied" };
   }
 
   const expState = explorationsController.getShareState(view);
@@ -812,6 +827,7 @@ $("pairs").addEventListener("change", () => {
 });
 
 const lessonsController = setupLessons();
+const visualLabController = setupVisualLab();
 const explorationsController = setupExplorations(api, {
   closeTour: setupPageTour(),
   currentField: () => fields.get(activeDegree()),
@@ -819,6 +835,7 @@ const explorationsController = setupExplorations(api, {
     m: activeDegree(), a: readOperand("a").toString(16), b: readOperand("b").toString(16),
   }),
   onLessonRoute: slug => lessonsController.selectLessonById(slug),
+  onViewChange: viewName => visualLabController.onViewChange(viewName),
   onError: (msg, title = "Exploration error") => showError(msg, { title }),
 });
 
@@ -861,11 +878,13 @@ async function init() {
     renderOperands();
     operationsIndicator.update();
 
-    // Restore shared URL state for non-calculator views (#lessons, #modulus, #applications, #compare).
+    // Restore shared URL state for non-calculator views (#lessons, #visual, #modulus, #applications, #compare).
     const urlParams = new URLSearchParams(location.search);
     const initialView = activeViewName();
     if (initialView === "lessons") {
       lessonsController.restoreShareState(urlParams);
+    } else if (initialView === "visual") {
+      visualLabController.restoreShareState(urlParams);
     } else if (initialView !== "calculator") {
       explorationsController.restoreFromURL(initialView, urlParams);
     }

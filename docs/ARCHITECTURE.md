@@ -7,14 +7,14 @@
 
 ## 1. High-Level Architecture
 
-The platform runs as a single local FastAPI ASGI application (`backend.api.main:app`) that serves both the **12-endpoint JSON REST API** and the **zero-build ES-module web workbench** mounted at `/workbench/`. Pure finite-field mathematics live strictly inside `backend/engine/` with zero web-framework dependencies.
+The platform runs as a single local FastAPI ASGI application (`backend.api.main:app`) that serves both the **13-endpoint JSON REST API** and the **zero-build ES-module web workbench** mounted at `/workbench/`. Pure finite-field mathematics live strictly inside `backend/engine/` with zero web-framework dependencies.
 
 ```mermaid
 flowchart LR
     Browser["Browser Workbench<br/>(frontend/*.js, BigInt previews)"]
     Static["FastAPI Static Mount<br/>/workbench/"]
     CoreAPI["Core REST API<br/>(6 endpoints in backend/api/main.py)"]
-    ExpAPI["Explorations & Applications Router<br/>(6 endpoints in exploration_routes.py)"]
+    ExpAPI["Explorations & Applications Router<br/>(7 endpoints in exploration_routes.py)"]
     Services["Service & Dispatch Layer<br/>(backend/api/services.py)"]
     Engine["Pure-Python GF(2^m) Engine<br/>(backend/engine/*.py)"]
     Data["Static JSON Data<br/>(data/tutorial_slides.json,<br/>data/demo-operands.json)"]
@@ -35,8 +35,8 @@ flowchart LR
 | Layer | Directory | Ownership | Responsibilities |
 | :--- | :--- | :--- | :--- |
 | **Pure Math & Utilities** | `backend/engine/` | Hussein Abbas (M1), Hassan Tarhini (M2), Husein Zahweh (M3, M6), Ali Zahreddine (Explorations) | Canonical 13-field registry, lossless Binary/Hex/Algebraic converters, traced $+$, $-$, $\bmod$, Shift-and-XOR $\times$, carry-free $\times$, `POLY_DIVMOD`, Table 4.7 Extended Euclid $b^{-1}$, two-stage division, live verifiers, random generator, batch parser, exporter, tutorial loader, Modulus irreducibility/Berlekamp, XTS-AES $GF(2^{128})$ tweak multiplier, Binary ECC ($GF(2^4)$ & NIST B-163), and multiplication comparison/benchmarks. |
-| **Web API & Service Layer** | `backend/api/` | Hassan Tarhini (M2 Core), Ali Zahreddine (Integration & Explorations), Husein Zahweh (M6 Applications) | Pydantic v2 schemas (`schemas.py`), operation dispatch / timing / verification assembly (`services.py`), 6 exploration & application endpoints (`exploration_routes.py`), 6 core endpoints + CORS + `/workbench/` mount (`main.py`). |
-| **Educational Web GUI** | `frontend/` | Ali Zahreddine (M4–M5), Husein Zahweh (M6) | Single-document 5-view lab (`index.html`, `lab.css` serving `#calculator`, `#lessons`, `#modulus`, `#applications`, `#compare`), client `BigInt` formatting + Unicode superscripts + Full-Value Inspector & Derivation popups + top-center error alerts (`notation.js`), `Step view`-default traces with built-in Previous → Current, 4-step inline `All steps grid`, `Classic table` color legend, playback locking & EEA/Shift-XOR derivation popups (`traces.js`), self-contained 7-lesson study guide with truth tables (`lesson-data.js`, `lessons.js`), interactive `Tutorial tour` spotlight walkthroughs (`tour.js`), Modulus / Applications (XTS-AES + Binary ECC) / Compare labs (`explorations.js`), and calculator controller (`lab.js`). |
+| **Web API & Service Layer** | `backend/api/` | Hassan Tarhini (M2 Core), Ali Zahreddine (Integration & Explorations), Husein Zahweh (M6 Applications) | Pydantic v2 schemas (`schemas.py`), operation dispatch / timing / verification assembly (`services.py`), 7 exploration & application endpoints (`exploration_routes.py`), 6 core endpoints + CORS + `/workbench/` mount (`main.py`). |
+| **Educational Web GUI** | `frontend/` | Ali Zahreddine (M4–M5), Husein Zahweh (M6), Hassan Tarhini (Visual Lab & Theme) | Single-document 6-view lab (`index.html`, `lab.css`, `theme.css`, `theme.js`, `visual.css`, `visual.js` serving `#calculator`, `#lessons`, `#visual`, `#modulus`, `#applications`, `#compare`), client `BigInt` formatting + true `<sup>` Polynomial input overlays + Full-Value Inspector & Derivation popups + top-center error alerts (`notation.js`), `Step view`-default traces (`traces.js`), self-contained 7-lesson study guide (`lesson-data.js`, `lessons.js`), interactive `Visual lab` with context-scoped `Visual \| Classic` toggle (`visual.js`), interactive `Tutorial tour` spotlight walkthroughs across all 6 views (`tour.js`), Modulus / Applications (XTS-AES + Binary ECC + GCM/GHASH + AES S-Box, Export/Import JSON, GHASH Save/Share key) / Compare labs (`explorations.js`), and calculator controller (`lab.js`). |
 | **Static Classroom Data** | `data/` | Hussein Abbas (M1), Ali Zahreddine (M4) | Single source of truth for the 4 tutorial slides + Ch. 4/5 presets (`tutorial_slides.json`) and 4-pair classroom upload demo (`demo-operands.json`). |
 | **Benchmarks & Tests** | `benchmarks/`, `tests/` | Husein Zahweh (M3), Full Team | Multi-field EEA/division CLI benchmark (`benchmark_gf2m.py`) and unified root `pytest` suite (`tests/engine/`, `tests/api/`, `tests/e2e/`). |
 
@@ -57,7 +57,7 @@ All modules in `backend/engine/` represent every polynomial $p(x) = \sum_{i=0}^{
 
 ---
 
-## 4. Complete REST API Reference (12 Application Endpoints + Meta)
+## 4. Complete REST API Reference (13 Application Endpoints + Meta)
 
 Base URL (default): `http://127.0.0.1:8000` · Swagger OpenAPI UI: `/docs` · Web Workbench: `/workbench/`
 
@@ -117,11 +117,12 @@ Base URL (default): `http://127.0.0.1:8000` · Swagger OpenAPI UI: `/docs` · We
 #### 6. `GET /api/tutorial`
 * **Response (`200`):** `{"version": "1.0", "title": "...", "slides": [ ...4 slides + presets on Slide 4... ]}`.
 
-### 4.3 Interactive Exploration & Application Endpoints (6 Routes)
+### 4.3 Interactive Exploration & Application Endpoints (7 Routes)
 
 | Method | Path | Request Body | Response Highlights |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/explorations/modulus` | `{"polynomial": "x^8 + 1", "input_base": "algebraic"}` | `irreducible`, `degree`, `checks` (GCD checkpoints), `witness` (two nonzero factors with remainder `0`), `split_with_berlekamp`. |
+| `POST` | `/api/explorations/aes-sbox` | `{"byte": "53", "input_base": "hex"}` | FIPS 197 §5.1.1 / Stallings Ch. 5 AES S-Box trace (`input`, `inverse`, optional Table 4.7 `inverse_trace`, 6 `affine_rows`, `output`). |
 | `POST` | `/api/explorations/xts-tweak` | `{"t0_hex": "5000...0001", "steps": 6}` | IEEE 1619-2007 $GF(2^{128})$ tweak chain ($m(x) = x^{128} + x^7 + x^2 + x + 1$, mask `0x87`), returning `blocks[]` with `block_index`, `tweak_hex`, `msb_before_shift`, `overflowed`, `shifted_hex`, `reduced_xor_87`. |
 | `POST` | `/api/explorations/binary-ecc` | `{"curve": "nist_b163", "n_a": 5, "n_b": 9}` | Curve parameters (`gf2_4` or official NIST FIPS 186-4 / SEC 2 `nist_b163`), `base_point_g`, tagged `doubling` ($R = 2P$) & `addition` ($R = P + Q$) step lists (`÷ / EEA`, `× Shift-and-XOR`, `⊕ XOR`), curve verification flags, and `ecdh` shared secret ($K_A = K_B$). |
 | `POST` | `/api/explorations/gcm-ghash` | `{"h_hex": "66E9...2B2E", "blocks_hex": ["0388...FE78", "..."]}` | NIST SP 800-38D / Stallings Ch. 12 $GF(2^{128})$ GHASH tag (`tag_hex`, `tag_poly`, `elapsed_ms`) and per-block `steps[]` (`block_index`, `x_i_hex`, `prev_y_hex`, `xor_input_hex`, `y_i_hex`). |
